@@ -64,6 +64,7 @@ public class AudioExtractionHandler : IDownloadHandler
                 languageCode,
                 languageCode != "deu",
                 isAudioDescription,
+                item.CleanAudioTrackLabel,
                 progress,
                 cancellationToken).ConfigureAwait(false);
 

@@ -21,7 +21,8 @@ export const SubscriptionFactory = {
       DownloadOriginalVersionAudio: defaults.DownloadSettings?.DownloadOriginalVersionAudio ?? true,
       DownloadAudioDescriptionAudio: defaults.DownloadSettings?.DownloadAudioDescriptionAudio || false,
       DownloadClearSpeechAudio: defaults.DownloadSettings?.DownloadClearSpeechAudio || false,
-      ResolveOriginalVersionLanguage: defaults.DownloadSettings?.ResolveOriginalVersionLanguage ?? true
+      ResolveOriginalVersionLanguage: defaults.DownloadSettings?.ResolveOriginalVersionLanguage ?? true,
+      CleanAudioTrackLabels: defaults.DownloadSettings?.CleanAudioTrackLabels || false
     },
     Series: {
       EnforceSeriesParsing: defaults.SeriesSettings?.EnforceSeriesParsing || false,

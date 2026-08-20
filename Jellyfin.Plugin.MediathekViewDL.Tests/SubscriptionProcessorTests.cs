@@ -176,6 +176,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
                     DownloadOriginalVersionAudio = true,
                     DownloadAudioDescriptionAudio = true,
                     DownloadClearSpeechAudio = false,
+                    CleanAudioTrackLabels = true,
                 }
             };
             var item = new ResultItem
@@ -231,6 +232,49 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
             Assert.True(audioDescription.IsAudioDescription);
 
             Assert.DoesNotContain(items, i => i.SourceUrl.Contains("_klaresprache_", StringComparison.Ordinal));
+
+            // CleanAudioTrackLabels is enabled on the subscription, so every queued item - main video
+            // and both detected secondary tracks - should carry it through.
+            Assert.All(items, i => Assert.True(i.CleanAudioTrackLabel));
+        }
+
+        [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldNotCleanAudioTrackLabels_WhenDisabled()
+        {
+            // Arrange
+            var subscription = new Subscription { Name = "TestSub" };
+            var item = new ResultItem
+            {
+                Id = "123",
+                Title = "TestTitle",
+                UrlVideo = "http://test.com/video.mp4"
+            };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+
+            _apiClientMock
+                .Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "TestTitle", Language = "deu" };
+            _videoParserMock
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mp4" });
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Single(jobs);
+            Assert.False(jobs[0].DownloadItems.Single().CleanAudioTrackLabel);
         }
 
         [Fact]
