@@ -43,7 +43,7 @@ public class MediathekViewDlApiService : ControllerBase
     private readonly IVideoParser _videoParser;
     private readonly IFileAdoptionService _fileAdoptionService;
     private readonly IQueryParser _queryParser;
-    private readonly IArdOriginalVersionLanguageResolver _ardLanguageResolver;
+    private readonly IOriginalVersionLanguageResolver _originalVersionLanguageResolver;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MediathekViewDlApiService"/> class.
@@ -59,7 +59,7 @@ public class MediathekViewDlApiService : ControllerBase
     /// <param name="videoParser">The video parser.</param>
     /// <param name="fileAdoptionService">The file adoption service.</param>
     /// <param name="queryParser">The query parser.</param>
-    /// <param name="ardLanguageResolver">Resolves the correct original-version language code from ARD's own API.</param>
+    /// <param name="originalVersionLanguageResolver">Resolves the correct original-version language code from the relevant broadcaster's own API.</param>
     public MediathekViewDlApiService(
         ILogger<MediathekViewDlApiService> logger,
         IMediathekViewApiClient apiClient,
@@ -72,7 +72,7 @@ public class MediathekViewDlApiService : ControllerBase
         IVideoParser videoParser,
         IFileAdoptionService fileAdoptionService,
         IQueryParser queryParser,
-        IArdOriginalVersionLanguageResolver ardLanguageResolver)
+        IOriginalVersionLanguageResolver originalVersionLanguageResolver)
     {
         _logger = logger;
         _apiClient = apiClient;
@@ -85,7 +85,7 @@ public class MediathekViewDlApiService : ControllerBase
         _videoParser = videoParser;
         _fileAdoptionService = fileAdoptionService;
         _queryParser = queryParser;
-        _ardLanguageResolver = ardLanguageResolver;
+        _originalVersionLanguageResolver = originalVersionLanguageResolver;
     }
 
     /// <summary>
@@ -478,10 +478,10 @@ public class MediathekViewDlApiService : ControllerBase
 
             var isOriginalVersion = candidate.Kind == SecondaryAudioKind.OriginalVersion;
             string? candidateLang;
-            if (isOriginalVersion)
+            if (isOriginalVersion && downloadSettings.ResolveOriginalVersionLanguage)
             {
                 _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
-                candidateLang = (await _ardLanguageResolver.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, HttpContext.RequestAborted).ConfigureAwait(false)) ?? candidate.LanguageCode;
+                candidateLang = (await _originalVersionLanguageResolver.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, HttpContext.RequestAborted).ConfigureAwait(false)) ?? candidate.LanguageCode;
             }
             else
             {

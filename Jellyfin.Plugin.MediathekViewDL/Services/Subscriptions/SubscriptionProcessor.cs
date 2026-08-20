@@ -37,7 +37,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     private readonly IDownloadHistoryRepository _downloadHistoryRepository;
     private readonly IConfigurationProvider _configurationProvider;
     private readonly IDownloadQueueManager _downloadQueueManager;
-    private readonly IArdOriginalVersionLanguageResolver _ardLanguageResolver;
+    private readonly IOriginalVersionLanguageResolver _originalVersionLanguageResolver;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SubscriptionProcessor"/> class.
@@ -52,7 +52,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     /// <param name="downloadHistoryRepository">The Download History Repo.</param>
     /// <param name="configurationProvider">The Configuration Provider.</param>
     /// <param name="downloadQueueManager">The download queue manager.</param>
-    /// <param name="ardLanguageResolver">Resolves the correct original-version language code from ARD's own API.</param>
+    /// <param name="originalVersionLanguageResolver">Resolves the correct original-version language code from the relevant broadcaster's own API.</param>
     public SubscriptionProcessor(
         ILogger<SubscriptionProcessor> logger,
         IMediathekViewApiClient apiClient,
@@ -64,7 +64,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         IDownloadHistoryRepository downloadHistoryRepository,
         IConfigurationProvider configurationProvider,
         IDownloadQueueManager downloadQueueManager,
-        IArdOriginalVersionLanguageResolver ardLanguageResolver)
+        IOriginalVersionLanguageResolver originalVersionLanguageResolver)
     {
         _logger = logger;
         _apiClient = apiClient;
@@ -76,7 +76,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         _downloadHistoryRepository = downloadHistoryRepository;
         _configurationProvider = configurationProvider;
         _downloadQueueManager = downloadQueueManager;
-        _ardLanguageResolver = ardLanguageResolver;
+        _originalVersionLanguageResolver = originalVersionLanguageResolver;
     }
 
     /// <inheritdoc/>
@@ -137,7 +137,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                 tempVideoInfo.Title = item.Title;
             }
 
-            SetOvLanguageIfSet(subscription, tempVideoInfo);
+            await SetOvLanguageIfSetAsync(subscription, tempVideoInfo, item, cancellationToken).ConfigureAwait(false);
 
             if (tempVideoInfo != null && (subscription.Metadata.AppendDateToTitle || subscription.Metadata.AppendTimeToTitle))
             {
@@ -224,10 +224,10 @@ public class SubscriptionProcessor : ISubscriptionProcessor
 
                             var isOriginalVersion = candidate.Kind == SecondaryAudioKind.OriginalVersion;
                             string? candidateLang;
-                            if (isOriginalVersion)
+                            if (isOriginalVersion && subscription.Download.ResolveOriginalVersionLanguage)
                             {
                                 _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
-                                candidateLang = (await _ardLanguageResolver.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken).ConfigureAwait(false)) ?? candidate.LanguageCode;
+                                candidateLang = (await _originalVersionLanguageResolver.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken).ConfigureAwait(false)) ?? candidate.LanguageCode;
                             }
                             else
                             {
@@ -253,13 +253,15 @@ public class SubscriptionProcessor : ISubscriptionProcessor
 
                     break;
                 case FileType.Audio:
-                    // Prefer ARD's own metadata for the real original-version language (works for all
-                    // ARD-family stations sharing the page-gateway API - BR, SWR, MDR, etc.), falling back
-                    // to the title-parsed language (set via job.ItemInfo) for broadcasters outside that API
-                    // (ZDF, 3sat) or for audio-description items, where a language lookup doesn't apply.
-                    var resolvedLang = tempVideoInfo.HasAudiodescription
+                    // Prefer the broadcaster's own metadata for the real original-version language
+                    // (ARD-family stations via the page-gateway API, arte via its player-config API),
+                    // falling back to the title-parsed language (set via job.ItemInfo) for broadcasters
+                    // with no known resolver (ZDF, 3sat - which already tag the real language in the
+                    // title text directly, so there's nothing to resolve) or for audio-description
+                    // items, where a language lookup doesn't apply.
+                    var resolvedLang = (tempVideoInfo.HasAudiodescription || !subscription.Download.ResolveOriginalVersionLanguage)
                         ? null
-                        : await _ardLanguageResolver
+                        : await _originalVersionLanguageResolver
                             .TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken)
                             .ConfigureAwait(false);
 
@@ -435,9 +437,36 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         return item is not null;
     }
 
-    private void SetOvLanguageIfSet(Subscription subscription, VideoInfo? videoInfo)
+    /// <summary>
+    /// Fills in a real language for items the title parser only recognized as a generic
+    /// original-version marker (e.g. ARD's "(OV)"/"(Originalversion)" or arte's
+    /// "(Originalversion mit Untertitel)"), which by itself doesn't say which language. Tries the
+    /// broadcaster resolver first (works for any item MediathekViewWeb already returned as a
+    /// distinct search result, not just the ones <see cref="SecondaryAudioUrlHelper"/> derives from
+    /// a main video URL); falls back to the subscription's manually configured OriginalLanguage
+    /// override if the resolver found nothing or is disabled.
+    /// </summary>
+    private async Task SetOvLanguageIfSetAsync(Subscription subscription, VideoInfo? videoInfo, ResultItemDto item, CancellationToken cancellationToken)
     {
-        if (videoInfo is { Language: "und" } && !string.IsNullOrWhiteSpace(subscription.Metadata.OriginalLanguage))
+        if (videoInfo is not { Language: "und" })
+        {
+            return;
+        }
+
+        if (subscription.Download.ResolveOriginalVersionLanguage)
+        {
+            var resolvedLanguage = await _originalVersionLanguageResolver
+                .TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (!string.IsNullOrWhiteSpace(resolvedLanguage))
+            {
+                videoInfo.Language = resolvedLanguage;
+                return;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(subscription.Metadata.OriginalLanguage))
         {
             videoInfo.Language = subscription.Metadata.OriginalLanguage;
         }

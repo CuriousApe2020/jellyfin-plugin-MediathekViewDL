@@ -7,8 +7,12 @@ using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.MediathekViewDL.Services.Media;
 
-/// <inheritdoc/>
-public class ArdOriginalVersionLanguageResolver : IArdOriginalVersionLanguageResolver
+/// <summary>
+/// Resolves the "Originalversion" language for ardmediathek.de items via ARD's own page-gateway
+/// API, which exposes the real language under an "ovLanguageCode" field the public search API
+/// never surfaces.
+/// </summary>
+public class ArdOriginalVersionLanguageResolver : IBroadcasterOriginalVersionLanguageResolver
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<ArdOriginalVersionLanguageResolver> _logger;
@@ -25,20 +29,14 @@ public class ArdOriginalVersionLanguageResolver : IArdOriginalVersionLanguageRes
     }
 
     /// <inheritdoc/>
-    public async Task<string?> TryGetOriginalVersionLanguageAsync(string? itemWebsiteUrl, CancellationToken cancellationToken)
+    public bool CanResolve(string itemWebsiteUrl)
     {
-        if (string.IsNullOrWhiteSpace(itemWebsiteUrl))
-        {
-            _logger.LogWarning("Cannot look up original-version language: no website URL was provided for this item.");
-            return null;
-        }
+        return itemWebsiteUrl.Contains("ardmediathek.de", StringComparison.OrdinalIgnoreCase);
+    }
 
-        if (!itemWebsiteUrl.Contains("ardmediathek.de", StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogInformation("Skipping original-version language lookup for '{Url}': not an ardmediathek.de URL.", itemWebsiteUrl);
-            return null;
-        }
-
+    /// <inheritdoc/>
+    public async Task<string?> TryGetOriginalVersionLanguageAsync(string itemWebsiteUrl, CancellationToken cancellationToken)
+    {
         // Take the last non-empty path segment as the item's crid. This works for both
         // MediathekViewWeb's own short-form URL (ardmediathek.de/video/{crid}, no slug or
         // publisher segments) and the full "pretty" browser URL

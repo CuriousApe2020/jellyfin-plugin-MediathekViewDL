@@ -49,6 +49,7 @@ const defDetectUndetectedSecondaryAudio = ref(false)
 const defDownloadOriginalVersionAudio = ref(true)
 const defDownloadAudioDescriptionAudio = ref(false)
 const defDownloadClearSpeechAudio = ref(false)
+const defResolveOriginalVersionLanguage = ref(true)
 const defAlwaysCreateSubfolder = ref(false)
 const defEnhancedDuplicateDetection = ref(false)
 const defAllowFallbackToLowerQuality = ref(true)
@@ -141,6 +142,7 @@ async function loadConfig() {
     defDownloadOriginalVersionAudio.value = defDl.DownloadOriginalVersionAudio ?? true
     defDownloadAudioDescriptionAudio.value = defDl.DownloadAudioDescriptionAudio ?? false
     defDownloadClearSpeechAudio.value = defDl.DownloadClearSpeechAudio ?? false
+    defResolveOriginalVersionLanguage.value = defDl.ResolveOriginalVersionLanguage !== undefined ? defDl.ResolveOriginalVersionLanguage : true
     defAlwaysCreateSubfolder.value = defDl.AlwaysCreateSubfolder ?? false
     defEnhancedDuplicateDetection.value = defDl.EnhancedDuplicateDetection ?? false
     defAllowFallbackToLowerQuality.value = defDl.AllowFallbackToLowerQuality !== undefined ? defDl.AllowFallbackToLowerQuality : true
@@ -223,6 +225,7 @@ async function saveConfig() {
         DownloadOriginalVersionAudio: defDownloadOriginalVersionAudio.value,
         DownloadAudioDescriptionAudio: defDownloadAudioDescriptionAudio.value,
         DownloadClearSpeechAudio: defDownloadClearSpeechAudio.value,
+        ResolveOriginalVersionLanguage: defResolveOriginalVersionLanguage.value,
         AlwaysCreateSubfolder: defAlwaysCreateSubfolder.value,
         EnhancedDuplicateDetection: defEnhancedDuplicateDetection.value,
         AllowFallbackToLowerQuality: defAllowFallbackToLowerQuality.value,
@@ -522,6 +525,10 @@ onMounted(() => {
                 <label><input v-model="defDownloadClearSpeechAudio" type="checkbox"> Klare Sprache</label>
               </div>
             </div>
+          </div>
+          <div class="checkbox-field">
+            <label><input v-model="defResolveOriginalVersionLanguage" type="checkbox"> Echte Sprache der Originalversion ermitteln</label>
+            <p class="field-desc">Fragt die eigene API des jeweiligen Senders (aktuell ARD und arte) nach der tatsächlich gesprochenen Sprache einer "Originalversion"-Tonspur ab, statt sie mit dem generischen Platzhalter "und" (unbestimmt) zu kennzeichnen. Gilt sowohl für über die URL erkannte Tonspuren als auch für Originalversion-Titel, die MediathekView bereits als eigenen Suchtreffer anzeigt.</p>
           </div>
           <div class="checkbox-field">
             <label><input v-model="defAlwaysCreateSubfolder" type="checkbox"> Unterordner für Abo erstellen</label>

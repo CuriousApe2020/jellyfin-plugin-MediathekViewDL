@@ -20,7 +20,8 @@ export const SubscriptionFactory = {
       DetectUndetectedSecondaryAudio: defaults.DownloadSettings?.DetectUndetectedSecondaryAudio || false,
       DownloadOriginalVersionAudio: defaults.DownloadSettings?.DownloadOriginalVersionAudio ?? true,
       DownloadAudioDescriptionAudio: defaults.DownloadSettings?.DownloadAudioDescriptionAudio || false,
-      DownloadClearSpeechAudio: defaults.DownloadSettings?.DownloadClearSpeechAudio || false
+      DownloadClearSpeechAudio: defaults.DownloadSettings?.DownloadClearSpeechAudio || false,
+      ResolveOriginalVersionLanguage: defaults.DownloadSettings?.ResolveOriginalVersionLanguage ?? true
     },
     Series: {
       EnforceSeriesParsing: defaults.SeriesSettings?.EnforceSeriesParsing || false,

@@ -35,7 +35,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
         private readonly Mock<IDownloadHistoryRepository> _downloadHistoryRepositoryMock;
         private readonly Mock<IConfigurationProvider> _configurationProviderMock;
         private readonly Mock<IDownloadQueueManager> _downloadQueueManagerMock;
-        private readonly Mock<IArdOriginalVersionLanguageResolver> _ardLanguageResolverMock;
+        private readonly Mock<IOriginalVersionLanguageResolver> _originalVersionLanguageResolverMock;
         private readonly SubscriptionProcessor _processor;
 
         public SubscriptionProcessorTests()
@@ -50,7 +50,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
             _downloadHistoryRepositoryMock = new Mock<IDownloadHistoryRepository>();
             _configurationProviderMock = new Mock<IConfigurationProvider>();
             _downloadQueueManagerMock = new Mock<IDownloadQueueManager>();
-            _ardLanguageResolverMock = new Mock<IArdOriginalVersionLanguageResolver>();
+            _originalVersionLanguageResolverMock = new Mock<IOriginalVersionLanguageResolver>();
 
             // Default setup: Validation always succeeds
             _strmValidationServiceMock
@@ -62,7 +62,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
                 .Returns(new PluginConfiguration());
 
             // Default setup: no original-version language could be resolved.
-            _ardLanguageResolverMock
+            _originalVersionLanguageResolverMock
                 .Setup(x => x.TryGetOriginalVersionLanguageAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync((string?)null);
 
@@ -77,7 +77,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
                 _downloadHistoryRepositoryMock.Object,
                 _configurationProviderMock.Object,
                 _downloadQueueManagerMock.Object,
-                _ardLanguageResolverMock.Object
+                _originalVersionLanguageResolverMock.Object
             );
         }
 
@@ -205,7 +205,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
                 .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
                 .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mkv" });
 
-            _ardLanguageResolverMock
+            _originalVersionLanguageResolverMock
                 .Setup(x => x.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, It.IsAny<CancellationToken>()))
                 .ReturnsAsync("eng");
 
@@ -219,7 +219,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
             // Main video + original-version + audio-description (clear-speech disabled) = 3 items.
             Assert.Equal(3, items.Count);
 
-            // The ARD language resolver looked up the real original-version language via the item's
+            // The original-version language resolver looked up the real language via the item's
             // website URL, instead of falling back to the URL-derived "und" placeholder.
             var originalVersion = items.Single(i => i.SourceUrl.Contains("_originalversion_", StringComparison.Ordinal));
             Assert.Equal("eng", originalVersion.Language);
@@ -231,6 +231,99 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
             Assert.True(audioDescription.IsAudioDescription);
 
             Assert.DoesNotContain(items, i => i.SourceUrl.Contains("_klaresprache_", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public async Task GetEligibleItemsAsync_ShouldResolveRealLanguage_ForApiDetectedOriginalVersionItem()
+        {
+            // Arrange - simulates an item MediathekViewWeb already returns as its own search
+            // result (not one derived from a main video URL), whose title the parser only
+            // recognized as a generic original-version marker (e.g. "(OV)"), leaving Language "und".
+            var subscription = new Subscription { Name = "TestSub" };
+            var item = new ResultItem
+            {
+                Id = "123",
+                Title = "TestTitle (OV)",
+                UrlVideo = "http://test.com/video.mp4",
+                UrlWebsite = "https://www.ardmediathek.de/video/Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw"
+            };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+
+            _apiClientMock
+                .Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "TestTitle", Language = "und" };
+            _videoParserMock
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mp4" });
+
+            _originalVersionLanguageResolverMock
+                .Setup(x => x.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, It.IsAny<CancellationToken>()))
+                .ReturnsAsync("eng");
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Single(jobs);
+            Assert.Equal("eng", videoInfo.Language);
+        }
+
+        [Fact]
+        public async Task GetEligibleItemsAsync_ShouldNotCallResolver_WhenResolveOriginalVersionLanguageDisabled()
+        {
+            // Arrange
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Download = new DownloadSettings { ResolveOriginalVersionLanguage = false }
+            };
+            var item = new ResultItem
+            {
+                Id = "123",
+                Title = "TestTitle (OV)",
+                UrlVideo = "http://test.com/video.mp4",
+                UrlWebsite = "https://www.ardmediathek.de/video/Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw"
+            };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+
+            _apiClientMock
+                .Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "TestTitle", Language = "und" };
+            _videoParserMock
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mp4" });
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Single(jobs);
+            Assert.Equal("und", videoInfo.Language); // unchanged - resolver never called, no manual override configured
+            _originalVersionLanguageResolverMock.Verify(
+                x => x.TryGetOriginalVersionLanguageAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                Times.Never);
         }
 
         [Fact]

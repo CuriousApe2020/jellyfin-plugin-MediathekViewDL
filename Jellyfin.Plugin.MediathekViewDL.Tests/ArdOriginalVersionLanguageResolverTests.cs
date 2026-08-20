@@ -12,23 +12,16 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests;
 
 public class ArdOriginalVersionLanguageResolverTests
 {
-    [Fact]
-    public async Task TryGetOriginalVersionLanguageAsync_ShouldReturnNull_WhenUrlIsNullOrEmpty()
+    [Theory]
+    [InlineData("https://www.ardmediathek.de/video/Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw", true)]
+    [InlineData("https://WWW.ARDMEDIATHEK.DE/video/Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw", true)]
+    [InlineData("https://zdf.de/video/12345678901234567890", false)]
+    [InlineData("https://www.arte.tv/de/videos/109067-000-A/some-title/", false)]
+    public void CanResolve_ShouldMatchOnlyArdMediathekUrls(string url, bool expected)
     {
         var (resolver, _) = CreateResolver();
 
-        Assert.Null(await resolver.TryGetOriginalVersionLanguageAsync(null, CancellationToken.None));
-        Assert.Null(await resolver.TryGetOriginalVersionLanguageAsync(string.Empty, CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task TryGetOriginalVersionLanguageAsync_ShouldReturnNull_WhenUrlIsNotArdMediathek()
-    {
-        var (resolver, _) = CreateResolver();
-
-        var result = await resolver.TryGetOriginalVersionLanguageAsync("https://zdf.de/video/12345678901234567890", CancellationToken.None);
-
-        Assert.Null(result);
+        Assert.Equal(expected, resolver.CanResolve(url));
     }
 
     [Theory]
