@@ -60,7 +60,7 @@ public class FFmpegService : IFFmpegService
     }
 
     /// <inheritdoc />
-    public async Task<bool> ExtractAudioFromWebAsync(string videoUrl, string outputAudioPath, string languageCode, bool setOriginalLanguageTag, bool isAudioDescription, IProgress<double> progress, CancellationToken cancellationToken)
+    public async Task<bool> ExtractAudioFromWebAsync(string videoUrl, string outputAudioPath, string languageCode, bool setOriginalLanguageTag, bool isAudioDescription, bool cleanAudioTrackLabel, IProgress<double> progress, CancellationToken cancellationToken)
     {
         try
         {
@@ -89,6 +89,19 @@ public class FFmpegService : IFFmpegService
             "-metadata:s:a:0",
             $"language={languageCode}"
         };
+
+        if (cleanAudioTrackLabel)
+        {
+            // Clear both the source's own title and its embedded MP4 "handler name" atom (mapped to
+            // this tag by ffmpeg's MKV muxer, and the field Jellyfin actually displays). With both
+            // empty, Jellyfin synthesizes its own clean, correctly-localized track label from the
+            // codec/channel/language info it already reads from the file - nothing needs to be written
+            // here, only cleared.
+            args.Add("-metadata:s:a:0");
+            args.Add("title=");
+            args.Add("-metadata:s:a:0");
+            args.Add("HANDLER_NAME=");
+        }
 
         var dispositions = new List<string>();
 
@@ -247,7 +260,7 @@ public class FFmpegService : IFFmpegService
     }
 
     /// <inheritdoc />
-    public async Task<bool> DownloadFileAsync(string url, string outputPath, int readRate, IProgress<double> progress, CancellationToken cancellationToken, string audioLanguageCode = "deu")
+    public async Task<bool> DownloadFileAsync(string url, string outputPath, int readRate, IProgress<double> progress, CancellationToken cancellationToken, string audioLanguageCode = "deu", bool cleanAudioTrackLabel = false)
     {
         try
         {
@@ -282,6 +295,19 @@ public class FFmpegService : IFFmpegService
 
         args.Add("-i");
         args.Add(url);
+
+        if (cleanAudioTrackLabel)
+        {
+            // Clear the broadcaster's own encoder title (e.g. "Hessischer Rundfunk mp4toolbox 1.17.1")
+            // and its embedded MP4 "handler name" atom (mapped to this tag by ffmpeg's MKV muxer, and
+            // the field Jellyfin actually displays). With both empty, Jellyfin synthesizes its own
+            // clean, correctly-localized track label from the codec/channel/language info it already
+            // reads from the file - nothing needs to be written here, only cleared.
+            args.Add("-metadata:s:a");
+            args.Add("title=");
+            args.Add("-metadata:s:a");
+            args.Add("HANDLER_NAME=");
+        }
 
         args.Add("-metadata:s:a:0");
         args.Add($"language={audioLanguageCode}");

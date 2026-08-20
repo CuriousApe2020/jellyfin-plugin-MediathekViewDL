@@ -45,6 +45,14 @@ public record BaseDownloadSettings
     public bool DownloadClearSpeechAudio { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether to build a clean audio track label from language, codec, and
+    /// channel info (e.g. "English - AAC - 7.1") and clear the broadcaster's own embedded title/handler
+    /// metadata (e.g. "Hessischer Rundfunk mp4toolbox 1.17.1"), instead of leaving that metadata as-is.
+    /// Applies to both the main video's audio track and any standalone secondary-audio files.
+    /// </summary>
+    public bool CleanAudioTrackLabels { get; init; }
+
+    /// <summary>
     /// Gets a value indicating whether to allow falling back to lower quality versions
     /// if HD version is not available.
     /// </summary>

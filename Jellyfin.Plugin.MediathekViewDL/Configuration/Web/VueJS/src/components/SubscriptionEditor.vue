@@ -266,6 +266,12 @@ function updateDate(target, field, value) {
                                 <label><input v-model="editedSub.Download.DownloadClearSpeechAudio" type="checkbox"> Klare Sprache</label>
                             </div>
                         </div>
+                        <div class="checkbox-field">
+                            <label>
+                                <input v-model="editedSub.Download.CleanAudioTrackLabels" type="checkbox"> Tonspur-Bezeichnungen bereinigen
+                            </label>
+                            <p class="field-desc">Entfernt die vom Sender eingebettete Tonspur-Bezeichnung (z.B. "Hessischer Rundfunk mp4toolbox 1.17.1"). Jellyfin erzeugt dann selbst eine saubere, für jeden Benutzer automatisch in dessen Sprache übersetzte Bezeichnung aus Sprache, Codec und Kanälen. Betrifft die Hauptspur des Videos sowie alle eigenständigen Tonspur-Dateien.</p>
+                        </div>
                     </div>
                     <div class="checkbox-field">
                         <label>

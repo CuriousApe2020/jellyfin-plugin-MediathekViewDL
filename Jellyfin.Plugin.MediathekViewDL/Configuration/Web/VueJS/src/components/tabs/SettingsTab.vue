@@ -49,6 +49,7 @@ const defDetectUndetectedSecondaryAudio = ref(false)
 const defDownloadOriginalVersionAudio = ref(true)
 const defDownloadAudioDescriptionAudio = ref(false)
 const defDownloadClearSpeechAudio = ref(false)
+const defCleanAudioTrackLabels = ref(false)
 const defAlwaysCreateSubfolder = ref(false)
 const defEnhancedDuplicateDetection = ref(false)
 const defAllowFallbackToLowerQuality = ref(true)
@@ -141,6 +142,7 @@ async function loadConfig() {
     defDownloadOriginalVersionAudio.value = defDl.DownloadOriginalVersionAudio ?? true
     defDownloadAudioDescriptionAudio.value = defDl.DownloadAudioDescriptionAudio ?? false
     defDownloadClearSpeechAudio.value = defDl.DownloadClearSpeechAudio ?? false
+    defCleanAudioTrackLabels.value = defDl.CleanAudioTrackLabels ?? false
     defAlwaysCreateSubfolder.value = defDl.AlwaysCreateSubfolder ?? false
     defEnhancedDuplicateDetection.value = defDl.EnhancedDuplicateDetection ?? false
     defAllowFallbackToLowerQuality.value = defDl.AllowFallbackToLowerQuality !== undefined ? defDl.AllowFallbackToLowerQuality : true
@@ -223,6 +225,7 @@ async function saveConfig() {
         DownloadOriginalVersionAudio: defDownloadOriginalVersionAudio.value,
         DownloadAudioDescriptionAudio: defDownloadAudioDescriptionAudio.value,
         DownloadClearSpeechAudio: defDownloadClearSpeechAudio.value,
+        CleanAudioTrackLabels: defCleanAudioTrackLabels.value,
         AlwaysCreateSubfolder: defAlwaysCreateSubfolder.value,
         EnhancedDuplicateDetection: defEnhancedDuplicateDetection.value,
         AllowFallbackToLowerQuality: defAllowFallbackToLowerQuality.value,
@@ -521,6 +524,10 @@ onMounted(() => {
               <div class="checkbox-field">
                 <label><input v-model="defDownloadClearSpeechAudio" type="checkbox"> Klare Sprache</label>
               </div>
+            </div>
+            <div class="checkbox-field">
+              <label><input v-model="defCleanAudioTrackLabels" type="checkbox"> Tonspur-Bezeichnungen bereinigen</label>
+              <p class="field-desc">Entfernt die vom Sender eingebettete Tonspur-Bezeichnung (z.B. "Hessischer Rundfunk mp4toolbox 1.17.1"). Jellyfin erzeugt dann selbst eine saubere, für jeden Benutzer automatisch in dessen Sprache übersetzte Bezeichnung aus Sprache, Codec und Kanälen. Betrifft die Hauptspur des Videos sowie alle eigenständigen Tonspur-Dateien.</p>
             </div>
           </div>
           <div class="checkbox-field">
