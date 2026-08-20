@@ -37,6 +37,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     private readonly IDownloadHistoryRepository _downloadHistoryRepository;
     private readonly IConfigurationProvider _configurationProvider;
     private readonly IDownloadQueueManager _downloadQueueManager;
+    private readonly IArdOriginalVersionLanguageResolver _ardLanguageResolver;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SubscriptionProcessor"/> class.
@@ -51,6 +52,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     /// <param name="downloadHistoryRepository">The Download History Repo.</param>
     /// <param name="configurationProvider">The Configuration Provider.</param>
     /// <param name="downloadQueueManager">The download queue manager.</param>
+    /// <param name="ardLanguageResolver">Resolves the correct original-version language code from ARD's own API.</param>
     public SubscriptionProcessor(
         ILogger<SubscriptionProcessor> logger,
         IMediathekViewApiClient apiClient,
@@ -61,7 +63,8 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         IFFmpegService ffmpegService,
         IDownloadHistoryRepository downloadHistoryRepository,
         IConfigurationProvider configurationProvider,
-        IDownloadQueueManager downloadQueueManager)
+        IDownloadQueueManager downloadQueueManager,
+        IArdOriginalVersionLanguageResolver ardLanguageResolver)
     {
         _logger = logger;
         _apiClient = apiClient;
@@ -73,6 +76,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         _downloadHistoryRepository = downloadHistoryRepository;
         _configurationProvider = configurationProvider;
         _downloadQueueManager = downloadQueueManager;
+        _ardLanguageResolver = ardLanguageResolver;
     }
 
     /// <inheritdoc/>
@@ -218,7 +222,17 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                                 continue;
                             }
 
-                            var candidateLang = candidate.LanguageCode;
+                            var isOriginalVersion = candidate.Kind == SecondaryAudioKind.OriginalVersion;
+                            string? candidateLang;
+                            if (isOriginalVersion)
+                            {
+                                _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
+                                candidateLang = (await _ardLanguageResolver.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken).ConfigureAwait(false)) ?? candidate.LanguageCode;
+                            }
+                            else
+                            {
+                                candidateLang = candidate.LanguageCode;
+                            }
 
                             // Standalone file next to the main video, e.g. "Title.eng.mka" or "Title [AD].deu.mka" -
                             // same naming convention already used for secondary-language items found via the API,
@@ -239,7 +253,25 @@ public class SubscriptionProcessor : ISubscriptionProcessor
 
                     break;
                 case FileType.Audio:
-                    downloadJob.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.AudioExtraction });
+                    // Prefer ARD's own metadata for the real original-version language (works for all
+                    // ARD-family stations sharing the page-gateway API - BR, SWR, MDR, etc.), falling back
+                    // to the title-parsed language (set via job.ItemInfo) for broadcasters outside that API
+                    // (ZDF, 3sat) or for audio-description items, where a language lookup doesn't apply.
+                    var resolvedLang = tempVideoInfo.HasAudiodescription
+                        ? null
+                        : await _ardLanguageResolver
+                            .TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken)
+                            .ConfigureAwait(false);
+
+                    downloadJob.DownloadItems.Add(new DownloadItem
+                    {
+                        SourceUrl = videoUrl,
+                        DestinationPath = paths.MainFilePath,
+                        Language = resolvedLang,
+                        CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
+                        JobType = DownloadType.AudioExtraction
+                    });
+
                     break;
                 // Subtitles are downloaded separately.
                 case FileType.Subtitle:

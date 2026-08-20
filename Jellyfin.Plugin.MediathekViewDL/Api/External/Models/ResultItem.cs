@@ -80,6 +80,12 @@ public class ResultItem
     /// </summary>
     [JsonPropertyName("url_subtitle")]
     public string UrlSubtitle { get; set; }
+
+    /// <summary>
+    /// Gets or sets the URL of the item's page on the broadcaster's website (e.g. ardmediathek.de).
+    /// </summary>
+    [JsonPropertyName("url_website")]
+    public string UrlWebsite { get; set; }
 }
 
 #nullable enable

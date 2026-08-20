@@ -43,6 +43,7 @@ public class MediathekViewDlApiService : ControllerBase
     private readonly IVideoParser _videoParser;
     private readonly IFileAdoptionService _fileAdoptionService;
     private readonly IQueryParser _queryParser;
+    private readonly IArdOriginalVersionLanguageResolver _ardLanguageResolver;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MediathekViewDlApiService"/> class.
@@ -58,6 +59,7 @@ public class MediathekViewDlApiService : ControllerBase
     /// <param name="videoParser">The video parser.</param>
     /// <param name="fileAdoptionService">The file adoption service.</param>
     /// <param name="queryParser">The query parser.</param>
+    /// <param name="ardLanguageResolver">Resolves the correct original-version language code from ARD's own API.</param>
     public MediathekViewDlApiService(
         ILogger<MediathekViewDlApiService> logger,
         IMediathekViewApiClient apiClient,
@@ -69,7 +71,8 @@ public class MediathekViewDlApiService : ControllerBase
         IConfigurationProvider configurationProvider,
         IVideoParser videoParser,
         IFileAdoptionService fileAdoptionService,
-        IQueryParser queryParser)
+        IQueryParser queryParser,
+        IArdOriginalVersionLanguageResolver ardLanguageResolver)
     {
         _logger = logger;
         _apiClient = apiClient;
@@ -82,6 +85,7 @@ public class MediathekViewDlApiService : ControllerBase
         _videoParser = videoParser;
         _fileAdoptionService = fileAdoptionService;
         _queryParser = queryParser;
+        _ardLanguageResolver = ardLanguageResolver;
     }
 
     /// <summary>
@@ -194,7 +198,7 @@ public class MediathekViewDlApiService : ControllerBase
     /// <param name="item">The item to download.</param>
     /// <returns>An OK result.</returns>
     [HttpPost("Download")]
-    public IActionResult Download([FromBody] ResultItemDto? item)
+    public async Task<IActionResult> Download([FromBody] ResultItemDto? item)
     {
         if (Plugin.Instance?.InitializationException is not null)
         {
@@ -243,7 +247,7 @@ public class MediathekViewDlApiService : ControllerBase
 
         job.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.FFmpegDownload });
 
-        AddDetectedSecondaryAudioItems(job, videoUrl, paths.MainFilePath, config.SubscriptionDefaults.DownloadSettings);
+        await AddDetectedSecondaryAudioItemsAsync(job, item, videoUrl, paths.MainFilePath, config.SubscriptionDefaults.DownloadSettings).ConfigureAwait(false);
 
         var subtitle = item.GetSubtitle();
         if (config.Download.DownloadSubtitles && !string.IsNullOrWhiteSpace(subtitle?.Url))
@@ -261,7 +265,7 @@ public class MediathekViewDlApiService : ControllerBase
     /// <param name="options">The advanced download options.</param>
     /// <returns>An OK result.</returns>
     [HttpPost("AdvancedDownload")]
-    public IActionResult AdvancedDownload([FromBody] AdvancedDownloadOptions? options)
+    public async Task<IActionResult> AdvancedDownload([FromBody] AdvancedDownloadOptions? options)
     {
         if (Plugin.Instance?.InitializationException is not null)
         {
@@ -342,7 +346,7 @@ public class MediathekViewDlApiService : ControllerBase
         }
         else
         {
-            AddDetectedSecondaryAudioItems(job, videoUrl, videoDestinationPath, config.SubscriptionDefaults.DownloadSettings);
+            await AddDetectedSecondaryAudioItemsAsync(job, item, videoUrl, videoDestinationPath, config.SubscriptionDefaults.DownloadSettings).ConfigureAwait(false);
         }
 
         var subtitle = item.GetSubtitle();
@@ -453,11 +457,14 @@ public class MediathekViewDlApiService : ControllerBase
     /// <see cref="AdvancedDownload"/> so the two can't silently drift apart.
     /// </summary>
     /// <param name="job">The download job to add the detected items to.</param>
+    /// <param name="item">The item being downloaded, used to resolve the original-version language.</param>
     /// <param name="videoUrl">The resolved main video URL.</param>
     /// <param name="mainFilePath">The destination path of the main video file.</param>
     /// <param name="downloadSettings">The download settings that decide which kinds are enabled.</param>
-    private void AddDetectedSecondaryAudioItems(
+    /// <returns>A task that completes once all detected items have been queued.</returns>
+    private async Task AddDetectedSecondaryAudioItemsAsync(
         DownloadJob job,
+        ResultItemDto item,
         string videoUrl,
         string mainFilePath,
         BaseDownloadSettings downloadSettings)
@@ -469,7 +476,17 @@ public class MediathekViewDlApiService : ControllerBase
                 continue;
             }
 
-            var candidateLang = candidate.LanguageCode;
+            var isOriginalVersion = candidate.Kind == SecondaryAudioKind.OriginalVersion;
+            string? candidateLang;
+            if (isOriginalVersion)
+            {
+                _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
+                candidateLang = (await _ardLanguageResolver.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, HttpContext.RequestAborted).ConfigureAwait(false)) ?? candidate.LanguageCode;
+            }
+            else
+            {
+                candidateLang = candidate.LanguageCode;
+            }
 
             // Standalone file next to the main video (e.g. "Title.eng.mka"), same naming convention as a
             // secondary-language item found via the API - self-contained, no dependency on any other job.

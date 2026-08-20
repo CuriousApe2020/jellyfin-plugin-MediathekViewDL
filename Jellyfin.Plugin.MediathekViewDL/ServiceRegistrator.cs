@@ -37,6 +37,10 @@ namespace Jellyfin.Plugin.MediathekViewDL
             // Register the typed client for API
             serviceCollection.AddHttpClient<IMediathekViewApiClient, MediathekViewApiClient>();
 
+            // Register the typed client for the ARD original-version language lookup (needs its own
+            // HttpClient, not IHttpClientFactory).
+            serviceCollection.AddHttpClient<IArdOriginalVersionLanguageResolver, ArdOriginalVersionLanguageResolver>();
+
             // Database
             serviceCollection.AddDbContext<MediathekViewDlDbContext>(options =>
             {

@@ -35,6 +35,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
         private readonly Mock<IDownloadHistoryRepository> _downloadHistoryRepositoryMock;
         private readonly Mock<IConfigurationProvider> _configurationProviderMock;
         private readonly Mock<IDownloadQueueManager> _downloadQueueManagerMock;
+        private readonly Mock<IArdOriginalVersionLanguageResolver> _ardLanguageResolverMock;
         private readonly SubscriptionProcessor _processor;
 
         public SubscriptionProcessorTests()
@@ -49,6 +50,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
             _downloadHistoryRepositoryMock = new Mock<IDownloadHistoryRepository>();
             _configurationProviderMock = new Mock<IConfigurationProvider>();
             _downloadQueueManagerMock = new Mock<IDownloadQueueManager>();
+            _ardLanguageResolverMock = new Mock<IArdOriginalVersionLanguageResolver>();
 
             // Default setup: Validation always succeeds
             _strmValidationServiceMock
@@ -58,6 +60,11 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
             _configurationProviderMock
                 .Setup(x => x.Configuration)
                 .Returns(new PluginConfiguration());
+
+            // Default setup: no original-version language could be resolved.
+            _ardLanguageResolverMock
+                .Setup(x => x.TryGetOriginalVersionLanguageAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((string?)null);
 
             _processor = new SubscriptionProcessor(
                 _loggerMock.Object,
@@ -69,7 +76,8 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
                 _ffmpegServiceMock.Object,
                 _downloadHistoryRepositoryMock.Object,
                 _configurationProviderMock.Object,
-                _downloadQueueManagerMock.Object
+                _downloadQueueManagerMock.Object,
+                _ardLanguageResolverMock.Object
             );
         }
 
@@ -174,7 +182,8 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
             {
                 Id = "123",
                 Title = "TestTitle",
-                UrlVideoHd = "http://test.com/video_sendeton_1080p.mp4"
+                UrlVideoHd = "http://test.com/video_sendeton_1080p.mp4",
+                UrlWebsite = "https://www.ardmediathek.de/video/Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw"
             };
 
             var resultChannels = new ResultChannels
@@ -196,6 +205,10 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
                 .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
                 .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mkv" });
 
+            _ardLanguageResolverMock
+                .Setup(x => x.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, It.IsAny<CancellationToken>()))
+                .ReturnsAsync("eng");
+
             // Act
             var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
 
@@ -206,10 +219,10 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
             // Main video + original-version + audio-description (clear-speech disabled) = 3 items.
             Assert.Equal(3, items.Count);
 
-            // No language resolver is wired up yet at this stage - the original-version track falls
-            // back to the URL-derived "und" placeholder language.
+            // The ARD language resolver looked up the real original-version language via the item's
+            // website URL, instead of falling back to the URL-derived "und" placeholder.
             var originalVersion = items.Single(i => i.SourceUrl.Contains("_originalversion_", StringComparison.Ordinal));
-            Assert.Equal("und", originalVersion.Language);
+            Assert.Equal("eng", originalVersion.Language);
             Assert.False(originalVersion.IsAudioDescription);
             Assert.Equal(DownloadType.AudioExtraction, originalVersion.JobType);
 
