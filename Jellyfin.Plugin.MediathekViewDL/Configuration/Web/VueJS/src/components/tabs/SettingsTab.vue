@@ -490,52 +490,65 @@ onMounted(() => {
           <div class="sub-section-title">Download</div>
           <div class="checkbox-field">
             <label><input v-model="defUseStreamingUrlFiles" type="checkbox"> Streaming-URL-Dateien (.strm) verwenden</label>
+            <p class="field-desc">Verwendet Streaming-URL-Dateien (.strm) anstelle des Herunterladens der tatsächlichen Videodateien. Es werden keine Videodateien gespeichert, die Videos werden von ARD/ZDF direkt gestreamt. Untertitel sind hiervon nicht betroffen.</p>
           </div>
           <div v-if="!defUseStreamingUrlFiles" class="sub-options">
             <div class="checkbox-field">
               <label><input v-model="defDownloadFullVideoSecondaryAudio" type="checkbox"> Vollständiges Video für sekundäre Audiosprachen</label>
+              <p class="field-desc">Wenn aktiviert, wird das vollständige Video heruntergeladen, auch wenn es eine andere Audiosprache als Deutsch enthält. Andernfalls wird nur die Audiospur dieser Sprache extrahiert.</p>
             </div>
           </div>
           <div class="checkbox-field">
             <label><input v-model="defAlwaysCreateSubfolder" type="checkbox"> Unterordner für Abo erstellen</label>
+            <p class="field-desc">Erstellt immer einen Unterordner mit dem Namen des Abonnements, auch wenn es sich um Filme handelt und die globale Einstellung "Beim Film Downloads Ordner für das Thema erstellen" deaktiviert ist.</p>
           </div>
           <div class="checkbox-field">
             <label><input v-model="defEnhancedDuplicateDetection" type="checkbox"> Erweiterte Duplikaterkennung</label>
+            <p class="field-desc">Scannt das Zielverzeichnis nach vorhandenen Dateien mit passenden SxxExx-Mustern (oder absoluter Nummerierung), um doppelte Downloads zu vermeiden (auch bei abweichenden Dateinamen).</p>
           </div>
           <div class="checkbox-field">
             <label><input v-model="defAllowFallbackToLowerQuality" type="checkbox"> Fallback auf niedrigere Qualität erlauben</label>
+            <p class="field-desc">Wenn aktiviert, wird beim Herunterladen einer Episode geprüft, ob eine niedrigere Qualität verfügbar ist falls die HD-URL nicht gesetzt ist.</p>
           </div>
           <div v-if="defAllowFallbackToLowerQuality" class="sub-options">
             <div class="checkbox-field">
               <label><input v-model="defQualityCheckWithUrl" type="checkbox"> URL-Gültigkeit prüfen</label>
+              <p class="field-desc">Wenn aktiviert wird auch geprüft, ob die URLs von MediathekView noch verfügbar sind und ggf. die nächst niedrigere versucht. HD → Default → SD</p>
             </div>
           </div>
 
           <div class="sub-section-title">Serien</div>
           <div class="checkbox-field">
             <label><input v-model="defEnforceSeries" type="checkbox"> Nur Serien herunterladen</label>
+            <p class="field-desc">Nur Videos herunterladen, die als Serie erkannt werden</p>
           </div>
           <div v-if="defEnforceSeries" class="sub-options">
             <div class="checkbox-field">
               <label><input v-model="defAllowAbsoluteEpisodeNumbering" type="checkbox"> Absolute Episodennummerierung erlauben</label>
+              <p class="field-desc">Episoden auch herunterladen, wenn nur Absolute Episodennummerierung vorliegt (z.B. "Episode 5" statt "Staffel 1, Episode 5").</p>
             </div>
           </div>
           <div v-if="!defEnforceSeries">
             <div class="checkbox-field">
               <label><input v-model="defTreatNonEpisodesAsExtras" type="checkbox"> Nicht-Episoden als Extras behandeln</label>
+              <p class="field-desc">Nicht als Episoden erkannte Videos als Extras behandeln.</p>
             </div>
             <div v-if="defTreatNonEpisodesAsExtras" class="sub-options">
               <div class="checkbox-field">
                 <label><input v-model="defSaveExtrasAsStrm" type="checkbox"> Extras als Stream (.strm) speichern</label>
+                <p class="field-desc">Extras werden als .strm Dateien gespeichert (spart Speicherplatz).</p>
               </div>
               <div class="checkbox-field">
                 <label><input v-model="defSaveTrailers" type="checkbox"> Trailer speichern</label>
+                <p class="field-desc">Trailer werden gespeichert.</p>
               </div>
               <div class="checkbox-field">
                 <label><input v-model="defSaveInterviews" type="checkbox"> Interviews speichern</label>
+                <p class="field-desc">Interviews werden gespeichert.</p>
               </div>
               <div class="checkbox-field">
                 <label><input v-model="defSaveGenericExtras" type="checkbox"> Generische Extras speichern</label>
+                <p class="field-desc">Alle anderen Extras (nicht Trailer/Interviews) werden gespeichert.</p>
               </div>
             </div>
           </div>
@@ -544,28 +557,35 @@ onMounted(() => {
           <div class="field">
             <label class="field-label">Originalsprache (ISO Code, z.B. 'eng')</label>
             <input v-model="defOriginalLanguage" type="text" class="field-input" placeholder="z.B. eng oder fra">
+            <p class="field-desc">Falls gesetzt, wird dieser Sprachcode verwendet, wenn der Inhalt als Originalversion (OV/OmU) erkannt wird (statt 'und').</p>
           </div>
           <div class="checkbox-field">
             <label><input v-model="defCreateNfo" type="checkbox"> NFO Dateien erstellen</label>
+            <p class="field-desc">Erstellt eine .nfo Datei mit Metadaten (Beschreibung, Episodennummer) neben der Videodatei.</p>
           </div>
           <div class="checkbox-field">
             <label><input v-model="defAppendDateToTitle" type="checkbox"> Datum an Titel anhängen</label>
+            <p class="field-desc">Hängt das Sendedatum an den Titel an (z.B. "Titel - 2026-01-01") und erzwingt die Erkennung als Serie. Nützlich für Sendungen wie "Tagesschau in 100 Sekunden", die kein Release-Datum im Titel haben.</p>
           </div>
           <div v-if="defAppendDateToTitle" class="sub-options">
             <div class="checkbox-field">
               <label><input v-model="defAppendTimeToTitle" type="checkbox"> Uhrzeit an Titel anhängen</label>
+              <p class="field-desc">Hängt die Uhrzeit an den Titel an (z.B. "Titel - 2026-01-01 20-00").</p>
             </div>
           </div>
           <div class="checkbox-field">
             <label><input v-model="defKeepOriginalTitle" type="checkbox"> Originaltitel beibehalten</label>
+            <p class="field-desc">Behält den Originaltitel bei und entfernt keine Informationen wie (AD), Gebärdensprache oder Episodennummern aus dem Titel.</p>
           </div>
 
           <div class="sub-section-title">Barrierefreiheit</div>
           <div class="checkbox-field">
             <label><input v-model="defAllowAudioDesc" type="checkbox"> Audiodeskription erlauben</label>
+            <p class="field-desc">Lädt auch Inhalte mit Audiodeskription herunter (sofern verfügbar).</p>
           </div>
           <div class="checkbox-field">
             <label><input v-model="defAllowSignLanguage" type="checkbox"> Gebärdensprache erlauben</label>
+            <p class="field-desc">Lädt auch Inhalte mit Gebärdensprache herunter. (sofern verfügbar).</p>
           </div>
         </div>
       </details>
