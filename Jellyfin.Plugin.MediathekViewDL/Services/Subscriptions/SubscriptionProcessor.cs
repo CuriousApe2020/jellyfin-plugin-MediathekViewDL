@@ -209,6 +209,34 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                 case FileType.Video:
                     downloadJob.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.FFmpegDownload });
 
+                    if (subscription.Download.DetectUndetectedSecondaryAudio)
+                    {
+                        foreach (var candidate in SecondaryAudioUrlHelper.DetectCandidates(videoUrl))
+                        {
+                            if (!SecondaryAudioUrlHelper.IsKindEnabled(subscription.Download, candidate.Kind))
+                            {
+                                continue;
+                            }
+
+                            var candidateLang = candidate.LanguageCode;
+
+                            // Standalone file next to the main video, e.g. "Title.eng.mka" or "Title [AD].deu.mka" -
+                            // same naming convention already used for secondary-language items found via the API,
+                            // and self-contained (no dependency on any other job finishing first).
+                            var kindTag = candidate.Kind == SecondaryAudioKind.AudioDescription ? " [AD]" : string.Empty;
+                            var standaloneDestination = Path.ChangeExtension(paths.MainFilePath, null) + kindTag + "." + candidateLang + ".mka";
+
+                            downloadJob.DownloadItems.Add(new DownloadItem
+                            {
+                                SourceUrl = candidate.Url,
+                                DestinationPath = standaloneDestination,
+                                Language = candidateLang,
+                                IsAudioDescription = candidate.Kind == SecondaryAudioKind.AudioDescription,
+                                JobType = DownloadType.AudioExtraction
+                            });
+                        }
+                    }
+
                     break;
                 case FileType.Audio:
                     downloadJob.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.AudioExtraction });

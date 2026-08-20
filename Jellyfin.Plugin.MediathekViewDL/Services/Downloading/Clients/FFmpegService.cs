@@ -247,7 +247,7 @@ public class FFmpegService : IFFmpegService
     }
 
     /// <inheritdoc />
-    public async Task<bool> DownloadFileAsync(string url, string outputPath, int readRate, IProgress<double> progress, CancellationToken cancellationToken)
+    public async Task<bool> DownloadFileAsync(string url, string outputPath, int readRate, IProgress<double> progress, CancellationToken cancellationToken, string audioLanguageCode = "deu")
     {
         try
         {
@@ -283,6 +283,8 @@ public class FFmpegService : IFFmpegService
         args.Add("-i");
         args.Add(url);
 
+        args.Add("-metadata:s:a:0");
+        args.Add($"language={audioLanguageCode}");
         args.Add("-c");
         args.Add("copy");
         args.Add("-f");
