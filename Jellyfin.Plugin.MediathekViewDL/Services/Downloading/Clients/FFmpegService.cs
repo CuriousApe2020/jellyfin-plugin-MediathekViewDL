@@ -248,7 +248,7 @@ public class FFmpegService : IFFmpegService
     }
 
     /// <inheritdoc />
-    public async Task<bool> DownloadFileAsync(string url, string outputPath, int readRate, IProgress<double> progress, CancellationToken cancellationToken, Metadata.MediaMetadata? metadata = null)
+    public async Task<bool> DownloadFileAsync(string url, string outputPath, int readRate, IProgress<double> progress, CancellationToken cancellationToken, string audioLanguageCode = "deu", Metadata.MediaMetadata? metadata = null)
     {
         try
         {
@@ -291,6 +291,8 @@ public class FFmpegService : IFFmpegService
             args.Add($"{MediaMetadataKeys.MetadataKey}={metadataJson}");
         }
 
+        args.Add("-metadata:s:a:0");
+        args.Add($"language={audioLanguageCode}");
         args.Add("-c");
         args.Add("copy");
         args.Add("-f");

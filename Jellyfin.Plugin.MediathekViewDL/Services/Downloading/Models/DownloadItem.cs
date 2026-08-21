@@ -24,4 +24,16 @@ public class DownloadItem
     /// Gets or sets the type of operation to perform.
     /// </summary>
     public DownloadType JobType { get; set; }
+
+    /// <summary>
+    /// Gets or sets the language code for this item (used by AudioExtraction for standalone
+    /// secondary-audio files, e.g. when several differently-tagged tracks are queued in one job).
+    /// </summary>
+    public string? Language { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this audio track is an audio description
+    /// (used by AudioExtraction to set the correct ffmpeg disposition, e.g. "visual_impaired").
+    /// </summary>
+    public bool IsAudioDescription { get; set; }
 }

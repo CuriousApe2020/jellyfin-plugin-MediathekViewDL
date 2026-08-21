@@ -55,7 +55,8 @@ public class FFmpegDownloadHandler : IDownloadHandler
         try
         {
             var readRate = _configProvider.Configuration.Download.ReadRate;
-            var res = await _ffmpegService.DownloadFileAsync(item.SourceUrl, tempPath, readRate, progress, cancellationToken, job.MediaMetadata).ConfigureAwait(false);
+            var audioLanguageCode = string.IsNullOrWhiteSpace(job.ItemInfo.Language) ? "deu" : job.ItemInfo.Language;
+            var res = await _ffmpegService.DownloadFileAsync(item.SourceUrl, tempPath, readRate, progress, cancellationToken, audioLanguageCode, job.MediaMetadata).ConfigureAwait(false);
             if (!res)
             {
                 return false;

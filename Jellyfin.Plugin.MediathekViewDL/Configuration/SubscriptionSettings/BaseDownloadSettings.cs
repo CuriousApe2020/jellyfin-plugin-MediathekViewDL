@@ -17,6 +17,34 @@ public record BaseDownloadSettings
     public bool DownloadFullVideoForSecondaryAudio { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether to detect and download secondary audio tracks (original version,
+    /// audio description, "klare Sprache") that MediathekViewWeb's search index doesn't surface as a
+    /// separate result - derived directly from the main video's URL. Downloaded as separate files next
+    /// to the main video, the same way a secondary-language item found via the API is handled.
+    /// </summary>
+    public bool DetectUndetectedSecondaryAudio { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether to download a detected original-version (different-language) audio
+    /// track. Only relevant when <see cref="DetectUndetectedSecondaryAudio"/> is enabled.
+    /// </summary>
+    public bool DownloadOriginalVersionAudio { get; init; } = true;
+
+    /// <summary>
+    /// Gets a value indicating whether to download a detected audio-description track (narrated audio for
+    /// visually impaired viewers, same language as the main track). Only relevant when
+    /// <see cref="DetectUndetectedSecondaryAudio"/> is enabled.
+    /// </summary>
+    public bool DownloadAudioDescriptionAudio { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether to download a detected "klare Sprache" (speech-optimized) audio
+    /// track, same language as the main track. Only relevant when <see cref="DetectUndetectedSecondaryAudio"/>
+    /// is enabled.
+    /// </summary>
+    public bool DownloadClearSpeechAudio { get; init; }
+
+    /// <summary>
     /// Gets a value indicating whether to allow falling back to lower quality versions
     /// if HD version is not available.
     /// </summary>

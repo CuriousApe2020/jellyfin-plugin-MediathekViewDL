@@ -117,6 +117,110 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
         }
 
         [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldNotDetectSecondaryAudio_WhenDisabled()
+        {
+            // Arrange
+            var subscription = new Subscription { Name = "TestSub" };
+            var item = new ResultItem
+            {
+                Id = "123",
+                Title = "TestTitle",
+                UrlVideoHd = "http://test.com/video_sendeton_1080p.mp4"
+            };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+
+            _apiClientMock
+                .Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "TestTitle", Language = "deu" };
+            _videoParserMock
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mkv" });
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Single(jobs);
+            Assert.Single(jobs[0].DownloadItems);
+        }
+
+        [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldQueueDetectedSecondaryAudio_WhenEnabled()
+        {
+            // Arrange
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Download = new DownloadSettings
+                {
+                    DetectUndetectedSecondaryAudio = true,
+                    DownloadOriginalVersionAudio = true,
+                    DownloadAudioDescriptionAudio = true,
+                    DownloadClearSpeechAudio = false,
+                }
+            };
+            var item = new ResultItem
+            {
+                Id = "123",
+                Title = "TestTitle",
+                UrlVideoHd = "http://test.com/video_sendeton_1080p.mp4"
+            };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+
+            _apiClientMock
+                .Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "TestTitle", Language = "deu" };
+            _videoParserMock
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mkv" });
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Single(jobs);
+            var items = jobs[0].DownloadItems.ToList();
+
+            // Main video + original-version + audio-description (clear-speech disabled) = 3 items.
+            Assert.Equal(3, items.Count);
+
+            // No language resolver is wired up yet at this stage - the original-version track falls
+            // back to the URL-derived "und" placeholder language.
+            var originalVersion = items.Single(i => i.SourceUrl.Contains("_originalversion_", StringComparison.Ordinal));
+            Assert.Equal("und", originalVersion.Language);
+            Assert.False(originalVersion.IsAudioDescription);
+            Assert.Equal(DownloadType.AudioExtraction, originalVersion.JobType);
+
+            var audioDescription = items.Single(i => i.SourceUrl.Contains("_audiodeskription_", StringComparison.Ordinal));
+            Assert.Equal("deu", audioDescription.Language);
+            Assert.True(audioDescription.IsAudioDescription);
+
+            Assert.DoesNotContain(items, i => i.SourceUrl.Contains("_klaresprache_", StringComparison.Ordinal));
+        }
+
+        [Fact]
         public async Task GetJobsForSubscriptionAsync_ShouldSkip_IfFoundLocally_AndEnhancedDetectionEnabled()
         {
             // Arrange

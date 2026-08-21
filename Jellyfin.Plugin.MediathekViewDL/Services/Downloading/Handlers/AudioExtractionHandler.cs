@@ -55,12 +55,15 @@ public class AudioExtractionHandler : IDownloadHandler
         try
         {
             var itemInfo = job.ItemInfo;
+            var hasPerItemLanguage = !string.IsNullOrWhiteSpace(item.Language);
+            var languageCode = hasPerItemLanguage ? item.Language! : itemInfo.Language;
+            var isAudioDescription = hasPerItemLanguage ? item.IsAudioDescription : itemInfo.HasAudiodescription;
             var res = await _ffmpegService.ExtractAudioFromWebAsync(
                 item.SourceUrl,
                 tempPath,
-                itemInfo.Language,
-                itemInfo.Language != "deu",
-                itemInfo.HasAudiodescription,
+                languageCode,
+                languageCode != "deu",
+                isAudioDescription,
                 progress,
                 cancellationToken).ConfigureAwait(false);
 

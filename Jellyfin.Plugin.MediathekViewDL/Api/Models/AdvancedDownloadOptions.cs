@@ -29,5 +29,17 @@ namespace Jellyfin.Plugin.MediathekViewDL.Api.Models
         /// Gets the Name of the Subtitle file.
         /// </summary>
         public string SubtitleName { get; init; } = string.Empty;
+
+        /// <summary>
+        /// Gets the URL of a secondary audio-only or video stream to download as an additional standalone
+        /// audio track next to the main video. Optional. Obtain this URL with e.g. "yt-dlp -F" on the
+        /// broadcaster's page.
+        /// </summary>
+        public string? SecondaryAudioUrl { get; init; }
+
+        /// <summary>
+        /// Gets the language code (e.g. "eng", "fra") for the secondary audio track.
+        /// </summary>
+        public string? SecondaryAudioLanguage { get; init; }
     }
 }

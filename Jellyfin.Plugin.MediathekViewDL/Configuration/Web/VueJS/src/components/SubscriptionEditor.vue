@@ -249,6 +249,23 @@ function updateDate(target, field, value) {
                             </label>
                             <p class="field-desc">Wenn aktiviert, wird das vollständige Video heruntergeladen, auch wenn es eine andere Audiosprache als Deutsch enthält. Andernfalls wird nur die Audiospur dieser Sprache extrahiert.</p>
                         </div>
+                        <div class="checkbox-field">
+                            <label>
+                                <input v-model="editedSub.Download.DetectUndetectedSecondaryAudio" type="checkbox"> Fehlende Tonspuren erkennen und herunterladen
+                            </label>
+                            <p class="field-desc">Manche ARD-Titel zeigen in MediathekView nur einen Eintrag, obwohl im Player mehrere Tonspuren wählbar sind (z. B. Originalversion, Audiodeskription). Wenn aktiviert, werden solche zusätzlichen Tonspuren anhand des URL-Musters erkannt und als separate Datei neben dem Hauptvideo gespeichert — genau wie bei einer Sprachversion, die MediathekView bereits als eigenen Eintrag findet.</p>
+                        </div>
+                        <div v-if="editedSub.Download.DetectUndetectedSecondaryAudio" class="sub-options">
+                            <div class="checkbox-field">
+                                <label><input v-model="editedSub.Download.DownloadOriginalVersionAudio" type="checkbox"> Originalversion (andere Sprache)</label>
+                            </div>
+                            <div class="checkbox-field">
+                                <label><input v-model="editedSub.Download.DownloadAudioDescriptionAudio" type="checkbox"> Audiodeskription</label>
+                            </div>
+                            <div class="checkbox-field">
+                                <label><input v-model="editedSub.Download.DownloadClearSpeechAudio" type="checkbox"> Klare Sprache</label>
+                            </div>
+                        </div>
                     </div>
                     <div class="checkbox-field">
                         <label>

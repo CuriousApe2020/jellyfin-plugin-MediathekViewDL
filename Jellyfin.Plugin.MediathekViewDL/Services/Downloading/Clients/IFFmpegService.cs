@@ -51,9 +51,10 @@ public interface IFFmpegService
     /// <param name="readRate">The FFmpeg readrate multiplier. 0 means unlimited.</param>
     /// <param name="progress">The progress reporter.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="audioLanguageCode">The ISO 639-2 language code to tag the main audio stream with (e.g. "deu").</param>
     /// <param name="metadata">Optional metadata that will be embedded in the output container under the key <c>MediathekViewDL</c>.</param>
     /// <returns>True if the download was successful, otherwise false.</returns>
-    Task<bool> DownloadFileAsync(string url, string outputPath, int readRate, IProgress<double> progress, CancellationToken cancellationToken, Metadata.MediaMetadata? metadata = null);
+    Task<bool> DownloadFileAsync(string url, string outputPath, int readRate, IProgress<double> progress, CancellationToken cancellationToken, string audioLanguageCode = "deu", Metadata.MediaMetadata? metadata = null);
 
     /// <summary>
     /// Executes FFmpeg with the specified arguments.
