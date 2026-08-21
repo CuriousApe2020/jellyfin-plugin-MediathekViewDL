@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Jellyfin.Plugin.MediathekViewDL.Api.Models;
 using Jellyfin.Plugin.MediathekViewDL.Api.Models.Enums;
 using Jellyfin.Plugin.MediathekViewDL.Configuration;
+using Jellyfin.Plugin.MediathekViewDL.Configuration.SubscriptionSettings;
 using Jellyfin.Plugin.MediathekViewDL.Data;
 using Jellyfin.Plugin.MediathekViewDL.Services.Downloading.Clients;
 using Jellyfin.Plugin.MediathekViewDL.Services.Downloading.Models;
@@ -274,6 +275,8 @@ public class DownloadsController : ControllerBase
 
         job.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.FFmpegDownload });
 
+        AddDetectedSecondaryAudioItems(job, videoUrl, paths.MainFilePath, config.SubscriptionDefaults.DownloadSettings);
+
         if (subtitleUrl is not null)
         {
             job.DownloadItems.Add(new DownloadItem { SourceUrl = subtitleUrl, DestinationPath = paths.SubtitleFilePath, JobType = DownloadType.SubtitleDownload });
@@ -363,6 +366,23 @@ public class DownloadsController : ControllerBase
 
         job.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = videoDestinationPath, JobType = DownloadType.FFmpegDownload });
 
+        if (!string.IsNullOrWhiteSpace(options.SecondaryAudioUrl))
+        {
+            // Explicit manual override: a single standalone track, exactly as the user specified.
+            var manualLang = string.IsNullOrWhiteSpace(options.SecondaryAudioLanguage) ? "und" : options.SecondaryAudioLanguage;
+            job.DownloadItems.Add(new DownloadItem
+            {
+                SourceUrl = options.SecondaryAudioUrl,
+                DestinationPath = Path.ChangeExtension(videoDestinationPath, null) + "." + manualLang + ".mka",
+                Language = manualLang,
+                JobType = DownloadType.AudioExtraction
+            });
+        }
+        else
+        {
+            AddDetectedSecondaryAudioItems(job, videoUrl, videoDestinationPath, config.SubscriptionDefaults.DownloadSettings);
+        }
+
         if (subtitleUrl is not null)
         {
             string subtitleFileName;
@@ -383,5 +403,46 @@ public class DownloadsController : ControllerBase
 
         _downloadQueueManager.QueueJob(job);
         return Ok($"Advanced download for '{item.Title}' queued.");
+    }
+
+    /// <summary>
+    /// Detects and queues any secondary audio tracks (original version, audio description, "klare
+    /// Sprache") that MediathekViewWeb's search index doesn't surface as a separate result, derived
+    /// directly from the main video's URL. Shared by <see cref="Download"/> and
+    /// <see cref="AdvancedDownload"/> so the two can't silently drift apart.
+    /// </summary>
+    /// <param name="job">The download job to add the detected items to.</param>
+    /// <param name="videoUrl">The resolved main video URL.</param>
+    /// <param name="mainFilePath">The destination path of the main video file.</param>
+    /// <param name="downloadSettings">The download settings that decide which kinds are enabled.</param>
+    private void AddDetectedSecondaryAudioItems(
+        DownloadJob job,
+        string videoUrl,
+        string mainFilePath,
+        BaseDownloadSettings downloadSettings)
+    {
+        foreach (var candidate in SecondaryAudioUrlHelper.DetectCandidates(videoUrl))
+        {
+            if (!SecondaryAudioUrlHelper.IsKindEnabled(downloadSettings, candidate.Kind))
+            {
+                continue;
+            }
+
+            var candidateLang = candidate.LanguageCode;
+
+            // Standalone file next to the main video (e.g. "Title.eng.mka"), same naming convention as a
+            // secondary-language item found via the API - self-contained, no dependency on any other job.
+            var kindTag = candidate.Kind == SecondaryAudioKind.AudioDescription ? " [AD]" : string.Empty;
+            var standaloneDestination = Path.ChangeExtension(mainFilePath, null) + kindTag + "." + candidateLang + ".mka";
+
+            job.DownloadItems.Add(new DownloadItem
+            {
+                SourceUrl = candidate.Url,
+                DestinationPath = standaloneDestination,
+                Language = candidateLang,
+                IsAudioDescription = candidate.Kind == SecondaryAudioKind.AudioDescription,
+                JobType = DownloadType.AudioExtraction
+            });
+        }
     }
 }
