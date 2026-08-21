@@ -105,7 +105,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
 
             var videoInfo = new VideoInfo { Title = "TestTitle", Language = "deu" };
             _videoParserMock
-                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(videoInfo);
 
             _fileNameBuilderServiceMock
@@ -148,7 +148,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
 
             var videoInfo = new VideoInfo { Title = "TestTitle", Language = "deu" };
             _videoParserMock
-                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(videoInfo);
 
             _fileNameBuilderServiceMock
@@ -199,7 +199,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
 
             var videoInfo = new VideoInfo { Title = "TestTitle", Language = "deu" };
             _videoParserMock
-                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(videoInfo);
 
             _fileNameBuilderServiceMock
@@ -262,7 +262,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
 
             var videoInfo = new VideoInfo { Title = "TestTitle", Language = "deu" };
             _videoParserMock
-                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(videoInfo);
 
             _fileNameBuilderServiceMock
@@ -304,7 +304,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
 
             var videoInfo = new VideoInfo { Title = "TestTitle", Language = "und" };
             _videoParserMock
-                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(videoInfo);
 
             _fileNameBuilderServiceMock
@@ -352,7 +352,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
 
             var videoInfo = new VideoInfo { Title = "TestTitle", Language = "und" };
             _videoParserMock
-                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(videoInfo);
 
             _fileNameBuilderServiceMock
@@ -391,7 +391,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
                 .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
 
             var videoInfo = new VideoInfo { Title = "ExistingTitle", Language = "deu" };
-            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(videoInfo);
 
             _fileNameBuilderServiceMock.Setup(x => x.GetSubscriptionBaseDirectory(It.IsAny<Subscription>(), It.IsAny<DownloadContext>()))
@@ -434,7 +434,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
                 .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
 
             var videoInfo = new VideoInfo { Title = "AD Content", HasAudiodescription = true };
-            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(videoInfo);
 
             // Act
@@ -465,7 +465,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
                 .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
 
             var videoInfo = new VideoInfo { Title = "Test", Language = "deu" };
-            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(videoInfo);
 
             _fileNameBuilderServiceMock
@@ -509,7 +509,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
                 .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
 
             var videoInfo = new VideoInfo { Title = "Test", Language = "deu" };
-            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(videoInfo);
 
             _fileNameBuilderServiceMock
@@ -563,7 +563,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
                 .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
 
             var videoInfo = new VideoInfo { Title = "Test", Language = "deu" };
-            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(videoInfo);
 
             _fileNameBuilderServiceMock
@@ -608,7 +608,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
 
             var videoInfo = new VideoInfo { Title = "TestTitle", Language = "deu" };
             _videoParserMock
-                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(videoInfo);
 
             _fileNameBuilderServiceMock
@@ -658,7 +658,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
 
             var videoInfo = new VideoInfo { Title = "TestTitle", Language = "deu" };
             _videoParserMock
-                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>()))
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(videoInfo);
 
             _fileNameBuilderServiceMock
