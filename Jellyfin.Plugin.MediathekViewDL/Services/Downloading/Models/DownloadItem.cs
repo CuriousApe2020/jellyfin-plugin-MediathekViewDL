@@ -36,4 +36,10 @@ public class DownloadItem
     /// (used by AudioExtraction to set the correct ffmpeg disposition, e.g. "visual_impaired").
     /// </summary>
     public bool IsAudioDescription { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the audio track's title/handler metadata should be
+    /// replaced with a clean, generated label (see <see cref="Configuration.SubscriptionSettings.BaseDownloadSettings.CleanAudioTrackLabels"/>).
+    /// </summary>
+    public bool CleanAudioTrackLabel { get; set; }
 }

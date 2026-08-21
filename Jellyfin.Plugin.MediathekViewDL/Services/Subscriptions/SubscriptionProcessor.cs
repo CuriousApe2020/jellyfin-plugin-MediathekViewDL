@@ -220,7 +220,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                     downloadJob.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.StreamingUrl });
                     break;
                 case FileType.Video:
-                    downloadJob.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.FFmpegDownload });
+                    downloadJob.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.FFmpegDownload, CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels });
 
                     if (subscription.Download.DetectUndetectedSecondaryAudio)
                     {
@@ -255,6 +255,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                                 DestinationPath = standaloneDestination,
                                 Language = candidateLang,
                                 IsAudioDescription = candidate.Kind == SecondaryAudioKind.AudioDescription,
+                                CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
                                 JobType = DownloadType.AudioExtraction
                             });
                         }
