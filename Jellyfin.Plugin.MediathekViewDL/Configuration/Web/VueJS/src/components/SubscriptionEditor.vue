@@ -255,7 +255,13 @@ function updateDate(target, field, value) {
                             </label>
                             <p class="field-desc">Manche ARD-Titel zeigen in MediathekView nur einen Eintrag, obwohl im Player mehrere Tonspuren wählbar sind (z. B. Originalversion, Audiodeskription). Wenn aktiviert, werden solche zusätzlichen Tonspuren anhand des URL-Musters erkannt und als separate Datei neben dem Hauptvideo gespeichert — genau wie bei einer Sprachversion, die MediathekView bereits als eigenen Eintrag findet.</p>
                         </div>
-                        <div v-if="editedSub.Download.DetectUndetectedSecondaryAudio" class="sub-options">
+                        <div class="checkbox-field">
+                            <label>
+                                <input v-model="editedSub.Download.DetectCrossResultAudioVariants" type="checkbox"> Verwandte Suchtreffer als zusätzliche Tonspuren zusammenführen
+                            </label>
+                            <p class="field-desc">Manche Sender (arte, ZDF/ZDFneo/3sat) führen dieselbe Sendung als mehrere eigenständige Suchtreffer in unterschiedlichen Sprachen, statt als eine Sendung mit wählbaren Tonspuren. Wenn aktiviert, werden solche zusammengehörigen Treffer erkannt (gleiches Thema, gleicher Titel, ähnliche Dauer und Sendezeit) und als zusätzliche Tonspur-Dateien neben dem Hauptvideo gespeichert, statt als eigene, sich überschneidende Downloads. Unabhängig von "Fehlende Tonspuren erkennen" oben — beide lassen sich zusammen aktivieren.</p>
+                        </div>
+                        <div v-if="editedSub.Download.DetectUndetectedSecondaryAudio || editedSub.Download.DetectCrossResultAudioVariants" class="sub-options">
                             <div class="checkbox-field">
                                 <label><input v-model="editedSub.Download.DownloadOriginalVersionAudio" type="checkbox"> Originalversion (andere Sprache)</label>
                             </div>

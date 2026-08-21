@@ -243,12 +243,15 @@ public sealed class DownloadQueueManager : IDownloadQueueManager, IDisposable
                 download.Progress = 100;
                 download.ItemResults = result.ItemResults;
 
-                // Save every item in the job to history
+                // Save every item in the job to history. Items grouped in from their own distinct
+                // search result (see AudioVariantGroupingService) carry their own SourceItemId so
+                // *that* result is recorded too - otherwise it would keep reappearing as a fresh,
+                // ungrouped item on every future subscription run.
                 foreach (var item in download.Job.DownloadItems)
                 {
                     await historyRepository.AddAsync(
                         item.SourceUrl,
-                        download.Job.ItemId,
+                        item.SourceItemId ?? download.Job.ItemId,
                         download.SubscriptionId ?? Guid.Empty,
                         item.DestinationPath,
                         download.Job.Title,

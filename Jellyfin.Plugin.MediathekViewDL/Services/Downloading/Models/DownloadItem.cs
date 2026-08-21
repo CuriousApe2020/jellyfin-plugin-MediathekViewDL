@@ -42,4 +42,15 @@ public class DownloadItem
     /// replaced with a clean, generated label (see <see cref="Configuration.SubscriptionSettings.BaseDownloadSettings.CleanAudioTrackLabels"/>).
     /// </summary>
     public bool CleanAudioTrackLabel { get; set; }
+
+    /// <summary>
+    /// Gets or sets the MediathekViewWeb result ID this item was sourced from, if it came from its own
+    /// distinct search result rather than being derived from the main item's URL (e.g. a sibling row
+    /// grouped in via <see cref="Media.AudioVariantGroupingService"/>). When set, download-history
+    /// recording uses this ID instead of the job's own <see cref="Downloading.Models.DownloadJob.ItemId"/>,
+    /// so the sibling row isn't re-offered as a fresh, ungrouped item on the next subscription run.
+    /// Left null for items derived from the main URL (nothing to record separately) and for
+    /// subtitle/main-video items (already covered by the job's own ItemId).
+    /// </summary>
+    public string? SourceItemId { get; set; }
 }

@@ -18,6 +18,7 @@ export const SubscriptionFactory = {
       QualityCheckWithUrl: defaults.DownloadSettings?.QualityCheckWithUrl || false,
       DownloadFullVideoForSecondaryAudio: defaults.DownloadSettings?.DownloadFullVideoForSecondaryAudio || false,
       DetectUndetectedSecondaryAudio: defaults.DownloadSettings?.DetectUndetectedSecondaryAudio || false,
+      DetectCrossResultAudioVariants: defaults.DownloadSettings?.DetectCrossResultAudioVariants || false,
       DownloadOriginalVersionAudio: defaults.DownloadSettings?.DownloadOriginalVersionAudio ?? true,
       DownloadAudioDescriptionAudio: defaults.DownloadSettings?.DownloadAudioDescriptionAudio || false,
       DownloadClearSpeechAudio: defaults.DownloadSettings?.DownloadClearSpeechAudio || false,
