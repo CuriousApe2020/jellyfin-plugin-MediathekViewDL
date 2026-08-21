@@ -13,9 +13,9 @@ on:
 # 3. Create a new "Repository secret" named "MANIFEST_PAT".
 # 4. Paste your Personal Access Token (PAT) into the secret's value. The PAT needs write access to your manifest repository.
 env:
-  MANIFEST_REPO: 'CatNoir2006/jellyfin-plugin-manifest'
-  PLUGIN_GUID: 'a31b415a-5264-419d-b152-8c8192a54994'
-  PLUGIN_NAME: 'MediathekViewDL'
+  MANIFEST_REPO: 'CuriousApe2020/jellyfin-plugin-manifest'
+  PLUGIN_GUID: 'b24a1e41-befb-455c-8417-69b89f25c335'
+  PLUGIN_NAME: 'MediathekViewDL-CuriousApe2020Fork'
 
 permissions:
   contents: write

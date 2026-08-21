@@ -1,16 +1,17 @@
 ---
-name: "Mediathek Downloader"
-guid: "a31b415a-5264-419d-b152-8c8192a54994"
-version: "0.8.3.0"
+name: "Mediathek Downloader (CuriousApe2020 Fork)"
+guid: "b24a1e41-befb-455c-8417-69b89f25c335"
+version: "1.0.0.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
-overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API."
+overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
 description: >
   Mit dem Plugin kann man die Mediatheken der öffentlich-rechtlichen Sender in Deutschland durchsuchen und Inhalte herunterladen.
   Für die suche wird die MediathekViewWeb-API verwendet. Der Videos werden direkt über die Original-URLs der Sender heruntergeladen.
   Es können Abos anglegt werden um z.B. Serien automatisch herunterzuladen.
+  Dies ist ein Community-Fork von CatNoir2006/jellyfin-plugin-MediathekViewDL mit zusätzlichen, noch nicht upstream gemergten Funktionen.
 category: "General"
-owner: "CatNoir2006"
+owner: "CuriousApe2020"
 artifacts:
 - "Jellyfin.Plugin.MediathekViewDL.dll"
 - "FuzzySharp.dll"

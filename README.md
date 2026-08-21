@@ -1,4 +1,6 @@
-# 📺 Jellyfin MediathekViewDL Plugin
+# 📺 Jellyfin MediathekViewDL Plugin (CuriousApe2020 Fork)
+
+> Dies ist ein Community-Fork von [CatNoir2006/jellyfin-plugin-MediathekViewDL](https://github.com/CatNoir2006/jellyfin-plugin-MediathekViewDL) mit zusätzlichen Funktionen, die noch nicht (oder noch nicht als Release) im Original-Plugin verfügbar sind, u. a. Erkennung fehlender Tonspuren, Auflösung der echten Originalversion-Sprache (ARD, arte) und Zusammenführung Sender-übergreifender Tonspur-Varianten (arte, ZDF/ZDFneo/3sat). Installiert wird dieser Fork über ein eigenes Repository (siehe [Installation](#-installation)) und läuft unabhängig vom Original-Plugin.
 
 **Ein leistungsstarkes Jellyfin-Plugin zum Suchen und Herunterladen von Inhalten aus den öffentlich-rechtlichen Mediatheken (ARD, ZDF, etc.).**
 
@@ -44,7 +46,7 @@ Die einfachste Methode. Updates erfolgen automatisch über Jellyfin.
     *   **Name:** `MediathekViewDL` (oder beliebig)
     *   **Repository-URL:**
         ```url
-        https://raw.githubusercontent.com/CatNoir2006/jellyfin-plugin-manifest/main/manifest.json
+        https://raw.githubusercontent.com/CuriousApe2020/jellyfin-plugin-manifest/main/manifest.json
         ```
 4.  Installieren Sie das Plugin nun über den **Katalog** und starten Sie Jellyfin neu.
 
@@ -55,7 +57,7 @@ Die einfachste Methode. Updates erfolgen automatisch über Jellyfin.
 
 1.  **Repository klonen:**
     ```bash
-    git clone https://github.com/CatNoir2006/jellyfin-plugin-MediathekViewDL.git
+    git clone https://github.com/CuriousApe2020/jellyfin-plugin-MediathekViewDL.git
     cd jellyfin-plugin-MediathekViewDL
     ```
 2.  **Bauen:**
