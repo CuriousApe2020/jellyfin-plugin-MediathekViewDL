@@ -89,13 +89,15 @@ public class VideoParser : IVideoParser
     /// </summary>
     /// <param name="topic">The name of the topic the Video belongs to.</param>
     /// <param name="mediaTitle">The title of the media item from the API.</param>
+    /// <param name="channel">The item's channel name, used to pick the right default language when
+    /// the title carries no explicit language marker. See <see cref="ChannelDefaultLanguage"/>.</param>
     /// <returns>An <see cref="VideoInfo"/> object if parsing is successful, otherwise null.</returns>
-    public VideoInfo? ParseVideoInfo(string? topic, string mediaTitle)
+    public VideoInfo? ParseVideoInfo(string? topic, string mediaTitle, string? channel = null)
     {
         var ctx = new ParsingContext(mediaTitle, topic ?? string.Empty);
 
         // Language Detection
-        var languageDetectionResult = _languageDetectionService.DetectLanguage(mediaTitle);
+        var languageDetectionResult = _languageDetectionService.DetectLanguage(mediaTitle, ChannelDefaultLanguage.GetDefault(channel));
         ctx.Result.Language = languageDetectionResult.LanguageCode;
         ctx.UpdateTitle(languageDetectionResult.CleanedTitle);
 
