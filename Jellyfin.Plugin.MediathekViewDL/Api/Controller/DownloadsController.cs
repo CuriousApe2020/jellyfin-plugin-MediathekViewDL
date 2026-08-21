@@ -35,6 +35,7 @@ public class DownloadsController : ControllerBase
     private readonly IVideoParser _videoParser;
     private readonly IFileNameBuilderService _fileNameBuilder;
     private readonly ILogger<DownloadsController> _logger;
+    private readonly IOriginalVersionLanguageResolver _originalVersionLanguageResolver;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DownloadsController"/> class.
@@ -45,13 +46,15 @@ public class DownloadsController : ControllerBase
     /// <param name="videoParser">The video parser.</param>
     /// <param name="fileNameBuilder">The file name builder service.</param>
     /// <param name="logger">The logger.</param>
+    /// <param name="originalVersionLanguageResolver">Resolves the correct original-version language code from the relevant broadcaster's own API.</param>
     public DownloadsController(
         IDownloadQueueManager downloadQueueManager,
         IDownloadHistoryRepository downloadHistoryRepository,
         IConfigurationProvider configurationProvider,
         IVideoParser videoParser,
         IFileNameBuilderService fileNameBuilder,
-        ILogger<DownloadsController> logger)
+        ILogger<DownloadsController> logger,
+        IOriginalVersionLanguageResolver originalVersionLanguageResolver)
     {
         _downloadQueueManager = downloadQueueManager;
         _downloadHistoryRepository = downloadHistoryRepository;
@@ -59,6 +62,7 @@ public class DownloadsController : ControllerBase
         _videoParser = videoParser;
         _fileNameBuilder = fileNameBuilder;
         _logger = logger;
+        _originalVersionLanguageResolver = originalVersionLanguageResolver;
     }
 
     /// <summary>
@@ -217,7 +221,7 @@ public class DownloadsController : ControllerBase
     /// <param name="item">The item to download.</param>
     /// <returns>An OK result.</returns>
     [HttpPost]
-    public IActionResult Download([FromBody] ResultItemDto? item)
+    public async Task<IActionResult> Download([FromBody] ResultItemDto? item)
     {
         if (Plugin.Instance?.InitializationException is not null)
         {
@@ -275,7 +279,7 @@ public class DownloadsController : ControllerBase
 
         job.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.FFmpegDownload });
 
-        AddDetectedSecondaryAudioItems(job, videoUrl, paths.MainFilePath, config.SubscriptionDefaults.DownloadSettings);
+        await AddDetectedSecondaryAudioItemsAsync(job, item, videoUrl, paths.MainFilePath, config.SubscriptionDefaults.DownloadSettings).ConfigureAwait(false);
 
         if (subtitleUrl is not null)
         {
@@ -292,7 +296,7 @@ public class DownloadsController : ControllerBase
     /// <param name="options">The advanced download options.</param>
     /// <returns>An OK result.</returns>
     [HttpPost("Advanced")]
-    public IActionResult AdvancedDownload([FromBody] AdvancedDownloadOptions? options)
+    public async Task<IActionResult> AdvancedDownload([FromBody] AdvancedDownloadOptions? options)
     {
         if (Plugin.Instance?.InitializationException is not null)
         {
@@ -380,7 +384,7 @@ public class DownloadsController : ControllerBase
         }
         else
         {
-            AddDetectedSecondaryAudioItems(job, videoUrl, videoDestinationPath, config.SubscriptionDefaults.DownloadSettings);
+            await AddDetectedSecondaryAudioItemsAsync(job, item, videoUrl, videoDestinationPath, config.SubscriptionDefaults.DownloadSettings).ConfigureAwait(false);
         }
 
         if (subtitleUrl is not null)
@@ -412,11 +416,14 @@ public class DownloadsController : ControllerBase
     /// <see cref="AdvancedDownload"/> so the two can't silently drift apart.
     /// </summary>
     /// <param name="job">The download job to add the detected items to.</param>
+    /// <param name="item">The item being downloaded, used to resolve the original-version language.</param>
     /// <param name="videoUrl">The resolved main video URL.</param>
     /// <param name="mainFilePath">The destination path of the main video file.</param>
     /// <param name="downloadSettings">The download settings that decide which kinds are enabled.</param>
-    private void AddDetectedSecondaryAudioItems(
+    /// <returns>A task that completes once all detected items have been queued.</returns>
+    private async Task AddDetectedSecondaryAudioItemsAsync(
         DownloadJob job,
+        ResultItemDto item,
         string videoUrl,
         string mainFilePath,
         BaseDownloadSettings downloadSettings)
@@ -428,7 +435,17 @@ public class DownloadsController : ControllerBase
                 continue;
             }
 
-            var candidateLang = candidate.LanguageCode;
+            var isOriginalVersion = candidate.Kind == SecondaryAudioKind.OriginalVersion;
+            string? candidateLang;
+            if (isOriginalVersion && downloadSettings.ResolveOriginalVersionLanguage)
+            {
+                _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
+                candidateLang = (await _originalVersionLanguageResolver.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, HttpContext.RequestAborted).ConfigureAwait(false)) ?? candidate.LanguageCode;
+            }
+            else
+            {
+                candidateLang = candidate.LanguageCode;
+            }
 
             // Standalone file next to the main video (e.g. "Title.eng.mka"), same naming convention as a
             // secondary-language item found via the API - self-contained, no dependency on any other job.
