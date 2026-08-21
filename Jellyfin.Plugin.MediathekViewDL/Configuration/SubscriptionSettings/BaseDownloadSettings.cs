@@ -25,22 +25,36 @@ public record BaseDownloadSettings
     public bool DetectUndetectedSecondaryAudio { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether to detect and merge sibling MediathekViewWeb search results that
+    /// represent the same episode with a different audio track (foreign-language original version,
+    /// audio description, or "klare Sprache") into one download job with multiple audio tracks, instead
+    /// of downloading them as separate items that collide on the same destination path. Confirmed
+    /// necessary for arte (crawled once per channel variant, e.g. "ARTE.DE"/"ARTE.FR", plus separate
+    /// rows for markers like "(Originalversion)"/"(Audiodeskription)") and for ZDF/ZDFneo/3sat (crawled
+    /// once per language, with the language named directly in the title, e.g. "(Englisch)"). Independent
+    /// from <see cref="DetectUndetectedSecondaryAudio"/>, which derives variants from a single URL's own
+    /// tokens (ARD) rather than from other search results - the two can be enabled together.
+    /// </summary>
+    public bool DetectCrossResultAudioVariants { get; init; }
+
+    /// <summary>
     /// Gets a value indicating whether to download a detected original-version (different-language) audio
-    /// track. Only relevant when <see cref="DetectUndetectedSecondaryAudio"/> is enabled.
+    /// track. Only relevant when <see cref="DetectUndetectedSecondaryAudio"/> or
+    /// <see cref="DetectCrossResultAudioVariants"/> is enabled.
     /// </summary>
     public bool DownloadOriginalVersionAudio { get; init; } = true;
 
     /// <summary>
     /// Gets a value indicating whether to download a detected audio-description track (narrated audio for
     /// visually impaired viewers, same language as the main track). Only relevant when
-    /// <see cref="DetectUndetectedSecondaryAudio"/> is enabled.
+    /// <see cref="DetectUndetectedSecondaryAudio"/> or <see cref="DetectCrossResultAudioVariants"/> is enabled.
     /// </summary>
     public bool DownloadAudioDescriptionAudio { get; init; }
 
     /// <summary>
     /// Gets a value indicating whether to download a detected "klare Sprache" (speech-optimized) audio
     /// track, same language as the main track. Only relevant when <see cref="DetectUndetectedSecondaryAudio"/>
-    /// is enabled.
+    /// or <see cref="DetectCrossResultAudioVariants"/> is enabled.
     /// </summary>
     public bool DownloadClearSpeechAudio { get; init; }
 

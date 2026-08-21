@@ -46,6 +46,7 @@ const defMaxDuration = ref('')
 const defUseStreamingUrlFiles = ref(false)
 const defDownloadFullVideoSecondaryAudio = ref(false)
 const defDetectUndetectedSecondaryAudio = ref(false)
+const defDetectCrossResultAudioVariants = ref(false)
 const defDownloadOriginalVersionAudio = ref(true)
 const defDownloadAudioDescriptionAudio = ref(false)
 const defDownloadClearSpeechAudio = ref(false)
@@ -140,6 +141,7 @@ async function loadConfig() {
     defUseStreamingUrlFiles.value = defDl.UseStreamingUrlFiles ?? false
     defDownloadFullVideoSecondaryAudio.value = defDl.DownloadFullVideoForSecondaryAudio ?? false
     defDetectUndetectedSecondaryAudio.value = defDl.DetectUndetectedSecondaryAudio ?? false
+    defDetectCrossResultAudioVariants.value = defDl.DetectCrossResultAudioVariants ?? false
     defDownloadOriginalVersionAudio.value = defDl.DownloadOriginalVersionAudio ?? true
     defDownloadAudioDescriptionAudio.value = defDl.DownloadAudioDescriptionAudio ?? false
     defDownloadClearSpeechAudio.value = defDl.DownloadClearSpeechAudio ?? false
@@ -224,6 +226,7 @@ async function saveConfig() {
         UseStreamingUrlFiles: defUseStreamingUrlFiles.value,
         DownloadFullVideoForSecondaryAudio: defDownloadFullVideoSecondaryAudio.value,
         DetectUndetectedSecondaryAudio: defDetectUndetectedSecondaryAudio.value,
+        DetectCrossResultAudioVariants: defDetectCrossResultAudioVariants.value,
         DownloadOriginalVersionAudio: defDownloadOriginalVersionAudio.value,
         DownloadAudioDescriptionAudio: defDownloadAudioDescriptionAudio.value,
         DownloadClearSpeechAudio: defDownloadClearSpeechAudio.value,
@@ -517,7 +520,11 @@ onMounted(() => {
               <label><input v-model="defDetectUndetectedSecondaryAudio" type="checkbox"> Fehlende Tonspuren erkennen und herunterladen</label>
               <p class="field-desc">Manche ARD-Titel zeigen in MediathekView nur einen Eintrag, obwohl im Player mehrere Tonspuren wählbar sind (z. B. Originalversion, Audiodeskription). Wenn aktiviert, werden solche zusätzlichen Tonspuren anhand des URL-Musters erkannt und als separate Datei neben dem Hauptvideo gespeichert — genau wie bei einer Sprachversion, die MediathekView bereits als eigenen Eintrag findet.</p>
             </div>
-            <div v-if="defDetectUndetectedSecondaryAudio" class="sub-options">
+            <div class="checkbox-field">
+              <label><input v-model="defDetectCrossResultAudioVariants" type="checkbox"> Verwandte Suchtreffer als zusätzliche Tonspuren zusammenführen</label>
+              <p class="field-desc">Manche Sender (arte, ZDF/ZDFneo/3sat) führen dieselbe Sendung als mehrere eigenständige Suchtreffer in unterschiedlichen Sprachen, statt als eine Sendung mit wählbaren Tonspuren. Wenn aktiviert, werden solche zusammengehörigen Treffer erkannt (gleiches Thema, gleicher Titel, ähnliche Dauer und Sendezeit) und als zusätzliche Tonspur-Dateien neben dem Hauptvideo gespeichert, statt als eigene, sich überschneidende Downloads. Unabhängig von "Fehlende Tonspuren erkennen" oben — beide lassen sich zusammen aktivieren.</p>
+            </div>
+            <div v-if="defDetectUndetectedSecondaryAudio || defDetectCrossResultAudioVariants" class="sub-options">
               <div class="checkbox-field">
                 <label><input v-model="defDownloadOriginalVersionAudio" type="checkbox"> Originalversion (andere Sprache)</label>
               </div>

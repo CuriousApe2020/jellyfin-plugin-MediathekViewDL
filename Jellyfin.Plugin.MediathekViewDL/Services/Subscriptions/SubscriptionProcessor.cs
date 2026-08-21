@@ -187,146 +187,242 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     {
         var jobs = new List<DownloadJob>();
 
-        await foreach (var (item, tempVideoInfo) in GetEligibleItemsAsync(subscription, cancellationToken).ConfigureAwait(false))
+        if (subscription.Download.DetectCrossResultAudioVariants)
         {
-            var paths = _fileNameBuilderService.GenerateDownloadPaths(tempVideoInfo, subscription, DownloadContext.Subscription);
-            if (!paths.IsValid)
+            // Buffer the whole eligible-item stream so sibling rows representing the same episode in a
+            // different audio track (arte's channel/marker split, ZDF/ZDFneo/3sat's per-language rows)
+            // can be grouped into one job instead of colliding as separate downloads to the same path.
+            var eligibleItems = new List<(ResultItemDto Item, VideoInfo VideoInfo)>();
+            await foreach (var eligible in GetEligibleItemsAsync(subscription, cancellationToken).ConfigureAwait(false))
             {
-                continue;
+                eligibleItems.Add(eligible);
             }
 
-            string? videoUrl = await GetUrlCandidate(item, subscription, cancellationToken).ConfigureAwait(false);
-            if (string.IsNullOrWhiteSpace(videoUrl))
+            foreach (var group in AudioVariantGroupingService.GroupByEpisode(eligibleItems))
             {
-                continue;
-            }
-
-            // Download Task
-            var downloadJob = new DownloadJob { ItemId = item.Id, Title = tempVideoInfo.Title, ItemInfo = tempVideoInfo };
-
-            // Video/Main Item
-            switch (paths.MainType)
-            {
-                case FileType.Strm:
-                    downloadJob.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.StreamingUrl });
-                    break;
-                case FileType.Video:
-                    downloadJob.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.FFmpegDownload, CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels });
-
-                    if (subscription.Download.DetectUndetectedSecondaryAudio)
-                    {
-                        foreach (var candidate in SecondaryAudioUrlHelper.DetectCandidates(videoUrl))
-                        {
-                            if (!SecondaryAudioUrlHelper.IsKindEnabled(subscription.Download, candidate.Kind))
-                            {
-                                continue;
-                            }
-
-                            var isOriginalVersion = candidate.Kind == SecondaryAudioKind.OriginalVersion;
-                            string? candidateLang;
-                            if (isOriginalVersion && subscription.Download.ResolveOriginalVersionLanguage)
-                            {
-                                _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
-                                candidateLang = (await _originalVersionLanguageResolver.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken).ConfigureAwait(false)) ?? candidate.LanguageCode;
-                            }
-                            else
-                            {
-                                candidateLang = candidate.LanguageCode;
-                            }
-
-                            // Standalone file next to the main video, e.g. "Title.eng.mka" or "Title [AD].deu.mka" -
-                            // same naming convention already used for secondary-language items found via the API,
-                            // and self-contained (no dependency on any other job finishing first).
-                            var kindTag = candidate.Kind == SecondaryAudioKind.AudioDescription ? " [AD]" : string.Empty;
-                            var standaloneDestination = Path.ChangeExtension(paths.MainFilePath, null) + kindTag + "." + candidateLang + ".mka";
-
-                            downloadJob.DownloadItems.Add(new DownloadItem
-                            {
-                                SourceUrl = candidate.Url,
-                                DestinationPath = standaloneDestination,
-                                Language = candidateLang,
-                                IsAudioDescription = candidate.Kind == SecondaryAudioKind.AudioDescription,
-                                CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
-                                JobType = DownloadType.AudioExtraction
-                            });
-                        }
-                    }
-
-                    break;
-                case FileType.Audio:
-                    // Prefer the broadcaster's own metadata for the real original-version language
-                    // (ARD-family stations via the page-gateway API, arte via its player-config API),
-                    // falling back to the title-parsed language (set via job.ItemInfo) for broadcasters
-                    // with no known resolver (ZDF, 3sat - which already tag the real language in the
-                    // title text directly, so there's nothing to resolve) or for audio-description
-                    // items, where a language lookup doesn't apply.
-                    var resolvedLang = (tempVideoInfo.HasAudiodescription || !subscription.Download.ResolveOriginalVersionLanguage)
-                        ? null
-                        : await _originalVersionLanguageResolver
-                            .TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken)
-                            .ConfigureAwait(false);
-
-                    downloadJob.DownloadItems.Add(new DownloadItem
-                    {
-                        SourceUrl = videoUrl,
-                        DestinationPath = paths.MainFilePath,
-                        Language = resolvedLang,
-                        CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
-                        JobType = DownloadType.AudioExtraction
-                    });
-
-                    break;
-                // Subtitles are downloaded separately.
-                case FileType.Subtitle:
-                default:
-                    _logger.LogError("Unknown file type '{FileType}'.", paths.MainType);
-                    break;
-            }
-
-            // Subtitle Item
-            if (downloadSubtitles)
-            {
-                foreach (var sub in item.SubtitleUrls)
+                var job = await BuildDownloadJobAsync(subscription, downloadSubtitles, group.MainItem, group.MainVideoInfo, group.Secondaries, cancellationToken).ConfigureAwait(false);
+                if (job != null)
                 {
-                    if (sub.Type == SubtitleType.Unknown)
-                    {
-                        continue;
-                    }
-
-                    string subPath = paths.SubtitleFilePath;
-                    if (sub.Type == SubtitleType.WEBVTT)
-                    {
-                        subPath = Path.ChangeExtension(subPath, ".vtt");
-                    }
-
-                    downloadJob.DownloadItems.Add(new DownloadItem { SourceUrl = sub.Url, DestinationPath = subPath, JobType = DownloadType.SubtitleDownload });
+                    jobs.Add(job);
                 }
             }
 
-            if (subscription.Metadata.CreateNfo)
+            return jobs;
+        }
+
+        await foreach (var (item, tempVideoInfo) in GetEligibleItemsAsync(subscription, cancellationToken).ConfigureAwait(false))
+        {
+            var job = await BuildDownloadJobAsync(subscription, downloadSubtitles, item, tempVideoInfo, Array.Empty<AudioVariantSecondary>(), cancellationToken).ConfigureAwait(false);
+            if (job != null)
             {
-                var topic = string.IsNullOrWhiteSpace(subscription.Name) ? item.Topic : subscription.Name;
-
-                downloadJob.NfoMetadata = new NfoDTO()
-                {
-                    Title = tempVideoInfo.Title,
-                    Description = item.Description,
-                    Show = tempVideoInfo.SeasonNumber.HasValue ? topic : string.Empty,
-                    Season = tempVideoInfo.SeasonNumber,
-                    Episode = tempVideoInfo.EpisodeNumber,
-                    Id = item.Id,
-                    FilePath = paths.NfoFilePath,
-                    Studio = item.Channel,
-                    RunTime = item.Duration,
-                    AirDate = item.Timestamp.DateTime,
-                    Set = string.Empty
-                };
+                jobs.Add(job);
             }
-
-            jobs.Add(downloadJob);
         }
 
         return jobs;
+    }
+
+    /// <summary>
+    /// Builds the download job for a single main item, optionally with grouped-in secondary-audio
+    /// siblings from <see cref="AudioVariantGroupingService"/>.
+    /// </summary>
+    /// <returns>The built job, or null if paths/URL resolution failed and the item should be skipped.</returns>
+    private async Task<DownloadJob?> BuildDownloadJobAsync(
+        Subscription subscription,
+        bool downloadSubtitles,
+        ResultItemDto item,
+        VideoInfo tempVideoInfo,
+        IReadOnlyList<AudioVariantSecondary> crossResultSecondaries,
+        CancellationToken cancellationToken)
+    {
+        var paths = _fileNameBuilderService.GenerateDownloadPaths(tempVideoInfo, subscription, DownloadContext.Subscription);
+        if (!paths.IsValid)
+        {
+            return null;
+        }
+
+        string? videoUrl = await GetUrlCandidate(item, subscription, cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(videoUrl))
+        {
+            return null;
+        }
+
+        // Download Task
+        var downloadJob = new DownloadJob { ItemId = item.Id, Title = tempVideoInfo.Title, ItemInfo = tempVideoInfo };
+
+        // Video/Main Item
+        switch (paths.MainType)
+        {
+            case FileType.Strm:
+                downloadJob.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.StreamingUrl });
+                break;
+            case FileType.Video:
+                downloadJob.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.FFmpegDownload, CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels });
+
+                if (subscription.Download.DetectUndetectedSecondaryAudio)
+                {
+                    foreach (var candidate in SecondaryAudioUrlHelper.DetectCandidates(videoUrl))
+                    {
+                        if (!SecondaryAudioUrlHelper.IsKindEnabled(subscription.Download, candidate.Kind))
+                        {
+                            continue;
+                        }
+
+                        var isOriginalVersion = candidate.Kind == SecondaryAudioKind.OriginalVersion;
+                        string? candidateLang;
+                        if (isOriginalVersion && subscription.Download.ResolveOriginalVersionLanguage)
+                        {
+                            _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
+                            candidateLang = (await _originalVersionLanguageResolver.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken).ConfigureAwait(false)) ?? candidate.LanguageCode;
+                        }
+                        else
+                        {
+                            candidateLang = candidate.LanguageCode;
+                        }
+
+                        // Standalone file next to the main video, e.g. "Title.eng.mka" or "Title [AD].deu.mka" -
+                        // same naming convention already used for secondary-language items found via the API,
+                        // and self-contained (no dependency on any other job finishing first).
+                        var kindTag = candidate.Kind == SecondaryAudioKind.AudioDescription ? " [AD]" : string.Empty;
+                        var standaloneDestination = Path.ChangeExtension(paths.MainFilePath, null) + kindTag + "." + candidateLang + ".mka";
+
+                        downloadJob.DownloadItems.Add(new DownloadItem
+                        {
+                            SourceUrl = candidate.Url,
+                            DestinationPath = standaloneDestination,
+                            Language = candidateLang,
+                            IsAudioDescription = candidate.Kind == SecondaryAudioKind.AudioDescription,
+                            CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
+                            JobType = DownloadType.AudioExtraction
+                        });
+                    }
+                }
+
+                if (crossResultSecondaries.Count > 0)
+                {
+                    await AddCrossResultSecondariesAsync(downloadJob, subscription, paths.MainFilePath, crossResultSecondaries, cancellationToken).ConfigureAwait(false);
+                }
+
+                break;
+            case FileType.Audio:
+                // Prefer the broadcaster's own metadata for the real original-version language
+                // (ARD-family stations via the page-gateway API, arte via its player-config API),
+                // falling back to the title-parsed language (set via job.ItemInfo) for broadcasters
+                // with no known resolver (ZDF, 3sat - which already tag the real language in the
+                // title text directly, so there's nothing to resolve) or for audio-description
+                // items, where a language lookup doesn't apply.
+                var resolvedLang = (tempVideoInfo.HasAudiodescription || !subscription.Download.ResolveOriginalVersionLanguage)
+                    ? null
+                    : await _originalVersionLanguageResolver
+                        .TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken)
+                        .ConfigureAwait(false);
+
+                downloadJob.DownloadItems.Add(new DownloadItem
+                {
+                    SourceUrl = videoUrl,
+                    DestinationPath = paths.MainFilePath,
+                    Language = resolvedLang,
+                    CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
+                    JobType = DownloadType.AudioExtraction
+                });
+
+                if (crossResultSecondaries.Count > 0)
+                {
+                    await AddCrossResultSecondariesAsync(downloadJob, subscription, paths.MainFilePath, crossResultSecondaries, cancellationToken).ConfigureAwait(false);
+                }
+
+                break;
+            // Subtitles are downloaded separately.
+            case FileType.Subtitle:
+            default:
+                _logger.LogError("Unknown file type '{FileType}'.", paths.MainType);
+                break;
+        }
+
+        // Subtitle Item
+        if (downloadSubtitles)
+        {
+            foreach (var sub in item.SubtitleUrls)
+            {
+                if (sub.Type == SubtitleType.Unknown)
+                {
+                    continue;
+                }
+
+                string subPath = paths.SubtitleFilePath;
+                if (sub.Type == SubtitleType.WEBVTT)
+                {
+                    subPath = Path.ChangeExtension(subPath, ".vtt");
+                }
+
+                downloadJob.DownloadItems.Add(new DownloadItem { SourceUrl = sub.Url, DestinationPath = subPath, JobType = DownloadType.SubtitleDownload });
+            }
+        }
+
+        if (subscription.Metadata.CreateNfo)
+        {
+            var topic = string.IsNullOrWhiteSpace(subscription.Name) ? item.Topic : subscription.Name;
+
+            downloadJob.NfoMetadata = new NfoDTO()
+            {
+                Title = tempVideoInfo.Title,
+                Description = item.Description,
+                Show = tempVideoInfo.SeasonNumber.HasValue ? topic : string.Empty,
+                Season = tempVideoInfo.SeasonNumber,
+                Episode = tempVideoInfo.EpisodeNumber,
+                Id = item.Id,
+                FilePath = paths.NfoFilePath,
+                Studio = item.Channel,
+                RunTime = item.Duration,
+                AirDate = item.Timestamp.DateTime,
+                Set = string.Empty
+            };
+        }
+
+        return downloadJob;
+    }
+
+    /// <summary>
+    /// Adds sibling rows grouped in by <see cref="AudioVariantGroupingService"/> as standalone
+    /// secondary-audio files, resolving each sibling's own video URL individually since it's a
+    /// distinct search result with its own quality URLs, not a derived variant of the main URL.
+    /// </summary>
+    private async Task AddCrossResultSecondariesAsync(
+        DownloadJob downloadJob,
+        Subscription subscription,
+        string mainFilePath,
+        IReadOnlyList<AudioVariantSecondary> secondaries,
+        CancellationToken cancellationToken)
+    {
+        foreach (var secondary in secondaries)
+        {
+            if (!SecondaryAudioUrlHelper.IsKindEnabled(subscription.Download, secondary.Kind))
+            {
+                continue;
+            }
+
+            var secondaryUrl = await GetUrlCandidate(secondary.Item, subscription, cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(secondaryUrl))
+            {
+                _logger.LogWarning("Could not resolve a video URL for grouped audio-variant sibling '{Title}' (ID: {Id}); skipping this track.", secondary.Item.Title, secondary.Item.Id);
+                continue;
+            }
+
+            var lang = string.IsNullOrWhiteSpace(secondary.VideoInfo.Language) ? "und" : secondary.VideoInfo.Language;
+            var kindTag = secondary.Kind == SecondaryAudioKind.AudioDescription ? " [AD]" : string.Empty;
+            var standaloneDestination = Path.ChangeExtension(mainFilePath, null) + kindTag + "." + lang + ".mka";
+
+            downloadJob.DownloadItems.Add(new DownloadItem
+            {
+                SourceUrl = secondaryUrl,
+                DestinationPath = standaloneDestination,
+                Language = lang,
+                IsAudioDescription = secondary.Kind == SecondaryAudioKind.AudioDescription,
+                CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
+                JobType = DownloadType.AudioExtraction,
+                SourceItemId = secondary.Item.Id
+            });
+        }
     }
 
     /// <inheritdoc/>

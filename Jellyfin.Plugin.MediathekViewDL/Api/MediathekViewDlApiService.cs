@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -248,6 +249,7 @@ public class MediathekViewDlApiService : ControllerBase
         job.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.FFmpegDownload, CleanAudioTrackLabel = config.SubscriptionDefaults.DownloadSettings.CleanAudioTrackLabels });
 
         await AddDetectedSecondaryAudioItemsAsync(job, item, videoUrl, paths.MainFilePath, config.SubscriptionDefaults.DownloadSettings).ConfigureAwait(false);
+        await AddCrossResultAudioVariantItemsAsync(job, item, videoInfo, paths.MainFilePath, config.SubscriptionDefaults.DownloadSettings, HttpContext.RequestAborted).ConfigureAwait(false);
 
         var subtitle = item.GetSubtitle();
         if (config.Download.DownloadSubtitles && !string.IsNullOrWhiteSpace(subtitle?.Url))
@@ -348,6 +350,7 @@ public class MediathekViewDlApiService : ControllerBase
         else
         {
             await AddDetectedSecondaryAudioItemsAsync(job, item, videoUrl, videoDestinationPath, config.SubscriptionDefaults.DownloadSettings).ConfigureAwait(false);
+            await AddCrossResultAudioVariantItemsAsync(job, item, videoInfo, videoDestinationPath, config.SubscriptionDefaults.DownloadSettings, HttpContext.RequestAborted).ConfigureAwait(false);
         }
 
         var subtitle = item.GetSubtitle();
@@ -502,6 +505,127 @@ public class MediathekViewDlApiService : ControllerBase
                 IsAudioDescription = candidate.Kind == SecondaryAudioKind.AudioDescription,
                 CleanAudioTrackLabel = downloadSettings.CleanAudioTrackLabels,
                 JobType = DownloadType.AudioExtraction
+            });
+        }
+    }
+
+    /// <summary>
+    /// Looks up other MediathekViewWeb search results for the same topic, groups them against the
+    /// item being manually downloaded via <see cref="AudioVariantGroupingService"/>, and queues any
+    /// sibling found to represent the same episode with a different audio track (e.g. arte's
+    /// "ARTE.DE"/"ARTE.FR" channel split, ZDF/ZDFneo/3sat's per-language rows) as a standalone
+    /// secondary-audio file next to the main video - the manual-download counterpart of
+    /// <see cref="SubscriptionProcessor"/>'s subscription-time grouping, since a single manual
+    /// download has no pre-fetched result list of its own to group against.
+    /// </summary>
+    /// <param name="job">The download job to add grouped-in items to.</param>
+    /// <param name="item">The item being downloaded.</param>
+    /// <param name="videoInfo">The parsed video info for <paramref name="item"/>.</param>
+    /// <param name="mainFilePath">The destination path of the main video file.</param>
+    /// <param name="downloadSettings">The download settings that decide whether this is enabled and which kinds are allowed.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task that completes once all grouped-in items have been queued.</returns>
+    private async Task AddCrossResultAudioVariantItemsAsync(
+        DownloadJob job,
+        ResultItemDto item,
+        VideoInfo videoInfo,
+        string mainFilePath,
+        BaseDownloadSettings downloadSettings,
+        CancellationToken cancellationToken)
+    {
+        if (!downloadSettings.DetectCrossResultAudioVariants || string.IsNullOrWhiteSpace(item.Topic))
+        {
+            return;
+        }
+
+        var query = new ApiQueryDto
+        {
+            Queries = new Collection<QueryFieldsDto>
+            {
+                new() { Fields = new Collection<QueryFieldType> { QueryFieldType.Topic }, Query = item.Topic }
+            },
+            Size = 50,
+            MinBroadcastDate = item.Timestamp.AddHours(-48),
+            MaxBroadcastDate = item.Timestamp.AddHours(48),
+        };
+
+        QueryResultDto result;
+        try
+        {
+            result = await _apiClient.SearchAsync(query, cancellationToken).ConfigureAwait(false);
+        }
+        catch (MediathekException ex)
+        {
+            _logger.LogWarning(ex, "Could not look up sibling audio-variant results for '{Title}'.", item.Title);
+            return;
+        }
+
+        var candidates = new List<(ResultItemDto Item, VideoInfo VideoInfo)> { (item, videoInfo) };
+        foreach (var candidateItem in result.Results)
+        {
+            if (candidateItem.Id == item.Id)
+            {
+                continue;
+            }
+
+            var candidateInfo = _videoParser.ParseVideoInfo(item.Topic, candidateItem.Title, candidateItem.Channel);
+            if (candidateInfo == null)
+            {
+                continue;
+            }
+
+            if (candidateInfo.Language == "und" && downloadSettings.ResolveOriginalVersionLanguage)
+            {
+                candidateInfo.Language = (await _originalVersionLanguageResolver
+                    .TryGetOriginalVersionLanguageAsync(candidateItem.UrlWebsite, cancellationToken)
+                    .ConfigureAwait(false)) ?? candidateInfo.Language;
+            }
+
+            candidates.Add((candidateItem, candidateInfo));
+        }
+
+        var group = AudioVariantGroupingService.GroupByEpisode(candidates)
+            .FirstOrDefault(g => g.MainItem.Id == item.Id || g.Secondaries.Any(s => s.Item.Id == item.Id));
+        if (group == null || group.Secondaries.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var secondary in group.Secondaries)
+        {
+            // The item being manually downloaded might itself have been grouped as a secondary of a
+            // different sibling (e.g. the user picked the arte OV row directly) - only add the *other*
+            // siblings, never re-add the item that's already the job's own main track.
+            if (secondary.Item.Id == item.Id)
+            {
+                continue;
+            }
+
+            if (!SecondaryAudioUrlHelper.IsKindEnabled(downloadSettings, secondary.Kind))
+            {
+                continue;
+            }
+
+            var secondaryUrl = secondary.Item.GetVideoByQuality()?.Url;
+            if (string.IsNullOrWhiteSpace(secondaryUrl))
+            {
+                _logger.LogWarning("Could not resolve a video URL for grouped audio-variant sibling '{Title}' (ID: {Id}); skipping this track.", secondary.Item.Title, secondary.Item.Id);
+                continue;
+            }
+
+            var lang = string.IsNullOrWhiteSpace(secondary.VideoInfo.Language) ? "und" : secondary.VideoInfo.Language;
+            var kindTag = secondary.Kind == SecondaryAudioKind.AudioDescription ? " [AD]" : string.Empty;
+            var standaloneDestination = Path.ChangeExtension(mainFilePath, null) + kindTag + "." + lang + ".mka";
+
+            job.DownloadItems.Add(new DownloadItem
+            {
+                SourceUrl = secondaryUrl,
+                DestinationPath = standaloneDestination,
+                Language = lang,
+                IsAudioDescription = secondary.Kind == SecondaryAudioKind.AudioDescription,
+                CleanAudioTrackLabel = downloadSettings.CleanAudioTrackLabels,
+                JobType = DownloadType.AudioExtraction,
+                SourceItemId = secondary.Item.Id
             });
         }
     }
