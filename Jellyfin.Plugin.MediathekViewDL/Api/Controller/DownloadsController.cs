@@ -277,7 +277,7 @@ public class DownloadsController : ControllerBase
             MediaMetadata = MediaMetadataFactory.Create(item, videoUrl, subtitleUrl, videoInfo),
         };
 
-        job.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.FFmpegDownload });
+        job.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.FFmpegDownload, CleanAudioTrackLabel = config.SubscriptionDefaults.DownloadSettings.CleanAudioTrackLabels });
 
         await AddDetectedSecondaryAudioItemsAsync(job, item, videoUrl, paths.MainFilePath, config.SubscriptionDefaults.DownloadSettings).ConfigureAwait(false);
 
@@ -368,7 +368,7 @@ public class DownloadsController : ControllerBase
             MediaMetadata = MediaMetadataFactory.Create(item, videoUrl, subtitleUrl, videoInfo),
         };
 
-        job.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = videoDestinationPath, JobType = DownloadType.FFmpegDownload });
+        job.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = videoDestinationPath, JobType = DownloadType.FFmpegDownload, CleanAudioTrackLabel = config.SubscriptionDefaults.DownloadSettings.CleanAudioTrackLabels });
 
         if (!string.IsNullOrWhiteSpace(options.SecondaryAudioUrl))
         {
@@ -379,6 +379,7 @@ public class DownloadsController : ControllerBase
                 SourceUrl = options.SecondaryAudioUrl,
                 DestinationPath = Path.ChangeExtension(videoDestinationPath, null) + "." + manualLang + ".mka",
                 Language = manualLang,
+                CleanAudioTrackLabel = config.SubscriptionDefaults.DownloadSettings.CleanAudioTrackLabels,
                 JobType = DownloadType.AudioExtraction
             });
         }
@@ -458,6 +459,7 @@ public class DownloadsController : ControllerBase
                 DestinationPath = standaloneDestination,
                 Language = candidateLang,
                 IsAudioDescription = candidate.Kind == SecondaryAudioKind.AudioDescription,
+                CleanAudioTrackLabel = downloadSettings.CleanAudioTrackLabels,
                 JobType = DownloadType.AudioExtraction
             });
         }
