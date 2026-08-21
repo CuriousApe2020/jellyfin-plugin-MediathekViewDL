@@ -46,7 +46,7 @@ public class DownloadScheduledTask : IScheduledTask
     public string Key => Constants.GetSchedTaskKey("MediathekAboDownloader");
 
     /// <inheritdoc />
-    public string Category => "Mediathek Downloader";
+    public string Category => "Mediathek Downloader (CuriousApe2020 Fork)";
 
     /// <inheritdoc />
     public string Description => "Sucht nach neuen Inhalten für Abonnements und fügt sie der Download-Warteschlange hinzu.";

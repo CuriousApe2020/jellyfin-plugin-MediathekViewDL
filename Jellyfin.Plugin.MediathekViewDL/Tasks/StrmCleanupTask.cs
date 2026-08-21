@@ -42,7 +42,7 @@ public class StrmCleanupTask : IScheduledTask
     public string Key => "MediathekStrmCleanup";
 
     /// <inheritdoc />
-    public string Category => "Mediathek Downloader";
+    public string Category => "Mediathek Downloader (CuriousApe2020 Fork)";
 
     /// <inheritdoc />
     public string Description => "Überprüft .strm Dateien auf Gültigkeit und löscht verwaiste Links.";

@@ -29,13 +29,13 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     }
 
     /// <inheritdoc />
-    public override string Name => "Mediathek Downloader";
+    public override string Name => "Mediathek Downloader (CuriousApe2020 Fork)";
 
     /// <inheritdoc />
-    public override string Description => "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API.";
+    public override string Description => "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork von CatNoir2006/jellyfin-plugin-MediathekViewDL mit zusätzlichen Funktionen.";
 
     /// <inheritdoc />
-    public override Guid Id => Guid.Parse("a31b415a-5264-419d-b152-8c8192a54994");
+    public override Guid Id => Guid.Parse("b24a1e41-befb-455c-8417-69b89f25c335");
 
     /// <summary>
     /// Gets the current plugin instance.
