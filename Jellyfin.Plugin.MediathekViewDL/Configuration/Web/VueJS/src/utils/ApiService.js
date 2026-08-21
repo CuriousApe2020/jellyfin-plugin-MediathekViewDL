@@ -181,8 +181,8 @@ class ApiService {
     async downloadItem(item) {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/Download')
-        console.log(`📤 POST Download`, item.Title)
+        const url = this.apiClient.getUrl('MediathekViewDL/Downloads')
+        console.log(`📤 POST Downloads`, item.Title)
 
         try {
             const response = await this.apiClient.ajax({
@@ -208,8 +208,8 @@ class ApiService {
     async advancedDownload(options) {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/AdvancedDownload')
-        console.log(`📤 POST AdvancedDownload`, options.FileName)
+        const url = this.apiClient.getUrl('MediathekViewDL/Downloads/Advanced')
+        console.log(`📤 POST Downloads/Advanced`, options.FileName)
 
         try {
             const response = await this.apiClient.ajax({
@@ -560,7 +560,7 @@ class ApiService {
 
     /**
      * Add Live TV Tuner Host
-     * @param {Object} tunerHost 
+     * @param {Object} tunerHost
      */
     async addTunerHost(tunerHost) {
         if (!this.apiClient) throw new Error('ApiClient not available')
@@ -574,8 +574,73 @@ class ApiService {
     }
 
     /**
+     * Get the current Live TV configuration (includes TunerHosts + ListingProviders).
+     * @returns {Promise<Object|null>} Live TV configuration object or null on failure
+     */
+    async getLiveTvConfig() {
+        if (!this.apiClient) throw new Error('ApiClient not available')
+        const url = this.apiClient.getUrl('System/Configuration/livetv')
+        try {
+            const response = await this.apiClient.getJSON(url)
+            return response || null
+        } catch (error) {
+            console.error(`❌ GetLiveTvConfig failed:`, error)
+            return null
+        }
+    }
+
+    /**
+     * Get available server log files
+     * @returns {Promise<Array>} - List of log file info objects
+     */
+    async getServerLogs() {
+        if (!this.apiClient) throw new Error('ApiClient not available')
+
+        const url = this.apiClient.getUrl('System/Logs')
+        console.log(`📥 GET System/Logs`)
+
+        try {
+            const response = await this.apiClient.getJSON(url)
+            console.log(`✅ GetServerLogs success`)
+            return response
+        } catch (error) {
+            console.error(`❌ GetServerLogs failed:`, error)
+            throw error
+        }
+    }
+
+    /**
+     * Get log file content as plain text
+     * @param {string} name - Log file name
+     * @returns {Promise<string>} - Log file content
+     */
+    async getLogFileContent(name) {
+        if (!this.apiClient) throw new Error('ApiClient not available')
+
+        const url = this.apiClient.getUrl('System/Logs/Log?name=' + encodeURIComponent(name))
+        console.log(`📥 GET System/Logs/Log?name=${name}`)
+
+        try {
+            const response = await this.apiClient.ajax({
+                type: 'GET',
+                url: url,
+                dataType: 'text'
+            })
+            console.log(`✅ GetLogFileContent success`)
+
+            if (response && typeof response.text === 'function') {
+                return await response.text()
+            }
+            return response
+        } catch (error) {
+            console.error(`❌ GetLogFileContent failed:`, error)
+            throw error
+        }
+    }
+
+    /**
      * Add Live TV Listing Provider
-     * @param {Object} provider 
+     * @param {Object} provider
      */
     async addListingProvider(provider) {
         if (!this.apiClient) throw new Error('ApiClient not available')

@@ -10,11 +10,13 @@ Dieses Plugin integriert die [MediathekViewWeb-API](https://mediathekviewweb.de/
 
 *   [✨ Features](#-features)
 *   [🚀 Installation](#-installation)
+*   [🧙 Einrichtungs-Assistent](#-einrichtungs-assistent)
 *   [⚙️ Konfiguration & Nutzung](#-konfiguration--nutzung)
     *   [Manuelle Suche](#-manuelle-suche)
     *   [Allgemeine Einstellungen](#-allgemeine-einstellungen)
     *   [Abonnements (Automatische Downloads)](#-abonnements-automatische-downloads)
     *   [Downloads](#-downloads)
+    *   [Logs](#-logs)
 *   [🧠 Funktionsweise](#-funktionsweise)
 *   [❤️ Danksagung & Disclaimer](#-danksagung--disclaimer)
 
@@ -26,7 +28,7 @@ Dieses Plugin integriert die [MediathekViewWeb-API](https://mediathekviewweb.de/
 | :--- | :--- |
 | **🔎 Suche & Abos** | • **Automatische Downloads:** Neue Episoden Ihrer Lieblingssendungen werden sofort geladen.<br>• **Manuelle Suche:** Durchsuchen Sie die gesamte Mediathek direkt in Jellyfin.<br>• **Smart Filters:** Filtern nach Thema, Sender oder Titel. |
 | **💾 Download-Manager** | • **Zentrale Übersicht:** Neuer Tab für aktive Downloads, Historie und Warteschlange.<br>• **Kontrolle:** Downloads pausieren, abbrechen oder priorisieren.<br>• **Duplikat-Schutz:** Eine lokale Datenbank verhindert doppelte Downloads. |
-| **📂 Organisation** | • **Metadaten (NFO):** Generiert NFO-Dateien für perfekte Integration in Jellyfin/Kodi.<br>• **Streaming (.strm):** Optional nur verknüpfen statt herunterladen (spart Speicher).<br>• **Extras:** Separate Steuerung für Trailer, Interviews und Bonusmaterial. |
+| **📂 Organisation** | • **Metadaten (NFO):** Generiert NFO-Dateien für perfekte Integration in Jellyfin/Kodi.<br>• **Streaming (.strm):** Optional nur verknüpfen statt herunterladen (spart Speicher).<br>• **Extras:** Separate Steuerung für Trailer, Interviews und Bonusmaterial.<br>• **MediathekViewDL-Metadaten:** Betten einen JSON-Block mit ID, Download-URL, Video-URLs, Untertitel-URL, Originaltitel, Original-Topic, Staffel-/Episodennummer (sowie absoluter Episodennummer) und Beschreibung in `.mkv`-Dateien (Matroska via ffmpeg) bzw. als Kommentar in `.strm`-Dateien ein. |
 
 ---
 
@@ -65,6 +67,22 @@ Die einfachste Methode. Updates erfolgen automatisch über Jellyfin.
     *   Kopieren Sie **alle Dateien** aus `bin/Debug/net9.0` (oder `Release`) in diesen Ordner.
 4.  **Neustart:** Starten Sie den Jellyfin-Server neu.
 </details>
+
+---
+
+## 🧙 Einrichtungs-Assistent
+
+Bei einer **Neuinstallation** öffnet sich nach dem ersten Aufruf der Konfigurationsseite automatisch ein Einrichtungs-Assistent, der Sie in sieben kurzen Schritten durch die wichtigsten Einstellungen führt:
+
+1. **Willkommen** – Kurze Einführung in das Plugin.
+2. **Standard-Pfade** – Legen Sie fest, wo Serien, Filme und ggf. temporäre Downloads gespeichert werden.
+3. **Speicher sparen** – Wählen Sie, ob neue Abos standardmäßig als `.strm`-Streamlinks statt als kompletter Videodatei gespeichert werden sollen (spart Speicher, benötigt aber Internet beim Abspielen).
+4. **Live-TV (optional)** – Fügt den Zapp Tuner und/oder den Zapp Guide-Provider zur Jellyfin-Live-TV-Verwaltung hinzu.
+5. **Erstes Abo (optional)** – Legt direkt ein erstes Abonnement mit Sender und Suchbegriff an.
+6. **Tab-Tour** – Erklärt die fünf Tabs der Konfigurationsseite (Suche, Einstellungen, Abos, Downloads, Logs).
+7. **Fertig** – Speichert den Status und schließt den Assistenten.
+
+Den Assistenten können Sie jederzeit über die Schaltfläche **🧙 Einrichtungs-Assistent** im Kopfbereich der Konfigurationsseite erneut starten – auch nachdem Sie ihn bereits abgeschlossen oder übersprungen haben. Der Status wird in der Plugin-Konfiguration (`WizardCompleted`) gespeichert.
 
 ---
 
@@ -166,6 +184,26 @@ Behalten Sie den Überblick über laufende und vergangene Downloads.
 *   **Aktive Downloads:** Zeigt den aktuellen Fortschritt, Status und Geschwindigkeit. Laufende Downloads können hier abgebrochen werden.
 *   **Historie:** Eine Liste der erfolgreich abgeschlossenen Downloads.
 
+### 📋 Logs
+(Tab: *Logs*)
+
+Zeigt die Server-Logs an, gefiltert auf Plugin-Einträge.
+
+<details>
+<summary><strong>🔽 Logs Ansicht (Bild)</strong></summary>
+<br>
+
+<img src="Images/Logs.png" width="800" alt="Logs Übersicht">
+</details>
+
+*   **Log-Datei Auswahl:** Wählen Sie eine beliebige Log-Datei aus dem Dropdown (sortiert nach Änderungsdatum).
+*   **Nur MediathekViewDL:** Standardmäßig aktiv — filtert Einträge, die den Plugin-Namespace enthalten.
+*   **Suche:** Durchsuchen Sie die geladenen Einträge (case-insensitive). Mit der Regex-Checkbox können reguläre Ausdrücke verwendet werden.
+*   **Auto-Scroll:** Hält den automatischen Scroll nach unten beim Aktualisieren bei.
+*   **Auto-Update (5s):** Aktualisiert den Log-Inhalt alle 5 Sekunden automatisch.
+*   **Kopieren:** Kopiert alle sichtbaren (gefilterten) Einträge in die Zwischenablage.
+*   **Doppelklick:** Kopiert einen einzelnen Log-Eintrag (inkl. Stack-Trace) in die Zwischenablage.
+
 ---
 
 ## ❤️ Danksagung & Disclaimer
@@ -175,5 +213,4 @@ Behalten Sie den Überblick über laufende und vergangene Downloads.
 
 ---
 ## Letze Anpassung der Readme
-* Plugin: v0.8.0.2
-* Commit: ed5e38e5ca20855789e4d3a869e3ba36a0273aa5
+* Plugin: v0.8.0.3

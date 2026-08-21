@@ -1,12 +1,14 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import ApiService from '../utils/ApiService'
 import { SubscriptionFactory } from '../utils/SubscriptionFactory'
 import SearchTab from './tabs/SearchTab.vue'
 import SettingsTab from './tabs/SettingsTab.vue'
 import SubscriptionsTab from './tabs/SubscriptionsTab.vue'
 import DownloadsTab from './tabs/DownloadsTab.vue'
+import LogsTab from './tabs/LogsTab.vue'
 import SubscriptionEditor from './SubscriptionEditor.vue'
+import SetupWizard from './SetupWizard.vue'
 
 const Dashboard = window.Dashboard ?? null
 const PLUGIN_ID = 'a31b415a-5264-419d-b152-8c8192a54994'
@@ -21,9 +23,43 @@ const testResults = ref([])
 const testLoading = ref(false)
 const subscriptionsTabRef = ref(null)
 
+// Setup Wizard State
+const showWizard = ref(false)
+const wizardRef = ref(null)
+const wizardAutoTriggered = ref(false)
+
 async function fetchConfig() {
   if (!ApiClient) return
   pluginConfig.value = await ApiClient.getPluginConfiguration(PLUGIN_ID)
+  maybeAutoShowWizard()
+}
+
+function isPathsEmpty(paths) {
+  if (!paths) return true
+  return !paths.DefaultDownloadPath &&
+         !paths.DefaultSubscriptionShowPath &&
+         !paths.DefaultSubscriptionMoviePath &&
+         !paths.DefaultManualShowPath &&
+         !paths.DefaultManualMoviePath &&
+         !paths.TempDownloadPath &&
+         !paths.UseTopicForMoviePath
+}
+
+const isFreshInstall = computed(() => {
+  const cfg = pluginConfig.value
+  if (!cfg) return false
+  if (cfg.WizardCompleted) return false
+  if (!isPathsEmpty(cfg.Paths)) return false
+  if (cfg.Subscriptions && cfg.Subscriptions.length > 0) return false
+  return true
+})
+
+function maybeAutoShowWizard() {
+  if (wizardAutoTriggered.value) return
+  if (isFreshInstall.value) {
+    wizardAutoTriggered.value = true
+    showWizard.value = true
+  }
 }
 
 function openEditor(subData = null) {
@@ -41,13 +77,23 @@ async function saveSubscription(sub) {
      await ApiService.saveSubscription(sub)
      editingSub.value = null
      if (Dashboard) Dashboard.alert('Abonnement gespeichert.')
-     // Refresh subscriptions tab
+     // Ensure Abos tab is mounted before refreshing
+     currentTab.value = 'subscriptions'
+     await nextTick()
      if (subscriptionsTabRef.value) {
        subscriptionsTabRef.value.refresh()
      }
   } catch (e) {
     console.error('Save failed', e)
     if (Dashboard) Dashboard.alert('Fehler beim Speichern des Abonnements.')
+  }
+}
+
+async function onWizardSubscriptionCreated() {
+  currentTab.value = 'subscriptions'
+  await nextTick()
+  if (subscriptionsTabRef.value) {
+    subscriptionsTabRef.value.refresh()
   }
 }
 
@@ -73,6 +119,60 @@ async function testSubscription(sub) {
   }
 }
 
+async function persistWizardResult(payload = {}) {
+  const { skipped, paths, defaults } = payload
+  try {
+    // Refresh config first so any subscription created in the wizard is included.
+    // updatePluginConfig replaces the full config on the server, so we must
+    // send the up-to-date Subscriptions collection.
+    await fetchConfig()
+    const cfg = pluginConfig.value ? { ...pluginConfig.value } : {}
+    if (paths) {
+      cfg.Paths = cfg.Paths || {}
+      if (paths.DefaultSubscriptionShowPath !== undefined) cfg.Paths.DefaultSubscriptionShowPath = paths.DefaultSubscriptionShowPath
+      if (paths.DefaultSubscriptionMoviePath !== undefined) cfg.Paths.DefaultSubscriptionMoviePath = paths.DefaultSubscriptionMoviePath
+      if (paths.DefaultManualShowPath !== undefined) cfg.Paths.DefaultManualShowPath = paths.DefaultManualShowPath
+      if (paths.DefaultManualMoviePath !== undefined) cfg.Paths.DefaultManualMoviePath = paths.DefaultManualMoviePath
+      if (paths.TempDownloadPath !== undefined) cfg.Paths.TempDownloadPath = paths.TempDownloadPath
+    }
+    if (defaults) {
+      cfg.SubscriptionDefaults = cfg.SubscriptionDefaults || {}
+      cfg.SubscriptionDefaults.DownloadSettings = cfg.SubscriptionDefaults.DownloadSettings || {}
+      if (defaults.UseStreamingUrlFiles !== undefined) {
+        cfg.SubscriptionDefaults.DownloadSettings.UseStreamingUrlFiles = defaults.UseStreamingUrlFiles
+      }
+    }
+    cfg.WizardCompleted = true
+    await ApiService.updatePluginConfig(PLUGIN_ID, cfg)
+    // Refresh local state so the wizard doesn't auto-open again on next mount
+    if (pluginConfig.value) {
+      pluginConfig.value.WizardCompleted = true
+      if (cfg.Paths) pluginConfig.value.Paths = { ...pluginConfig.value.Paths, ...cfg.Paths }
+      if (cfg.SubscriptionDefaults) {
+        pluginConfig.value.SubscriptionDefaults = pluginConfig.value.SubscriptionDefaults || {}
+        pluginConfig.value.SubscriptionDefaults.DownloadSettings = {
+          ...(pluginConfig.value.SubscriptionDefaults.DownloadSettings || {}),
+          ...(cfg.SubscriptionDefaults.DownloadSettings || {})
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Failed to persist wizard state', e)
+    if (Dashboard) Dashboard.alert('Fehler beim Speichern des Assistenten-Status.')
+  }
+  showWizard.value = false
+  // notify subscriptions tab in case wizard created one
+  if (subscriptionsTabRef.value) {
+    subscriptionsTabRef.value.refresh()
+  }
+  // Avoid unused-var lint
+  void skipped
+}
+
+async function openWizardManually() {
+  showWizard.value = true
+}
+
 onMounted(() => {
   fetchConfig()
 })
@@ -82,6 +182,10 @@ onMounted(() => {
   <div class="plugin-config">
     <header class="config-header">
       <h1 class="config-title">MediathekViewDL</h1>
+      <button class="btn btn-secondary btn-sm wizard-restart-btn" @click="openWizardManually"
+        title="Einrichtungs-Assistenten erneut starten" data-testid="wizard-restart-btn">
+        🧙 Einrichtungs-Assistent
+      </button>
     </header>
 
     <div class="tab-row">
@@ -89,6 +193,7 @@ onMounted(() => {
       <button class="tab-btn" :class="{ active: currentTab === 'settings' }" @click="currentTab = 'settings'">Einstellungen</button>
       <button class="tab-btn" :class="{ active: currentTab === 'subscriptions' }" @click="currentTab = 'subscriptions'">Abos</button>
       <button class="tab-btn" :class="{ active: currentTab === 'downloads' }" @click="currentTab = 'downloads'">Downloads</button>
+      <button class="tab-btn" :class="{ active: currentTab === 'logs' }" @click="currentTab = 'logs'">Logs</button>
     </div>
 
     <div class="tab-content">
@@ -96,6 +201,7 @@ onMounted(() => {
       <SettingsTab v-if="currentTab === 'settings'" @config-saved="fetchConfig" />
       <SubscriptionsTab ref="subscriptionsTabRef" v-if="currentTab === 'subscriptions'" :on-edit="openEditor" />
       <DownloadsTab v-if="currentTab === 'downloads'" />
+      <LogsTab v-if="currentTab === 'logs'" />
     </div>
 
     <!-- Shared Subscription Editor -->
@@ -107,6 +213,10 @@ onMounted(() => {
         @cancel="editingSub = null"
       />
     </Teleport>
+
+    <!-- Setup Wizard -->
+    <SetupWizard ref="wizardRef" :open="showWizard" :plugin-config="pluginConfig"
+      @close="persistWizardResult" @subscription-created="onWizardSubscriptionCreated" />
 
     <!-- Shared Test Results Modal -->
     <Teleport to="body">
@@ -144,7 +254,17 @@ onMounted(() => {
 
 <style scoped>
 .plugin-config { width: 100%; margin: 0 auto; padding: 1rem; color: #e4e4e7; box-sizing: border-box; }
-.config-header { margin-bottom: 2rem; }
+.config-header {
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.wizard-restart-btn {
+  white-space: nowrap;
+}
 .tab-row { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
 .tab-btn { background: none; border: none; color: #a1a1aa; cursor: pointer; padding: 10px; font-weight: 600; }
 .tab-btn.active { color: #7c3aed; border-bottom: 2px solid #7c3aed; }
