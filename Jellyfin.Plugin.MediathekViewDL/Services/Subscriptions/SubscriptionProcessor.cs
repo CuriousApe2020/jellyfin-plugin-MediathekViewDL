@@ -131,7 +131,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                 continue;
             }
 
-            var tempVideoInfo = _videoParser.ParseVideoInfo(subscription.Name, item.Title);
+            var tempVideoInfo = _videoParser.ParseVideoInfo(subscription.Name, item.Title, item.Channel);
             if (tempVideoInfo != null && subscription.Metadata.KeepOriginalTitle)
             {
                 tempVideoInfo.Title = item.Title;

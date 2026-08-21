@@ -48,7 +48,7 @@ public class ItemsController : ControllerBase
     {
         try
         {
-            var parsed = _videoParser.ParseVideoInfo(item.Topic, item.Title);
+            var parsed = _videoParser.ParseVideoInfo(item.Topic, item.Title, item.Channel);
             if (parsed == null)
             {
                 _logger.LogError("Could not parse the Item: {Item}", item);
