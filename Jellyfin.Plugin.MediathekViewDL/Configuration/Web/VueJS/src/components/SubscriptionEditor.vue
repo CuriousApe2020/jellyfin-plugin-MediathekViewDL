@@ -269,6 +269,12 @@ function updateDate(target, field, value) {
                     </div>
                     <div class="checkbox-field">
                         <label>
+                            <input v-model="editedSub.Download.ResolveOriginalVersionLanguage" type="checkbox"> Echte Sprache der Originalversion ermitteln
+                        </label>
+                        <p class="field-desc">Fragt die eigene API des jeweiligen Senders (aktuell ARD und arte) nach der tatsächlich gesprochenen Sprache einer "Originalversion"-Tonspur ab, statt sie mit dem generischen Platzhalter "und" (unbestimmt) zu kennzeichnen. Gilt sowohl für über die URL erkannte Tonspuren als auch für Originalversion-Titel, die MediathekView bereits als eigenen Suchtreffer anzeigt.</p>
+                    </div>
+                    <div class="checkbox-field">
+                        <label>
                             <input v-model="editedSub.Download.AlwaysCreateSubfolder" type="checkbox"> Unterordner für dieses Abo erstellen
                         </label>
                         <p class="field-desc">Erstellt immer einen Unterordner mit dem Namen des Abonnements, auch wenn es sich um Filme handelt und die globale Einstellung "Beim Film Downloads Ordner für das Thema erstellen" deaktiviert ist.</p>

@@ -66,6 +66,11 @@ public record ResultItemDto
     public required IReadOnlyList<ExternalId> ExternalIds { get; init; }
 
     /// <summary>
+    /// Gets the URL of the item's page on the broadcaster's website (e.g. ardmediathek.de).
+    /// </summary>
+    public string? UrlWebsite { get; init; }
+
+    /// <summary>
     /// Retrieves the preferred subtitle URL based on type priority.
     /// </summary>
     /// <returns>The Subtitle.</returns>

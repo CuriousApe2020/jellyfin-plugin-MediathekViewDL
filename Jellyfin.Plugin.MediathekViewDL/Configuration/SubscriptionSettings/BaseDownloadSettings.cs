@@ -45,6 +45,15 @@ public record BaseDownloadSettings
     public bool DownloadClearSpeechAudio { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether to resolve the real spoken language of an "Originalversion"
+    /// audio track via the broadcaster's own API (currently ARD's page-gateway API and arte's
+    /// player-config API), instead of tagging it with the generic "und" placeholder. Applies both to
+    /// tracks found via <see cref="DetectUndetectedSecondaryAudio"/> and to items MediathekViewWeb's
+    /// search API already returns as a distinct, title-marked original-version result.
+    /// </summary>
+    public bool ResolveOriginalVersionLanguage { get; init; } = true;
+
+    /// <summary>
     /// Gets a value indicating whether to allow falling back to lower quality versions
     /// if HD version is not available.
     /// </summary>

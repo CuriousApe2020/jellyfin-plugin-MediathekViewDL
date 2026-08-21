@@ -156,7 +156,8 @@ public static class DtoConverter
             Size = resultItem.Size,
             VideoUrls = videoUrls,
             SubtitleUrls = subtitleUrls,
-            ExternalIds = new List<ExternalId>() // Populate if available, currently not provided by API (ZDF has IMDb, but it's not contained in MediathekViewApi)
+            ExternalIds = new List<ExternalId>(), // Populate if available, currently not provided by API (ZDF has IMDb, but it's not contained in MediathekViewApi)
+            UrlWebsite = resultItem.UrlWebsite,
         };
     }
 
