@@ -237,7 +237,7 @@ public class DownloadsController : ControllerBase
             return BadRequest(new ApiErrorDto(ApiErrorId.InvalidItem, "Ungültiges Element für den Download bereitgestellt (keine Video-URL)."));
         }
 
-        var videoInfo = _videoParser.ParseVideoInfo(item.Topic, item.Title);
+        var videoInfo = _videoParser.ParseVideoInfo(item.Topic, item.Title, item.Channel);
         if (videoInfo == null)
         {
             _logger.LogError("Could not parse video info for item: {Title}", item.Title);
@@ -332,7 +332,7 @@ public class DownloadsController : ControllerBase
             return BadRequest(new ApiErrorDto(ApiErrorId.InvalidFilename, "Der Dateiname enthält ungültige Zeichen."));
         }
 
-        var videoInfo = _videoParser.ParseVideoInfo(item.Topic, item.Title);
+        var videoInfo = _videoParser.ParseVideoInfo(item.Topic, item.Title, item.Channel);
         if (videoInfo == null)
         {
             _logger.LogError("Could not parse video info for item: {Title}", item.Title);
