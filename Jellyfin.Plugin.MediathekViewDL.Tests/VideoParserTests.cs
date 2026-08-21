@@ -147,4 +147,22 @@ public class VideoParserTests
         Assert.Equal(isInterview, result.IsInterview);
         Assert.Equal(expectedTitle, result.Title, ignoreCase: true);
     }
+
+    [Theory]
+    [InlineData(null, "deu")]
+    [InlineData("", "deu")]
+    [InlineData("ARD", "deu")]
+    [InlineData("ARTE.DE", "deu")]
+    [InlineData("ARTE.FR", "fra")]
+    [InlineData("arte.fr", "fra")]
+    public void ParseVideoInfo_ShouldPassChannelDefaultLanguageToDetection(string? channel, string expectedDefaultLanguage)
+    {
+        // Act
+        _videoParser.ParseVideoInfo(null, "Irgendein Titel", channel);
+
+        // Assert
+        _mockLanguageDetectionService.Verify(
+            s => s.DetectLanguage("Irgendein Titel", expectedDefaultLanguage),
+            Times.Once);
+    }
 }
