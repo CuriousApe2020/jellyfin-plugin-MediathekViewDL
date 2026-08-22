@@ -1,7 +1,7 @@
 ---
-name: "Mediathek Downloader (CuriousApe2020 Fork)"
+name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "1.2.0.0"
+version: "1.3.0.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,11 +17,8 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Behebt eine kritische Namenskollision mit dem Original-Plugin (CatNoir2006/jellyfin-plugin-MediathekViewDL):
-  die DLL dieses Forks hieß intern noch genauso wie die des Original-Plugins
-  (Jellyfin.Plugin.MediathekViewDL.dll). Jellyfin leitet den Dateinamen der Plugin-Konfiguration
-  (Einstellungen + Abos) vom Assembly-Dateinamen ab, nicht vom Plugin-Namen. Bei gleichzeitiger
-  Installation beider Plugins hätten dadurch beide dieselbe Konfigurationsdatei gelesen und
-  geschrieben und sich so gegenseitig überschrieben. Die DLL heißt jetzt
-  Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.dll.
+  Plugin umbenannt in "CuriousApes-MediathekView-Downloader" (vorher: "Mediathek Downloader
+  (CuriousApe2020 Fork)"). Betrifft den in Jellyfin angezeigten Plugin-Namen sowie die Kategorie-
+  Bezeichnung der beiden Scheduled Tasks. GUID, API-Routen, Assembly-Name und Konfigurationsdatei
+  bleiben unverändert - es handelt sich um eine reine Umbenennung, keine neue Plugin-Identität.
 

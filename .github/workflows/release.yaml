@@ -15,7 +15,7 @@ on:
 env:
   MANIFEST_REPO: 'CuriousApe2020/jellyfin-plugin-manifest'
   PLUGIN_GUID: 'b24a1e41-befb-455c-8417-69b89f25c335'
-  PLUGIN_NAME: 'MediathekViewDL-CuriousApe2020Fork'
+  PLUGIN_NAME: 'CuriousApes-MediathekView-Downloader'
 
 permissions:
   contents: write

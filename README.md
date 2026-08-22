@@ -1,4 +1,4 @@
-# 📺 Jellyfin MediathekViewDL Plugin (CuriousApe2020 Fork)
+# 📺 CuriousApes-MediathekView-Downloader (Jellyfin Plugin)
 
 > Dies ist ein Community-Fork von [CatNoir2006/jellyfin-plugin-MediathekViewDL](https://github.com/CatNoir2006/jellyfin-plugin-MediathekViewDL) mit zusätzlichen Funktionen, die noch nicht (oder noch nicht als Release) im Original-Plugin verfügbar sind, u. a. Erkennung fehlender Tonspuren, Auflösung der echten Originalversion-Sprache (ARD, arte) und Zusammenführung Sender-übergreifender Tonspur-Varianten (arte, ZDF/ZDFneo/3sat). Installiert wird dieser Fork über ein eigenes Repository (siehe [Installation](#-installation)) und läuft unabhängig vom Original-Plugin.
 

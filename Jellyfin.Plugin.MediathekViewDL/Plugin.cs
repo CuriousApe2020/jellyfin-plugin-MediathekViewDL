@@ -29,7 +29,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     }
 
     /// <inheritdoc />
-    public override string Name => "Mediathek Downloader (CuriousApe2020 Fork)";
+    public override string Name => "CuriousApes-MediathekView-Downloader";
 
     /// <inheritdoc />
     public override string Description => "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork von CatNoir2006/jellyfin-plugin-MediathekViewDL mit zusätzlichen Funktionen.";

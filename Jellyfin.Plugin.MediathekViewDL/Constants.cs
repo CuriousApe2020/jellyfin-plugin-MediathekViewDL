@@ -10,7 +10,7 @@ public static class Constants
     /// <summary>
     /// The Category for the Scheduled Tasks of this Plugin.
     /// </summary>
-    public const string SchedTaskCat = "Mediathek Downloader (CuriousApe2020 Fork)";
+    public const string SchedTaskCat = "CuriousApes-MediathekView-Downloader";
 
     /// <summary>
     /// The prefix for channel IDs of channels provided by this plugin.
