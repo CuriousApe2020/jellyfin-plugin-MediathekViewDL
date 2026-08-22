@@ -1,7 +1,7 @@
 ---
 name: "Mediathek Downloader (CuriousApe2020 Fork)"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "1.0.1.0"
+version: "1.1.0.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,5 +17,9 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  changelog
+  Behebt eine Namenskollision mit dem Original-Plugin (CatNoir2006/jellyfin-plugin-MediathekViewDL),
+  falls beide gleichzeitig auf demselben Jellyfin-Server installiert sind: eigene API-Routen
+  (MediathekViewDLFork/...), eigener Vue-Bundle-Dateiname, eigene Scheduled-Task-Keys und eigene
+  Zapp-Kanal-ID-Präfixe. Zuvor konnten beide Plugins um dieselben internen Routen und Task-Keys
+  konkurrieren, wenn sie parallel aktiv waren.
 

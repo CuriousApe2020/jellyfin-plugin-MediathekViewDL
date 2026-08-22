@@ -55,6 +55,6 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             new PluginPageInfo() { Name = Name + "VueJS", EnableInMainMenu = true, EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.Web.configPageVueJS.html", GetType().Namespace) };
 
         yield return
-            new PluginPageInfo { Name = "MediathekViewDLVueJS.js", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.Web.MediathekViewDLVueJS.js", GetType().Namespace) };
+            new PluginPageInfo { Name = "MediathekViewDLForkVueJS.js", EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.Web.MediathekViewDLForkVueJS.js", GetType().Namespace) };
     }
 }

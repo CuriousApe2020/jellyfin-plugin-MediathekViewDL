@@ -39,7 +39,7 @@ public class StrmCleanupTask : IScheduledTask
     public string Name => "Mediathek .strm Bereinigung";
 
     /// <inheritdoc />
-    public string Key => "MediathekStrmCleanup";
+    public string Key => "MediathekStrmCleanupFork";
 
     /// <inheritdoc />
     public string Category => "Mediathek Downloader (CuriousApe2020 Fork)";

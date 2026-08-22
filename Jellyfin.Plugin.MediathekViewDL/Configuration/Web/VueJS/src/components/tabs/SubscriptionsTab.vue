@@ -84,7 +84,7 @@ async function triggerDownloads() {
   loading.value = true
   try {
     const tasks = await ApiService.getScheduledTasks()
-    const task = tasks.find(t => t.Key === 'MediathekViewDL-MediathekAboDownloader')
+    const task = tasks.find(t => t.Key === 'MediathekViewDLFork-MediathekAboDownloader')
 
     if (!task) {
       Dashboard.alert('Scheduled Task "Mediathek Abo-Downloader" wurde nicht gefunden.')

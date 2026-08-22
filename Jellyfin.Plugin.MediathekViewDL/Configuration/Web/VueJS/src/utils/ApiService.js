@@ -36,8 +36,8 @@ class ApiService {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
         const queryString = this.buildQueryParams(filters)
-        const url = this.apiClient.getUrl('MediathekViewDL/Search' + queryString)
-        console.log(`📥 GET MediathekViewDL/Search`, filters)
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Search' + queryString)
+        console.log(`📥 GET MediathekViewDLFork/Search`, filters)
 
         try {
             const response = await this.apiClient.getJSON(url)
@@ -56,7 +56,7 @@ class ApiService {
     async getChannels() {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/Search/Channels')
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Search/Channels')
         console.log(`📥 GET Search/Channels`)
 
         try {
@@ -76,7 +76,7 @@ class ApiService {
     async getTopics() {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/Search/Topics')
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Search/Topics')
         console.log(`📥 GET Search/Topics`)
 
         try {
@@ -98,8 +98,8 @@ class ApiService {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
         const queryString = this.buildQueryParams(params)
-        const url = this.apiClient.getUrl('MediathekViewDL/Search/Criteria' + queryString)
-        console.log(`📥 GET MediathekViewDL/Search/Criteria`, params)
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Search/Criteria' + queryString)
+        console.log(`📥 GET MediathekViewDLFork/Search/Criteria`, params)
 
         try {
             const response = await this.apiClient.getJSON(url)
@@ -119,7 +119,7 @@ class ApiService {
     async parseItem(item) {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/Items/Parse')
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Items/Parse')
         console.log(`📤 POST Items/Parse`, item)
 
         try {
@@ -150,7 +150,7 @@ class ApiService {
     async getRecommendedPath(videoInfo) {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/Items/RecommendedPath')
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Items/RecommendedPath')
         console.log(`📤 POST Items/RecommendedPath`, videoInfo)
 
         try {
@@ -181,7 +181,7 @@ class ApiService {
     async downloadItem(item) {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/Downloads')
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Downloads')
         console.log(`📤 POST Downloads`, item.Title)
 
         try {
@@ -208,7 +208,7 @@ class ApiService {
     async advancedDownload(options) {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/Downloads/Advanced')
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Downloads/Advanced')
         console.log(`📤 POST Downloads/Advanced`, options.FileName)
 
         try {
@@ -234,7 +234,7 @@ class ApiService {
     async getActiveDownloads() {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/Downloads/Active')
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Downloads/Active')
         console.log(`📥 GET Downloads/Active`)
 
         try {
@@ -254,7 +254,7 @@ class ApiService {
     async getDownloadHistory() {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/Downloads/History/Grouped')
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Downloads/History/Grouped')
         console.log(`📥 GET Downloads/History/Grouped`)
 
         try {
@@ -275,7 +275,7 @@ class ApiService {
     async cancelDownload(id) {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/Downloads/' + id)
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Downloads/' + id)
         console.log(`🗑️ DELETE Downloads/${id}`)
 
         try {
@@ -298,7 +298,7 @@ class ApiService {
     async cancelAllDownloads() {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/Downloads')
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Downloads')
         console.log(`🗑️ DELETE Downloads (all)`)
 
         try {
@@ -321,7 +321,7 @@ class ApiService {
     async clearInactiveDownloads() {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/Downloads/ClearInactive')
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Downloads/ClearInactive')
         console.log(`📤 POST Downloads/ClearInactive`)
 
         try {
@@ -344,7 +344,7 @@ class ApiService {
     async getSubscriptions() {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/Subscriptions')
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Subscriptions')
         console.log(`📥 GET Subscriptions`)
 
         try {
@@ -365,7 +365,7 @@ class ApiService {
     async deleteSubscription(id) {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/Subscriptions/' + id)
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Subscriptions/' + id)
         console.log(`🗑️ DELETE Subscriptions/${id}`)
 
         try {
@@ -389,7 +389,7 @@ class ApiService {
     async saveSubscription(sub) {
         if (!this.apiClient) throw new Error('ApiClient not available')
         const isNew = !sub.Id
-        const url = this.apiClient.getUrl('MediathekViewDL/Subscriptions' + (isNew ? '' : '/' + sub.Id))
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Subscriptions' + (isNew ? '' : '/' + sub.Id))
         console.log(`📤 ${isNew ? 'POST' : 'PUT'} Subscriptions`, sub)
         try {
             const response = await this.apiClient.ajax({
@@ -412,7 +412,7 @@ class ApiService {
      */
     async testSubscription(sub) {
         if (!this.apiClient) throw new Error('ApiClient not available')
-        const url = this.apiClient.getUrl('MediathekViewDL/Subscriptions/Test')
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Subscriptions/Test')
         console.log(`📤 POST Subscriptions/Test`, sub)
         try {
             const response = await this.apiClient.ajax({
@@ -437,7 +437,7 @@ class ApiService {
     async resetSubscriptionHistory(id) {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/Subscriptions/' + id + '/ResetHistory')
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Subscriptions/' + id + '/ResetHistory')
         console.log(`📤 POST Subscriptions/${id}/ResetHistory`)
 
         try {
@@ -461,7 +461,7 @@ class ApiService {
     async processSubscription(id) {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/Subscriptions/' + id + '/Process')
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Subscriptions/' + id + '/Process')
         console.log(`📤 POST Subscriptions/${id}/Process`)
 
         try {
@@ -491,7 +491,7 @@ class ApiService {
     async setSubscriptionActive(id, active) {
         if (!this.apiClient) throw new Error('ApiClient not available')
 
-        const url = this.apiClient.getUrl('MediathekViewDL/Subscriptions/' + id + '/Active?active=' + active)
+        const url = this.apiClient.getUrl('MediathekViewDLFork/Subscriptions/' + id + '/Active?active=' + active)
         console.log(`📤 POST Subscriptions/${id}/Active?active=${active}`)
 
         try {

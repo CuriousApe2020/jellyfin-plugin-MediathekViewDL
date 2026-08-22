@@ -40,7 +40,7 @@ export default defineConfig(({ command }) => {
         lib: {
           entry: 'src/main.js',
           formats: ['es'],
-          fileName: () => 'MediathekViewDLVueJS.js'
+          fileName: () => 'MediathekViewDLForkVueJS.js'
         },
         outDir: 'dist',
         emptyOutDir: true

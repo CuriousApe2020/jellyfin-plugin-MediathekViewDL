@@ -11,7 +11,7 @@ import SubscriptionEditor from './SubscriptionEditor.vue'
 import SetupWizard from './SetupWizard.vue'
 
 const Dashboard = window.Dashboard ?? null
-const PLUGIN_ID = 'a31b415a-5264-419d-b152-8c8192a54994'
+const PLUGIN_ID = 'b24a1e41-befb-455c-8417-69b89f25c335'
 
 const currentTab = ref('search')
 const pluginConfig = ref(null)

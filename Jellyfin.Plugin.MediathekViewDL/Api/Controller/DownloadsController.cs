@@ -29,7 +29,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Api.Controller;
 /// The controller for managing downloads.
 /// </summary>
 [ApiController]
-[Route("MediathekViewDL/[controller]")]
+[Route("MediathekViewDLFork/[controller]")]
 [Authorize(Policy = Policies.RequiresElevation)]
 public class DownloadsController : ControllerBase
 {

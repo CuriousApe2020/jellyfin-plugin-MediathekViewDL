@@ -17,7 +17,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Api.Controller;
 /// The Controller for item parsing and path generation.
 /// </summary>
 [ApiController]
-[Route("MediathekViewDL/[controller]")]
+[Route("MediathekViewDLFork/[controller]")]
 [Authorize(Policy = Policies.RequiresElevation)]
 public class ItemsController : ControllerBase
 {

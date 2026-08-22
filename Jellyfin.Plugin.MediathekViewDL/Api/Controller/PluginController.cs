@@ -8,7 +8,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Api.Controller;
 /// The Controller for general plugin endpoints.
 /// </summary>
 [ApiController]
-[Route("MediathekViewDL/[controller]")]
+[Route("MediathekViewDLFork/[controller]")]
 [Authorize(Policy = Policies.RequiresElevation)]
 public class PluginController : ControllerBase
 {

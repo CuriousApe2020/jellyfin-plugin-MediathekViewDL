@@ -18,7 +18,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Api.Controller;
 /// The Controller to search on MediathekView.
 /// </summary>
 [ApiController]
-[Route("MediathekViewDL/[controller]")]
+[Route("MediathekViewDLFork/[controller]")]
 [Authorize(Policy = Policies.RequiresElevation)]
 public class SearchController : ControllerBase
 {

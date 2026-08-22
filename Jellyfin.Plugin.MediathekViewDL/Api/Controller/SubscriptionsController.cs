@@ -19,7 +19,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Api.Controller;
 /// The Controller to manage the Subscriptions.
 /// </summary>
 [ApiController]
-[Route("MediathekViewDL/[controller]")]
+[Route("MediathekViewDLFork/[controller]")]
 [Authorize(Policy = Policies.RequiresElevation)]
 public class SubscriptionsController : ControllerBase
 {
