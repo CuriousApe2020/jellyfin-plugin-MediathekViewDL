@@ -1,7 +1,7 @@
 ---
 name: "Mediathek Downloader (CuriousApe2020 Fork)"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "1.1.0.0"
+version: "1.2.0.0"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -13,13 +13,15 @@ description: >
 category: "General"
 owner: "CuriousApe2020"
 artifacts:
-- "Jellyfin.Plugin.MediathekViewDL.dll"
+- "Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.dll"
 - "FuzzySharp.dll"
 
 changelog: >
-  Behebt eine Namenskollision mit dem Original-Plugin (CatNoir2006/jellyfin-plugin-MediathekViewDL),
-  falls beide gleichzeitig auf demselben Jellyfin-Server installiert sind: eigene API-Routen
-  (MediathekViewDLFork/...), eigener Vue-Bundle-Dateiname, eigene Scheduled-Task-Keys und eigene
-  Zapp-Kanal-ID-Präfixe. Zuvor konnten beide Plugins um dieselben internen Routen und Task-Keys
-  konkurrieren, wenn sie parallel aktiv waren.
+  Behebt eine kritische Namenskollision mit dem Original-Plugin (CatNoir2006/jellyfin-plugin-MediathekViewDL):
+  die DLL dieses Forks hieß intern noch genauso wie die des Original-Plugins
+  (Jellyfin.Plugin.MediathekViewDL.dll). Jellyfin leitet den Dateinamen der Plugin-Konfiguration
+  (Einstellungen + Abos) vom Assembly-Dateinamen ab, nicht vom Plugin-Namen. Bei gleichzeitiger
+  Installation beider Plugins hätten dadurch beide dieselbe Konfigurationsdatei gelesen und
+  geschrieben und sich so gegenseitig überschrieben. Die DLL heißt jetzt
+  Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.dll.
 
