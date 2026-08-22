@@ -550,7 +550,7 @@ defineExpose({
 
 .wizard-header {
     padding: 20px;
-    border-bottom: 1px solid #3f3f46;
+    border-bottom: 1px solid var(--mvpl-border, #3f3f46);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -558,24 +558,24 @@ defineExpose({
 
 .wizard-header h2 {
     margin: 0;
-    color: #e4e4e7;
+    color: var(--mvpl-text-primary, #e4e4e7);
     font-size: 1.25rem;
 }
 
 .wizard-subtitle {
     margin: 4px 0 0 0;
-    color: #a1a1aa;
+    color: var(--mvpl-text-secondary, #a1a1aa);
     font-size: 0.85rem;
 }
 
 .wizard-progress {
     height: 4px;
-    background: #27272a;
+    background: var(--mvpl-surface, #27272a);
 }
 
 .wizard-progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, #7c3aed, #10b981);
+    background: linear-gradient(90deg, var(--mvpl-accent, #7c3aed), #10b981);
     transition: width 0.3s ease;
 }
 
@@ -583,35 +583,35 @@ defineExpose({
     padding: 24px;
     overflow-y: auto;
     flex: 1;
-    color: #e4e4e7;
+    color: var(--mvpl-text-primary, #e4e4e7);
 }
 
 .wizard-content h3 {
     margin-top: 0;
-    color: #7c3aed;
+    color: var(--mvpl-accent, #7c3aed);
 }
 
 .wizard-hint {
-    color: #a1a1aa;
+    color: var(--mvpl-text-secondary, #a1a1aa);
     font-size: 0.9rem;
     margin-bottom: 20px;
 }
 
 .wizard-optional {
-    color: #71717a;
+    color: var(--mvpl-text-muted, #71717a);
     font-weight: 400;
     font-size: 0.85rem;
 }
 
 .wizard-section-title {
     margin: 18px 0 10px 0;
-    color: #a1a1aa;
+    color: var(--mvpl-text-secondary, #a1a1aa);
     font-size: 0.85rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     padding-bottom: 5px;
-    border-bottom: 1px solid #3f3f46;
+    border-bottom: 1px solid var(--mvpl-border, #3f3f46);
 }
 
 .wizard-section-title:first-of-type {
@@ -621,7 +621,7 @@ defineExpose({
 .wizard-list {
     margin: 15px 0;
     padding-left: 20px;
-    color: #a1a1aa;
+    color: var(--mvpl-text-secondary, #a1a1aa);
 }
 
 .wizard-list li {
@@ -676,32 +676,32 @@ defineExpose({
 }
 
 .tour-item {
-    background: #1c1c1f;
-    border: 1px solid #3f3f46;
+    background: var(--mvpl-surface, #1c1c1f);
+    border: 1px solid var(--mvpl-border, #3f3f46);
     border-radius: 6px;
     padding: 14px;
 }
 
 .tour-item h4 {
     margin: 0 0 6px 0;
-    color: #e4e4e7;
+    color: var(--mvpl-text-primary, #e4e4e7);
     font-size: 1rem;
 }
 
 .tour-item p {
     margin: 0;
-    color: #a1a1aa;
+    color: var(--mvpl-text-secondary, #a1a1aa);
     font-size: 0.875rem;
     line-height: 1.4;
 }
 
 .wizard-footer {
     padding: 16px 20px;
-    border-top: 1px solid #3f3f46;
+    border-top: 1px solid var(--mvpl-border, #3f3f46);
     display: flex;
     gap: 10px;
     align-items: center;
-    background: #18181b;
+    background: var(--mvpl-bg, #18181b);
 }
 
 .wizard-footer-spacer {
@@ -709,7 +709,7 @@ defineExpose({
 }
 
 .wizard-skip-btn--active {
-    color: #a1a1aa;
-    border-color: #52525b;
+    color: var(--mvpl-text-secondary, #a1a1aa);
+    border-color: var(--mvpl-border-hover, #52525b);
 }
 </style>

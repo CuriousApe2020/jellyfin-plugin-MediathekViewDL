@@ -690,7 +690,7 @@ onMounted(() => {
 }
 
 .settings-section {
-  border-bottom: 1px solid #3f3f46;
+  border-bottom: 1px solid var(--mvpl-border, #3f3f46);
 }
 
 .settings-section:last-of-type {
@@ -702,7 +702,7 @@ onMounted(() => {
   padding: 16px 20px;
   font-weight: 600;
   font-size: 1rem;
-  color: #e4e4e7;
+  color: var(--mvpl-text-primary, #e4e4e7);
   cursor: pointer;
   user-select: none;
   display: flex;
@@ -713,7 +713,7 @@ onMounted(() => {
 .section-title::before {
   content: '▶';
   font-size: 0.7em;
-  color: #7c3aed;
+  color: var(--mvpl-accent, #7c3aed);
   transition: transform 0.2s;
 }
 
@@ -727,8 +727,8 @@ details[open] > .section-title::before {
 
 .section-body {
   padding: 10px 20px 20px 20px;
-  background: #1c1c1f;
-  border-top: 1px solid #3f3f46;
+  background: var(--mvpl-surface, #1c1c1f);
+  border-top: 1px solid var(--mvpl-border, #3f3f46);
 }
 
 .grid-2 {
@@ -753,7 +753,7 @@ details[open] > .section-title::before {
 
 .sub-options {
   margin-left: 25px;
-  border-left: 2px solid #3f3f46;
+  border-left: 2px solid var(--mvpl-border, #3f3f46);
   padding-left: 15px;
   margin-top: 5px;
   margin-bottom: 5px;
@@ -762,12 +762,12 @@ details[open] > .section-title::before {
 .sub-section-title {
   font-size: 0.9rem;
   font-weight: 700;
-  color: #a1a1aa;
+  color: var(--mvpl-text-secondary, #a1a1aa);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin: 20px 0 10px;
   padding-bottom: 5px;
-  border-bottom: 1px solid #3f3f46;
+  border-bottom: 1px solid var(--mvpl-border, #3f3f46);
 }
 
 .badge-deprecated {
@@ -802,8 +802,8 @@ details[open] > .section-title::before {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: #18181b;
-  border-top: 1px solid #3f3f46;
+  background: var(--mvpl-bg, #18181b);
+  border-top: 1px solid var(--mvpl-border, #3f3f46);
   flex-wrap: wrap;
   gap: 10px;
 }
@@ -813,7 +813,7 @@ details[open] > .section-title::before {
   gap: 8px;
   align-items: center;
   font-size: 0.875rem;
-  color: #a1a1aa;
+  color: var(--mvpl-text-secondary, #a1a1aa);
 }
 
 .action-row {
@@ -825,6 +825,6 @@ details[open] > .section-title::before {
 .state-msg {
   text-align: center;
   padding: 40px;
-  color: #a1a1aa;
+  color: var(--mvpl-text-secondary, #a1a1aa);
 }
 </style>

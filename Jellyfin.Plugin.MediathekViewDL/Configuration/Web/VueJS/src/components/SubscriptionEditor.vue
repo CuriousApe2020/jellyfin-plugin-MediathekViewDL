@@ -445,7 +445,7 @@ function updateDate(target, field, value) {
 
 .editor-header {
     padding: 20px;
-    border-bottom: 1px solid #3f3f46;
+    border-bottom: 1px solid var(--mvpl-border, #3f3f46);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -453,8 +453,8 @@ function updateDate(target, field, value) {
 
 .editor-tabs {
     display: flex;
-    background: #27272a;
-    border-bottom: 1px solid #3f3f46;
+    background: var(--mvpl-surface, #27272a);
+    border-bottom: 1px solid var(--mvpl-border, #3f3f46);
     overflow-x: auto;
 }
 
@@ -466,7 +466,7 @@ function updateDate(target, field, value) {
 
 .editor-footer {
     padding: 20px;
-    border-top: 1px solid #3f3f46;
+    border-top: 1px solid var(--mvpl-border, #3f3f46);
     display: flex;
     justify-content: flex-end;
     gap: 15px;
@@ -476,15 +476,15 @@ function updateDate(target, field, value) {
     padding: 12px 20px;
     background: none;
     border: none;
-    color: #a1a1aa;
+    color: var(--mvpl-text-secondary, #a1a1aa);
     cursor: pointer;
     white-space: nowrap;
 }
 
 .tab-btn.active {
-    color: #7c3aed;
-    background: #18181b;
-    border-bottom: 2px solid #7c3aed;
+    color: var(--mvpl-accent, #7c3aed);
+    background: var(--mvpl-bg, #18181b);
+    border-bottom: 2px solid var(--mvpl-accent, #7c3aed);
 }
 
 .grid-2 {
@@ -494,11 +494,11 @@ function updateDate(target, field, value) {
 }
 
 .query-row {
-    background: #27272a;
+    background: var(--mvpl-surface, #27272a);
     padding: 15px;
     border-radius: 8px;
     margin-bottom: 15px;
-    border: 1px solid #3f3f46;
+    border: 1px solid var(--mvpl-border, #3f3f46);
 }
 
 .query-fields {
@@ -510,15 +510,15 @@ function updateDate(target, field, value) {
 .field-tag {
     padding: 4px 10px;
     border-radius: 12px;
-    background: #3f3f46;
+    background: var(--mvpl-border, #3f3f46);
     border: none;
-    color: #a1a1aa;
+    color: var(--mvpl-text-secondary, #a1a1aa);
     font-size: 0.75rem;
     cursor: pointer;
 }
 
 .field-tag.active {
-    background: #7c3aed;
+    background: var(--mvpl-accent, #7c3aed);
     color: white;
 }
 
@@ -535,7 +535,7 @@ function updateDate(target, field, value) {
 
 .sub-options {
     margin-left: 25px;
-    border-left: 2px solid #3f3f46;
+    border-left: 2px solid var(--mvpl-border, #3f3f46);
     padding-left: 15px;
     margin-top: 10px;
     margin-bottom: 10px;
@@ -544,8 +544,8 @@ function updateDate(target, field, value) {
 .btn-small {
     padding: 5px 10px;
     border-radius: 4px;
-    border: 1px solid #3f3f46;
-    background: #27272a;
+    border: 1px solid var(--mvpl-border, #3f3f46);
+    background: var(--mvpl-surface, #27272a);
     color: white;
     cursor: pointer;
     font-size: 0.75rem;

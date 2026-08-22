@@ -26,5 +26,7 @@ changelog: >
   Korrektur der arte-Standardsprache (ARTE.FR) sowie diverse Fixes, damit
   dieser Fork parallel zum Original-Plugin installiert und betrieben
   werden kann (eigene API-Routen, eigene Konfigurationsdatei, eigene
-  Scheduled-Task-Keys).
+  Scheduled-Task-Keys). Die Einstellungsseite passt ihre Farben jetzt
+  außerdem automatisch an das aktuell aktive Jellyfin-Theme an (inkl.
+  benutzerdefinierter Skins), statt fest verdrahtete Farben zu verwenden.
 

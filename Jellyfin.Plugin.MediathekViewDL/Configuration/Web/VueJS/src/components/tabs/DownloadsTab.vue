@@ -302,8 +302,8 @@ onUnmounted(() => {
 /* Shared List Layout */
 .list-container { display: grid; gap: 10px; }
 .item-container {
-  background: #27272a;
-  border: 1px solid #3f3f46;
+  background: var(--mvpl-surface, #27272a);
+  border: 1px solid var(--mvpl-border, #3f3f46);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -321,28 +321,28 @@ onUnmounted(() => {
 .item-title { font-weight: bold; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
 .item-meta { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
 
-.expand-icon { font-size: 0.7rem; color: #71717a; width: 12px; text-align: center; }
+.expand-icon { font-size: 0.7rem; color: var(--mvpl-text-muted, #71717a); width: 12px; text-align: center; }
 
 .status-badge {
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 0.75rem;
   font-weight: 600;
-  background: #3f3f46;
+  background: var(--mvpl-border, #3f3f46);
 }
 .status-downloading { background: #3b82f6; color: white; }
 .status-processing { background: #8b5cf6; color: white; }
 .status-finished { background: #10b981; color: white; }
 .status-failed { background: #ef4444; color: white; }
-.status-cancelled { background: #71717a; color: white; }
+.status-cancelled { background: var(--mvpl-text-muted, #71717a); color: white; }
 .status-queued { background: #f59e0b; color: white; }
 
-.timestamp-text { color: #a1a1aa; }
-.file-count { color: #71717a; }
+.timestamp-text { color: var(--mvpl-text-secondary, #a1a1aa); }
+.file-count { color: var(--mvpl-text-muted, #71717a); }
 
 .item-progress { grid-column: 1 / -1; margin-top: 5px; }
-.progress-bar-bg { background: #18181b; height: 8px; border-radius: 4px; overflow: hidden; }
-.progress-bar-fill { background: #7c3aed; height: 100%; transition: width 0.3s ease; }
+.progress-bar-bg { background: var(--mvpl-bg, #18181b); height: 8px; border-radius: 4px; overflow: hidden; }
+.progress-bar-fill { background: var(--mvpl-accent, #7c3aed); height: 100%; transition: width 0.3s ease; }
 
 .item-details {
   padding: 0 15px 15px 38px;
@@ -353,13 +353,13 @@ onUnmounted(() => {
 
 .detail-entry { display: flex; flex-direction: column; gap: 2px; }
 .entry-file { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; font-weight: 500; }
-.entry-path { font-size: 0.75rem; color: #71717a; word-break: break-all; }
+.entry-path { font-size: 0.75rem; color: var(--mvpl-text-muted, #71717a); word-break: break-all; }
 
 .file-type-badge {
-  font-size: 0.65rem; background: #3f3f46; color: #e4e4e7;
+  font-size: 0.65rem; background: var(--mvpl-border, #3f3f46); color: var(--mvpl-text-primary, #e4e4e7);
   padding: 1px 4px; border-radius: 3px; font-weight: bold;
 }
-.file-lang { color: #71717a; font-size: 0.8rem; }
+.file-lang { color: var(--mvpl-text-muted, #71717a); font-size: 0.8rem; }
 
 .item-status { font-weight: bold; font-size: 0.85rem; }
 .item-success { color: #10b981; }
@@ -372,6 +372,6 @@ onUnmounted(() => {
 .btn-cancel { color: #ef4444; font-size: 1.2rem; font-weight: bold; }
 .btn-cancel:hover { background: rgba(239, 68, 68, 0.1); border-radius: 4px; }
 
-.no-data { text-align: center; color: #a1a1aa; padding: 30px; }
-.state-msg { text-align: center; padding: 30px; color: #a1a1aa; }
+.no-data { text-align: center; color: var(--mvpl-text-secondary, #a1a1aa); padding: 30px; }
+.state-msg { text-align: center; padding: 30px; color: var(--mvpl-text-secondary, #a1a1aa); }
 </style>

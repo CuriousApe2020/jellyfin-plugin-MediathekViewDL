@@ -335,7 +335,7 @@ onUnmounted(() => {
 
 .entry-count {
   font-size: 0.8rem;
-  color: #71717a;
+  color: var(--mvpl-text-muted, #71717a);
 }
 
 .search-row {
@@ -371,8 +371,8 @@ onUnmounted(() => {
 }
 
 .log-content {
-  background: #0a0a0a;
-  border: 1px solid #27272a;
+  background: var(--mvpl-bg-sunken, #0a0a0a);
+  border: 1px solid var(--mvpl-surface, #27272a);
   border-radius: 6px;
   padding: 12px;
   max-height: 600px;
@@ -405,12 +405,12 @@ onUnmounted(() => {
   width: 16px;
 }
 
-.log-inf { color: #e4e4e7; }
+.log-inf { color: var(--mvpl-text-primary, #e4e4e7); }
 .log-wrn { color: #f59e0b; }
 .log-err { color: #ef4444; }
-.log-dbg { color: #a1a1aa; }
-.log-trc { color: #71717a; }
-.log-vrb { color: #71717a; }
+.log-dbg { color: var(--mvpl-text-secondary, #a1a1aa); }
+.log-trc { color: var(--mvpl-text-muted, #71717a); }
+.log-vrb { color: var(--mvpl-text-muted, #71717a); }
 
 .spinner-sm {
   display: inline-block;
@@ -418,7 +418,7 @@ onUnmounted(() => {
   height: 12px;
   border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 50%;
-  border-top-color: #e4e4e7;
+  border-top-color: var(--mvpl-text-primary, #e4e4e7);
   animation: spin 1s linear infinite;
 }
 
@@ -428,6 +428,6 @@ onUnmounted(() => {
 }
 
 .error-msg { text-align: center; padding: 30px; color: #ef4444; }
-.no-data { text-align: center; color: #a1a1aa; padding: 30px; }
-.state-msg { text-align: center; padding: 30px; color: #a1a1aa; }
+.no-data { text-align: center; color: var(--mvpl-text-secondary, #a1a1aa); padding: 30px; }
+.state-msg { text-align: center; padding: 30px; color: var(--mvpl-text-secondary, #a1a1aa); }
 </style>

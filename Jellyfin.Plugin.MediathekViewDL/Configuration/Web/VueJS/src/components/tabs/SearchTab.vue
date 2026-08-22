@@ -415,8 +415,8 @@ function closeAdvancedDownloadDialog() {
     top: 100%;
     left: 0;
     right: 0;
-    background: #18181b;
-    border: 1px solid #3f3f46;
+    background: var(--mvpl-bg, #18181b);
+    border: 1px solid var(--mvpl-border, #3f3f46);
     border-radius: 4px;
     margin: 0;
     padding: 0;
@@ -435,7 +435,7 @@ function closeAdvancedDownloadDialog() {
 
 .suggestions-list li:hover,
 .suggestions-list li.selected {
-    background: #7c3aed;
+    background: var(--mvpl-accent, #7c3aed);
     color: white;
 }
 
@@ -463,7 +463,7 @@ function closeAdvancedDownloadDialog() {
     justify-content: space-between;
     align-items: center;
     padding: 12px;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid var(--mvpl-border, #333);
 }
 
 .result-item:last-child {
@@ -477,7 +477,7 @@ function closeAdvancedDownloadDialog() {
 
 .result-meta {
     font-size: 0.8rem;
-    color: #a1a1aa;
+    color: var(--mvpl-text-secondary, #a1a1aa);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -498,7 +498,7 @@ function closeAdvancedDownloadDialog() {
     cursor: pointer;
     padding: 5px 8px;
     font-size: 1rem;
-    color: #a1a1aa;
+    color: var(--mvpl-text-secondary, #a1a1aa);
     transition: color 0.2s;
 }
 
@@ -513,7 +513,7 @@ function closeAdvancedDownloadDialog() {
 
 .no-results {
     text-align: center;
-    color: #a1a1aa;
+    color: var(--mvpl-text-secondary, #a1a1aa);
     padding: 20px;
     width: 100%;
 }

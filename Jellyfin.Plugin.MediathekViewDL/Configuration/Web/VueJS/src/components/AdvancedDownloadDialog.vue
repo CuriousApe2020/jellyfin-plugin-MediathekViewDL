@@ -188,8 +188,8 @@ function closeDialog() {
 }
 
 .modal-dialog {
-    background: #1e1e1e;
-    border: 1px solid #3f3f46;
+    background: var(--mvpl-surface, #1e1e1e);
+    border: 1px solid var(--mvpl-border, #3f3f46);
     border-radius: 8px;
     max-width: 500px;
     width: 90%;
@@ -200,7 +200,7 @@ function closeDialog() {
 
 .modal-header {
     padding: 20px;
-    border-bottom: 1px solid #3f3f46;
+    border-bottom: 1px solid var(--mvpl-border, #3f3f46);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -214,7 +214,7 @@ function closeDialog() {
 .modal-close {
     background: none;
     border: none;
-    color: #a1a1aa;
+    color: var(--mvpl-text-secondary, #a1a1aa);
     font-size: 1.5rem;
     cursor: pointer;
     padding: 0;
@@ -241,14 +241,14 @@ function closeDialog() {
     align-items: center;
     justify-content: center;
     min-height: 150px;
-    color: #a1a1aa;
+    color: var(--mvpl-text-secondary, #a1a1aa);
 }
 
 .spinner {
     width: 30px;
     height: 30px;
-    border: 3px solid #3f3f46;
-    border-top-color: #7c3aed;
+    border: 3px solid var(--mvpl-border, #3f3f46);
+    border-top-color: var(--mvpl-accent, #7c3aed);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
     margin-bottom: 10px;
@@ -262,7 +262,7 @@ function closeDialog() {
 .modal-item-info {
     margin-bottom: 20px;
     padding: 15px;
-    background: #27272a;
+    background: var(--mvpl-surface, #27272a);
     border-radius: 6px;
 }
 
@@ -273,7 +273,7 @@ function closeDialog() {
 
 .modal-item-meta {
     font-size: 0.85rem;
-    color: #a1a1aa;
+    color: var(--mvpl-text-secondary, #a1a1aa);
 }
 
 .modal-field {
@@ -312,7 +312,7 @@ function closeDialog() {
 
 .modal-footer {
     padding: 15px 20px;
-    border-top: 1px solid #3f3f46;
+    border-top: 1px solid var(--mvpl-border, #3f3f46);
     display: flex;
     gap: 10px;
     justify-content: flex-end;
@@ -321,16 +321,16 @@ function closeDialog() {
 .field-input {
     width: 100%;
     padding: 8px 12px;
-    background: #27272a;
-    border: 1px solid #3f3f46;
-    color: #e4e4e7;
+    background: var(--mvpl-surface, #27272a);
+    border: 1px solid var(--mvpl-border, #3f3f46);
+    color: var(--mvpl-text-primary, #e4e4e7);
     border-radius: 4px;
     font-size: 0.9rem;
 }
 
 .field-input:focus {
     outline: none;
-    border-color: #7c3aed;
+    border-color: var(--mvpl-accent, #7c3aed);
     box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
 }
 

@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import './style.css'
 import App from './App.vue'
+import { applyJellyfinTheme } from './utils/jellyfinTheme.js'
 
 let appInstance = null;
 
@@ -27,6 +28,7 @@ if (page) {
         // Standalone / dev-preview: mount immediately
         const container = page.querySelector('#app');
         if (container) {
+            applyJellyfinTheme(page);
             mountApp(container);
         }
     } else {
@@ -34,6 +36,9 @@ if (page) {
         page.addEventListener('pageshow', (event) => {
             const container = page.querySelector('#app');
             if (container) {
+                // Re-measure the active Jellyfin theme on every pageshow too -
+                // the admin may have switched skins since the last visit.
+                applyJellyfinTheme(page);
                 // Always remount so onMounted fires and config is fetched fresh
                 unmountApp();
                 mountApp(container);

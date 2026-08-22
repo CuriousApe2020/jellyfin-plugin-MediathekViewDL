@@ -253,7 +253,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.plugin-config { width: 100%; margin: 0 auto; padding: 1rem; color: #e4e4e7; box-sizing: border-box; }
+.plugin-config { width: 100%; margin: 0 auto; padding: 1rem; color: var(--mvpl-text-primary, #e4e4e7); box-sizing: border-box; }
 .config-header {
   margin-bottom: 2rem;
   display: flex;
@@ -265,9 +265,9 @@ onMounted(() => {
 .wizard-restart-btn {
   white-space: nowrap;
 }
-.tab-row { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-.tab-btn { background: none; border: none; color: #a1a1aa; cursor: pointer; padding: 10px; font-weight: 600; }
-.tab-btn.active { color: #7c3aed; border-bottom: 2px solid #7c3aed; }
+.tab-row { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--mvpl-border, #333); padding-bottom: 10px; }
+.tab-btn { background: none; border: none; color: var(--mvpl-text-secondary, #a1a1aa); cursor: pointer; padding: 10px; font-weight: 600; }
+.tab-btn.active { color: var(--mvpl-accent, #7c3aed); border-bottom: 2px solid var(--mvpl-accent, #7c3aed); }
 
 /* Shared Modal Styles */
 .modal-overlay {
@@ -291,12 +291,12 @@ onMounted(() => {
   flex-direction: column;
   overflow: hidden;
 }
-.modal-header { padding: 20px; border-bottom: 1px solid #3f3f46; display: flex; justify-content: space-between; align-items: center; }
+.modal-header { padding: 20px; border-bottom: 1px solid var(--mvpl-border, #3f3f46); display: flex; justify-content: space-between; align-items: center; }
 .modal-content { padding: 20px; overflow-y: auto; flex: 1; }
-.modal-footer { padding: 20px; border-top: 1px solid #3f3f46; display: flex; justify-content: flex-end; }
-.test-item { padding: 12px; border-bottom: 1px solid #333; }
+.modal-footer { padding: 20px; border-top: 1px solid var(--mvpl-border, #3f3f46); display: flex; justify-content: flex-end; }
+.test-item { padding: 12px; border-bottom: 1px solid var(--mvpl-border, #333); }
 .test-item-title { font-weight: bold; margin-bottom: 2px; }
-.test-item-meta { font-size: 0.8rem; color: #a1a1aa; }
-.state-msg, .no-data { text-align: center; padding: 40px; color: #a1a1aa; }
+.test-item-meta { font-size: 0.8rem; color: var(--mvpl-text-secondary, #a1a1aa); }
+.state-msg, .no-data { text-align: center; padding: 40px; color: var(--mvpl-text-secondary, #a1a1aa); }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>

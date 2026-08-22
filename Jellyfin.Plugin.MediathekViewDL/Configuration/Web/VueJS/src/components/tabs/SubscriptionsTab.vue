@@ -180,15 +180,15 @@ defineExpose({ refresh: fetchSubscriptions })
 .subscription-item.disabled { opacity: 0.6; border-style: dashed; }
 .sub-left { display: flex; align-items: center; gap: 20px; }
 .sub-name { font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 10px; }
-.sub-meta { font-size: 0.85rem; color: #a1a1aa; margin-top: 4px; }
+.sub-meta { font-size: 0.85rem; color: var(--mvpl-text-secondary, #a1a1aa); margin-top: 4px; }
 .sub-actions { display: flex; gap: 15px; }
 .btn-icon { background: none; border: none; cursor: pointer; font-size: 1.4rem; padding: 5px; border-radius: 4px; filter: grayscale(1); color: white; }
-.btn-icon:hover { background: #3f3f46; filter: none; }
+.btn-icon:hover { background: var(--mvpl-border, #3f3f46); filter: none; }
 .btn-delete:hover { color: #ef4444; }
-.state-msg { text-align: center; padding: 40px; color: #a1a1aa; }
+.state-msg { text-align: center; padding: 40px; color: var(--mvpl-text-secondary, #a1a1aa); }
 .error-container { text-align: center; padding: 30px; background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 8px; color: #ef4444; }
 .error-msg { margin-bottom: 10px; font-weight: bold; }
-.no-data { text-align: center; color: #a1a1aa; padding: 40px; }
+.no-data { text-align: center; color: var(--mvpl-text-secondary, #a1a1aa); padding: 40px; }
 
 /* Switch Toggle Styles */
 .switch {
@@ -202,7 +202,7 @@ defineExpose({ refresh: fetchSubscriptions })
   position: absolute;
   cursor: pointer;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-color: #3f3f46;
+  background-color: var(--mvpl-border, #3f3f46);
   transition: .4s;
 }
 .slider:before {
@@ -213,8 +213,8 @@ defineExpose({ refresh: fetchSubscriptions })
   background-color: white;
   transition: .4s;
 }
-input:checked + .slider { background-color: #7c3aed; }
-input:focus + .slider { box-shadow: 0 0 1px #7c3aed; }
+input:checked + .slider { background-color: var(--mvpl-accent, #7c3aed); }
+input:focus + .slider { box-shadow: 0 0 1px var(--mvpl-accent, #7c3aed); }
 input:checked + .slider:before { transform: translateX(20px); }
 .slider.round { border-radius: 24px; }
 .slider.round:before { border-radius: 50%; }
