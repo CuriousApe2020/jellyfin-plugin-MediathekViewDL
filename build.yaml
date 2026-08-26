@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.3"
+version: "0.0.0.4"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,14 +17,23 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Behebt einen kritischen Fehler, der das Original-Plugin beim Parallelbetrieb
-  mit diesem Fork "Malfunctioned" werden ließ: AddHttpClient<TClient,...>()
-  ohne expliziten Namen registriert den HttpClient unter dem einfachen
-  Typnamen (z. B. "IMediathekViewApiClient"), ohne den Namespace zu
-  berücksichtigen. Da Original und Fork denselben Namespace/Klassennamen
-  verwenden, kollidierten beide Plugins beim gemeinsamen Start auf denselben
-  Namen, wodurch die Registrierung des zuletzt geladenen Plugins mit einer
-  InvalidOperationException abbrach. Alle betroffenen AddHttpClient-Aufrufe
-  verwenden jetzt einen expliziten, eindeutigen Namen - beide Plugins können
-  jetzt gleichzeitig aktiv sein.
+  Behebt eine weitere Kollision mit dem Original-Plugin im Parallelbetrieb,
+  diesmal in .NETs XmlSerializer statt in unserem eigenen Code: Original und
+  Fork deklarieren beide eine Klasse
+  "Jellyfin.Plugin.MediathekViewDL.Configuration.PluginConfiguration" (gleicher
+  Namespace/Klassenname, bewusst beibehalten). .NETs XmlSerializer generiert
+  und cached seinen (De-)Serialisierungscode anhand des Root-Element-Namens,
+  der standardmäßig vom einfachen Klassennamen abgeleitet wird - dadurch
+  wurden bei gleichzeitig geladenen Plugins die beiden eigentlich
+  unterschiedlichen Typen verwechselt (InvalidCastException beim Lesen oder
+  Speichern der Konfiguration, sowohl beim Original als auch im Fork selbst).
+  Der Fork deklariert seine Konfigurationsklasse jetzt mit einem expliziten,
+  eindeutigen XML-Root-Namen.
+
+  Achtung: Da sich dadurch das erwartete XML-Root-Element ändert, wird eine
+  bereits gespeicherte Konfiguration dieses Forks beim ersten Start mit
+  dieser Version nicht mehr erkannt und einmalig auf Standardwerte
+  zurückgesetzt (der Einrichtungs-Assistent erscheint dann erneut). Bereits
+  heruntergeladene Dateien und Abos in der Jellyfin-Bibliothek sind davon
+  nicht betroffen.
 
