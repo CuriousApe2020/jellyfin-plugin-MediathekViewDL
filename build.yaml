@@ -28,3 +28,13 @@ changelog: >
   eine kurze Wartezeit vor dem Messen, damit Jellyfin das Element vollständig
   stylen kann, bevor gemessen wird.
 
+  Behebt außerdem einen kritischen Fehler, der das Original-Plugin beim
+  Parallelbetrieb "Malfunctioned" werden ließ: AddHttpClient<TClient,...>()
+  ohne expliziten Namen registriert den HttpClient unter dem einfachen
+  Typnamen (z. B. "IMediathekViewApiClient"), ohne den Namespace zu
+  berücksichtigen. Da Original und Fork denselben Namespace/Klassennamen
+  verwenden, kollidierten beide Plugins beim gemeinsamen Start auf denselben
+  Namen, wodurch die Registrierung des zuletzt geladenen Plugins mit einer
+  InvalidOperationException abbrach. Alle betroffenen AddHttpClient-Aufrufe
+  verwenden jetzt einen expliziten, eindeutigen Namen.
+

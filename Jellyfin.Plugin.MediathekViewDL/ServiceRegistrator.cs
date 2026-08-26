@@ -34,14 +34,22 @@ namespace Jellyfin.Plugin.MediathekViewDL
             // Register a named client for FileDownloader
             serviceCollection.AddHttpClient("FileDownloaderClient");
 
-            // Register the typed client for API
-            serviceCollection.AddHttpClient<IMediathekViewApiClient, MediathekViewApiClient>();
+            // Register the typed client for API. Named explicitly (rather than the parameterless
+            // overload, which derives the HttpClientFactory registration name from just the simple
+            // type name "IMediathekViewApiClient") so this doesn't collide with the upstream plugin's
+            // identically-named-but-different-assembly interface when both are installed side by
+            // side: AddHttpClient<TClient,...>() reserves that name for the TClient *type*, and two
+            // distinct assemblies both owning a type called "IMediathekViewApiClient" trips
+            // HttpClientFactory's "name already bound to a different type" check, throwing during
+            // plugin service registration for whichever plugin registers second.
+            serviceCollection.AddHttpClient<IMediathekViewApiClient, MediathekViewApiClient>("MediathekViewDLFork.MediathekViewApiClient");
 
             // Register a typed client per broadcaster-specific original-version language resolver
             // (each needs its own HttpClient, not IHttpClientFactory), all discoverable together as
             // IBroadcasterOriginalVersionLanguageResolver so the composite below can dispatch by URL.
-            serviceCollection.AddHttpClient<IBroadcasterOriginalVersionLanguageResolver, ArdOriginalVersionLanguageResolver>();
-            serviceCollection.AddHttpClient<IBroadcasterOriginalVersionLanguageResolver, ArteOriginalVersionLanguageResolver>();
+            // Explicitly named for the same cross-plugin collision reason as above.
+            serviceCollection.AddHttpClient<IBroadcasterOriginalVersionLanguageResolver, ArdOriginalVersionLanguageResolver>("MediathekViewDLFork.ArdOriginalVersionLanguageResolver");
+            serviceCollection.AddHttpClient<IBroadcasterOriginalVersionLanguageResolver, ArteOriginalVersionLanguageResolver>("MediathekViewDLFork.ArteOriginalVersionLanguageResolver");
             serviceCollection.AddTransient<IOriginalVersionLanguageResolver, OriginalVersionLanguageResolver>();
 
             // Database
