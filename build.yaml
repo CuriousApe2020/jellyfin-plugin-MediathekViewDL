@@ -35,3 +35,11 @@ changelog: >
   über "Verwandte Suchtreffer zusammenführen" und "Fehlende Tonspuren
   erkennen") und zeigt nur noch Titel an, die auch tatsächlich
   heruntergeladen würden.
+
+  Fix: durch "Erweiterte Duplikaterkennung" bereits lokal gefundene,
+  längst vorhandene Dateien (z.B. eine Audiodeskription-Spur, die
+  heruntergeladen wurde bevor "Audiodeskription erlauben" deaktiviert
+  wurde) sprangen bei jedem Abo-Lauf erneut mit dem aktuellen Zeitstempel
+  an die Spitze des Download-Verlaufs, obwohl gar nichts neu
+  heruntergeladen wurde. Der Verlaufseintrag wird jetzt nur noch einmal
+  pro Abo nachgetragen, nicht bei jedem erneuten Fund.

@@ -649,8 +649,20 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                 tempVideoInfo.EpisodeNumber,
                 tempVideoInfo.AbsoluteEpisodeNumber);
 
-            var localPath = localEpisodeCache.GetExistingFilePath(tempVideoInfo);
-            await _downloadHistoryRepository.AddAsync(string.Empty, item.Id, subscription.Id, localPath!, item.Title, tempVideoInfo.Language).ConfigureAwait(false);
+            // Backfill history only once per item/subscription - this runs on every subscription pass
+            // that still sees the item in the search results (which can be many, e.g. one per manual
+            // "Process" click or scheduled run), and without this guard it would insert a fresh row
+            // with the current timestamp every single time, even though nothing was actually
+            // downloaded. That made an already-existing file - possibly downloaded before the current
+            // subscription settings were even set, e.g. an Audiodeskription track from before
+            // "AllowAudioDescription" was turned off - jump back to the top of "Download Verlauf" with
+            // a "just now" timestamp on every run, looking like a fresh download that never happened.
+            if (!await _downloadHistoryRepository.ExistsByItemIdAndSubscriptionIdAsync(item.Id, subscription.Id).ConfigureAwait(false))
+            {
+                var localPath = localEpisodeCache.GetExistingFilePath(tempVideoInfo);
+                await _downloadHistoryRepository.AddAsync(string.Empty, item.Id, subscription.Id, localPath!, item.Title, tempVideoInfo.Language).ConfigureAwait(false);
+            }
+
             return false;
         }
 
