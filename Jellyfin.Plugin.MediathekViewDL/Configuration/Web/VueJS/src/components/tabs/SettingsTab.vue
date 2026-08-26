@@ -721,7 +721,7 @@ onMounted(() => {
 .section-title::before {
   content: '▶';
   font-size: 0.7em;
-  color: var(--mvpl-accent, #7c3aed);
+  color: var(--mvpl-accent, #00a4dc);
   transition: transform 0.2s;
 }
 

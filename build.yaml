@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.9"
+version: "0.0.0.10"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -47,4 +47,10 @@ changelog: >
   erkennen"). Titel ohne passende Tonspur werden komplett übersprungen,
   auch die Hauptspur wird dann nicht heruntergeladen. Standardmäßig leer
   (deaktiviert) - kein Verhaltensunterschied für bestehende Abos.
+
+  Die violette Fallback-Farbe der Einstellungsseite ist jetzt Jellyfins
+  eigenes Standard-Akzentblau (#00a4dc statt #7c3aed). Sie greift ohnehin
+  nur noch, wenn Jellyfins "--jf-palette-primary-main"-Variable aus
+  irgendeinem Grund nicht gelesen werden kann - dann passt jetzt wenigstens
+  die Fallback-Farbe selbst zu Jellyfin, statt beliebig lila zu sein.
 

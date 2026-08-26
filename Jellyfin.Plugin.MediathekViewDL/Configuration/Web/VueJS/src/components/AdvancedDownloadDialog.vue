@@ -248,7 +248,7 @@ function closeDialog() {
     width: 30px;
     height: 30px;
     border: 3px solid var(--mvpl-border, #3f3f46);
-    border-top-color: var(--mvpl-accent, #7c3aed);
+    border-top-color: var(--mvpl-accent, #00a4dc);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
     margin-bottom: 10px;
@@ -330,7 +330,7 @@ function closeDialog() {
 
 .field-input:focus {
     outline: none;
-    border-color: var(--mvpl-accent, #7c3aed);
+    border-color: var(--mvpl-accent, #00a4dc);
     box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
 }
 

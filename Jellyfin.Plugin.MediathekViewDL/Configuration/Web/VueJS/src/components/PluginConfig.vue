@@ -267,7 +267,7 @@ onMounted(() => {
 }
 .tab-row { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--mvpl-border, #333); padding-bottom: 10px; }
 .tab-btn { background: none; border: none; color: var(--mvpl-text-secondary, #a1a1aa); cursor: pointer; padding: 10px; font-weight: 600; }
-.tab-btn.active { color: var(--mvpl-accent, #7c3aed); border-bottom: 2px solid var(--mvpl-accent, #7c3aed); }
+.tab-btn.active { color: var(--mvpl-accent, #00a4dc); border-bottom: 2px solid var(--mvpl-accent, #00a4dc); }
 
 /* Shared Modal Styles */
 .modal-overlay {
