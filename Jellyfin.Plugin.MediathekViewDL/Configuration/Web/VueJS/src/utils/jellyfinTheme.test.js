@@ -3,14 +3,14 @@ import { applyJellyfinTheme } from './jellyfinTheme.js'
 
 describe('jellyfinTheme', () => {
     afterEach(() => {
-        // Reset any inline styles the tests put on <body> so cases don't bleed into each other.
+        // Reset any inline styles/custom properties the tests put on <body> so cases don't bleed into each other.
         document.body.removeAttribute('style')
     })
 
-    it('AppliesBgAndTextPrimary_FromBodyComputedStyle_WhenBodyIsStyled', async () => {
+    it('AppliesBgAndTextPrimary_FromJellyfinPaletteVariables_WhenBodySetsThem', async () => {
         // Arrange
-        document.body.style.backgroundColor = 'rgb(24, 24, 27)'
-        document.body.style.color = 'rgb(228, 228, 231)'
+        document.body.style.setProperty('--jf-palette-background-default', '#18181b')
+        document.body.style.setProperty('--jf-palette-text-primary', '#e4e4e7')
         const root = document.createElement('div')
 
         // Act
@@ -21,10 +21,34 @@ describe('jellyfinTheme', () => {
         expect(root.style.getPropertyValue('--mvpl-text-primary')).toBe('rgb(228, 228, 231)')
     })
 
-    it('DerivesLighterSurface_FromDarkBackground_WhenThemeIsDark', async () => {
-        // Arrange: a dark background (low luminance)
-        document.body.style.backgroundColor = 'rgb(24, 24, 27)'
-        document.body.style.color = 'rgb(228, 228, 231)'
+    it('AppliesAccent_FromPrimaryMainVariable_WhenBodySetsIt', async () => {
+        // Arrange: this is the exact variable + value confirmed live on a real Jellyfin instance
+        document.body.style.setProperty('--jf-palette-primary-main', '#00a4dc')
+        const root = document.createElement('div')
+
+        // Act
+        await applyJellyfinTheme(root)
+
+        // Assert
+        expect(root.style.getPropertyValue('--mvpl-accent')).toBe('rgb(0, 164, 220)')
+    })
+
+    it('PrefersPrimaryDark_OverDerivedShade_ForAccentHover_WhenBodySetsIt', async () => {
+        // Arrange
+        document.body.style.setProperty('--jf-palette-primary-main', '#00a4dc')
+        document.body.style.setProperty('--jf-palette-primary-dark', '#00779e')
+        const root = document.createElement('div')
+
+        // Act
+        await applyJellyfinTheme(root)
+
+        // Assert: Jellyfin's own hover shade is used verbatim, not a derived mix
+        expect(root.style.getPropertyValue('--mvpl-accent-hover')).toBe('rgb(0, 119, 158)')
+    })
+
+    it('DerivesLighterSurface_FromDarkBackground_WhenPaperVariableIsMissing', async () => {
+        // Arrange: a dark background (low luminance), no --jf-palette-background-paper set
+        document.body.style.setProperty('--jf-palette-background-default', '#18181b')
         const root = document.createElement('div')
 
         // Act
@@ -37,16 +61,16 @@ describe('jellyfinTheme', () => {
         expect(surface).not.toBe(bg)
     })
 
-    it('FallsBackToDefaults_WithoutThrowing_WhenBodyHasNoComputedColors', async () => {
-        // Arrange: no styles set anywhere - computed backgroundColor/color come back
-        // fully transparent ("rgba(0, 0, 0, 0)"), which must not be read as "the theme
-        // background is black".
+    it('FallsBackToDefaults_WithoutThrowing_WhenNoJellyfinPaletteVariablesArePresent', async () => {
+        // Arrange: no --jf-palette-* custom properties set anywhere (e.g. an older Jellyfin
+        // version, or running in the standalone dev preview without Jellyfin's stylesheet)
         const root = document.createElement('div')
 
         // Act / Assert: must never throw/reject, and must fall back to the built-in default palette
         await applyJellyfinTheme(root)
         expect(root.style.getPropertyValue('--mvpl-bg')).toBe('rgb(24, 24, 27)')
         expect(root.style.getPropertyValue('--mvpl-text-primary')).toBe('rgb(228, 228, 231)')
+        expect(root.style.getPropertyValue('--mvpl-accent')).toBe('rgb(0, 164, 220)')
     })
 
     it('NeverThrows_WhenRootIsInvalid', async () => {

@@ -487,9 +487,9 @@ function updateDate(target, field, value) {
 }
 
 .tab-btn.active {
-    color: var(--mvpl-accent, #7c3aed);
+    color: var(--mvpl-accent, #00a4dc);
     background: var(--mvpl-bg, #18181b);
-    border-bottom: 2px solid var(--mvpl-accent, #7c3aed);
+    border-bottom: 2px solid var(--mvpl-accent, #00a4dc);
 }
 
 .grid-2 {
@@ -523,7 +523,7 @@ function updateDate(target, field, value) {
 }
 
 .field-tag.active {
-    background: var(--mvpl-accent, #7c3aed);
+    background: var(--mvpl-accent, #00a4dc);
     color: white;
 }
 

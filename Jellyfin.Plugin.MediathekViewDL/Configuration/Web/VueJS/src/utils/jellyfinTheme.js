@@ -1,38 +1,28 @@
 /**
- * Reads live, computed colors from Jellyfin's own dashboard elements and
- * exposes them as CSS custom properties (--mvpl-*) so our stylesheet can
- * blend in with whatever skin the admin currently has active - including
- * genuinely custom/third-party themes.
+ * Reads Jellyfin's own theme-palette CSS custom properties (--jf-palette-*)
+ * and re-exposes the ones we need as our own --mvpl-* custom properties, so
+ * our stylesheet blends in with whatever skin the admin currently has
+ * active - including genuinely custom/third-party themes.
  *
- * Why measure the DOM instead of reading Jellyfin's theme colors directly:
- * Jellyfin's stable 10.x web client (what this plugin targets) does not
- * expose its theme palette as CSS custom properties at all - every theme
- * (dark/light/custom skins) is a self-contained stylesheet with hardcoded
- * colors. There is therefore no variable we could simply read. Instead we
- * render a couple of Jellyfin's own native elements (an emby-button, an
- * emby-input) off-screen on the current page - which already has the
- * active theme's stylesheet loaded, because we're running inside a normal
- * Jellyfin dashboard page - and read their *computed* styles. That works
- * for any theme, built-in or custom, regardless of how it implements its
- * colors internally.
+ * Earlier versions of this file measured the *computed* styles of a couple
+ * of off-screen Jellyfin elements (an emby-button, an emby-input) instead,
+ * based on the assumption that Jellyfin's stable 10.x web client does not
+ * expose its theme palette as CSS custom properties at all. That assumption
+ * was wrong (at least as of 10.11): Jellyfin's web client (MUI-based) sets a
+ * full set of `--jf-palette-*` custom properties on <body> -
+ * `--jf-palette-primary-main`, `--jf-palette-background-default`,
+ * `--jf-palette-text-primary`, etc. - confirmed both in jellyfin-web's own
+ * source (src/themes/_base/_theme.scss reads every one of its colors via
+ * `var(--jf-palette-X, $fallback)`) and live, in the browser, against a real
+ * Jellyfin 10.11 instance. Reading these directly is simpler and more
+ * accurate than probing rendered elements, so the DOM-probing approach was
+ * removed.
  *
- * Two subtleties that matter for getting a real reading instead of a
- * silent fallback:
- *  1. `is="emby-button"` etc. are "customized built-in elements" (Custom
- *     Elements v1). They must be created via
- *     `document.createElement('button', { is: 'emby-button' })` - passing
- *     `is` as an attribute after the fact is not reliably upgraded by the
- *     browser and can leave the element with no special styling at all.
- *  2. Jellyfin may apply some of its styling only after the element has
- *     been upgraded and connected for a frame or two (e.g. via its own
- *     lifecycle code), so we wait a couple of animation frames before
- *     reading computed styles rather than reading them synchronously.
- *
- * This is inherently best-effort: if Jellyfin's markup/classes change in a
- * future release, or a custom skin styles nothing we probe, we silently
- * fall back to the plugin's existing hardcoded palette (the `var(--x, Y)`
- * fallback values already in style.css) - the settings page must never
- * break because of this.
+ * This is still best-effort: if a given variable is missing (an older
+ * Jellyfin version, or a custom skin that doesn't set it), we fall back to
+ * the plugin's existing hardcoded palette (the `var(--x, Y)` fallback
+ * values already in style.css) - the settings page must never break
+ * because of this.
  */
 
 function parseRgb(colorString) {
@@ -68,112 +58,109 @@ function relativeLuminance(color) {
   return 0.2126 * channel(color.r) + 0.7152 * channel(color.g) + 0.0722 * channel(color.b)
 }
 
-/** Waits two animation frames - gives Jellyfin's custom elements a chance to finish upgrading/styling. */
-function nextPaint() {
-  return new Promise((resolve) => {
-    requestAnimationFrame(() => requestAnimationFrame(resolve))
-  })
-}
-
-/** Creates an element the spec-correct way for a customized built-in element (`is="..."`). */
-function createNative(tag, isValue) {
-  return isValue ? document.createElement(tag, { is: isValue }) : document.createElement(tag)
-}
-
-function hide(el) {
-  el.style.position = 'absolute'
-  el.style.left = '-9999px'
-  el.style.top = '-9999px'
-  el.style.visibility = 'hidden'
-  el.style.pointerEvents = 'none'
-  return el
-}
-
-function buildAccentProbe() {
-  const form = document.createElement('form')
-  const button = createNative('button', 'emby-button')
-  button.setAttribute('type', 'submit')
-  button.className = 'raised button-submit block emby-button'
-  button.textContent = 'x'
-  form.appendChild(button)
-  return { root: hide(form), target: button }
-}
-
-function buildBorderProbe() {
-  const container = document.createElement('div')
-  container.className = 'inputContainer'
-  const input = createNative('input', 'emby-input')
-  input.setAttribute('type', 'text')
-  container.appendChild(input)
-  return { root: hide(container), target: input }
-}
-
-function readColors(el) {
-  const computed = window.getComputedStyle(el)
-  return {
-    background: parseRgb(computed.backgroundColor),
-    color: parseRgb(computed.color),
-    borderColor: parseRgb(computed.borderBottomColor),
+/** Parses a `#rgb`/`#rgba`/`#rrggbb`/`#rrggbbaa` hex color string into { r, g, b, a }, or null if malformed. */
+function parseHex(hex) {
+  const clean = hex.slice(1)
+  let r
+  let g
+  let b
+  let a = 1
+  if (clean.length === 3 || clean.length === 4) {
+    r = parseInt(clean[0] + clean[0], 16)
+    g = parseInt(clean[1] + clean[1], 16)
+    b = parseInt(clean[2] + clean[2], 16)
+    if (clean.length === 4) {
+      a = parseInt(clean[3] + clean[3], 16) / 255
+    }
+  } else if (clean.length === 6 || clean.length === 8) {
+    r = parseInt(clean.slice(0, 2), 16)
+    g = parseInt(clean.slice(2, 4), 16)
+    b = parseInt(clean.slice(4, 6), 16)
+    if (clean.length === 8) {
+      a = parseInt(clean.slice(6, 8), 16) / 255
+    }
+  } else {
+    return null
   }
+  if ([r, g, b].some(Number.isNaN)) {
+    return null
+  }
+  return { r, g, b, a: Number.isNaN(a) ? 1 : a }
 }
 
 /**
- * Measures the active Jellyfin theme and sets --mvpl-* custom properties
- * on `root` (should be an ancestor of everything this plugin renders, so
- * the variables cascade to our components without ever leaking into the
- * rest of the Jellyfin dashboard). Async: waits a couple of frames so
- * Jellyfin's custom elements have finished styling before we measure them.
+ * Normalizes a CSS color string into an { r, g, b, a } object, or null if
+ * empty/unrecognized. Jellyfin's own theme SCSS defines its palette as hex
+ * literals (confirmed both in jellyfin-web's source and live in the
+ * browser), and re-exposes them as CSS custom properties verbatim - i.e.
+ * without normalizing them to rgb()/rgba() - so hex is the format we
+ * actually need to handle; rgb()/rgba() is supported too in case a custom
+ * skin defines its palette that way instead.
+ */
+function parseColor(value) {
+  if (!value) {
+    return null
+  }
+  const trimmed = value.trim()
+  if (trimmed.startsWith('#')) {
+    return parseHex(trimmed)
+  }
+  return parseRgb(trimmed)
+}
+
+/** Reads a `--jf-palette-*` custom property from Jellyfin's live theme, normalized to { r, g, b, a }, or null if unset/invalid. */
+function readJellyfinColor(name) {
+  const raw = window.getComputedStyle(document.body).getPropertyValue(name)
+  return parseColor(raw && raw.trim())
+}
+
+/**
+ * Measures the active Jellyfin theme (via its --jf-palette-* CSS custom
+ * properties) and sets --mvpl-* custom properties on `root` (should be an
+ * ancestor of everything this plugin renders, so the variables cascade to
+ * our components without ever leaking into the rest of the Jellyfin
+ * dashboard). Kept async for compatibility with existing callers that
+ * already await/chain this - the read itself is now fully synchronous, no
+ * animation frames needed.
  */
 export async function applyJellyfinTheme(root) {
   try {
-    const host = document.body
-    const bodyStyle = window.getComputedStyle(host)
-    // Reject a fully/mostly transparent read the same way the border/accent
-    // probes do below - an unstyled <body> (no Jellyfin CSS loaded, e.g. in
-    // tests) reports "rgba(0, 0, 0, 0)", which must fall back to the
-    // defaults rather than being treated as "the theme's background is
-    // black".
-    const bgProbe = parseRgb(bodyStyle.backgroundColor)
-    const textProbe = parseRgb(bodyStyle.color)
-    const bg = bgProbe && bgProbe.a > 0.05 ? bgProbe : { r: 24, g: 24, b: 27, a: 1 }
-    const text = textProbe && textProbe.a > 0.05 ? textProbe : { r: 228, g: 228, b: 231, a: 1 }
+    const DEFAULT_BG = { r: 24, g: 24, b: 27, a: 1 }
+    const DEFAULT_TEXT = { r: 228, g: 228, b: 231, a: 1 }
+    // Jellyfin's own default (non-custom) theme color - #00a4dc, MUI's $primary-main in
+    // jellyfin-web's base palette - used only as a last resort when --jf-palette-primary-main
+    // itself is unavailable (e.g. standalone dev preview with no Jellyfin body to read from).
+    const DEFAULT_ACCENT = { r: 0, g: 164, b: 220, a: 1 }
+
+    const bg = readJellyfinColor('--jf-palette-background-default') || DEFAULT_BG
+    const text = readJellyfinColor('--jf-palette-text-primary') || DEFAULT_TEXT
     const isDark = relativeLuminance(bg) < 0.5
-
-    const accentProbe = buildAccentProbe()
-    const borderProbe = buildBorderProbe()
-    host.appendChild(accentProbe.root)
-    host.appendChild(borderProbe.root)
-
-    await nextPaint()
-
-    const accent = readColors(accentProbe.target).background
-    const border = readColors(borderProbe.target).borderColor
-
-    host.removeChild(accentProbe.root)
-    host.removeChild(borderProbe.root)
-
     const surfaceTint = isDark ? { r: 255, g: 255, b: 255 } : { r: 0, g: 0, b: 0 }
     const sunkenTint = isDark ? { r: 0, g: 0, b: 0 } : { r: 255, g: 255, b: 255 }
+
+    const surface = readJellyfinColor('--jf-palette-background-paper') || mix(bg, surfaceTint, 0.06)
+    const textSecondary = readJellyfinColor('--jf-palette-text-secondary') || mix(text, bg, 0.35)
+    // Jellyfin doesn't expose a dedicated "muted" text tone - always derive it from
+    // whichever secondary tone we ended up with (measured or fallback).
+    const textMuted = mix(textSecondary, bg, 0.35)
+    const divider = readJellyfinColor('--jf-palette-divider') || mix(bg, surfaceTint, 0.2)
+    const accent = readJellyfinColor('--jf-palette-primary-main') || DEFAULT_ACCENT
+    // Jellyfin's own stylesheet already uses --jf-palette-primary-dark as the
+    // hover/active shade for this same button style (.button-submit:hover), so
+    // prefer it over deriving our own darkened variant.
+    const accentHover = readJellyfinColor('--jf-palette-primary-dark') || mix(accent, sunkenTint, 0.15)
 
     const vars = {
       '--mvpl-bg': toCss(bg),
       '--mvpl-bg-sunken': toCss(mix(bg, sunkenTint, 0.35)),
-      '--mvpl-surface': toCss(mix(bg, surfaceTint, 0.06)),
+      '--mvpl-surface': toCss(surface),
       '--mvpl-text-primary': toCss(text),
-      '--mvpl-text-secondary': toCss(mix(text, bg, 0.35)),
-      '--mvpl-text-muted': toCss(mix(text, bg, 0.55)),
-    }
-
-    // Only override the border/accent tokens if the probe produced a
-    // visible (non-transparent) color - a failed probe (e.g. Jellyfin
-    // markup changed) must not overwrite a sane fallback with black.
-    if (border && border.a > 0.05) {
-      vars['--mvpl-border'] = toCss(border)
-      vars['--mvpl-border-hover'] = toCss(mix(border, surfaceTint, 0.3))
-    }
-    if (accent && accent.a > 0.05) {
-      vars['--mvpl-accent'] = toCss(accent)
-      vars['--mvpl-accent-hover'] = toCss(mix(accent, sunkenTint, 0.15))
+      '--mvpl-text-secondary': toCss(textSecondary),
+      '--mvpl-text-muted': toCss(textMuted),
+      '--mvpl-border': toCss(divider),
+      '--mvpl-border-hover': toCss(mix(divider, surfaceTint, 0.3)),
+      '--mvpl-accent': toCss(accent),
+      '--mvpl-accent-hover': toCss(accentHover),
     }
 
     for (const [key, value] of Object.entries(vars)) {

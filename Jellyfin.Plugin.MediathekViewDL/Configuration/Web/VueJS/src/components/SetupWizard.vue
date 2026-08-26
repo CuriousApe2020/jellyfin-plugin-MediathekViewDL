@@ -575,7 +575,7 @@ defineExpose({
 
 .wizard-progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, var(--mvpl-accent, #7c3aed), #10b981);
+    background: linear-gradient(90deg, var(--mvpl-accent, #00a4dc), #10b981);
     transition: width 0.3s ease;
 }
 
@@ -588,7 +588,7 @@ defineExpose({
 
 .wizard-content h3 {
     margin-top: 0;
-    color: var(--mvpl-accent, #7c3aed);
+    color: var(--mvpl-accent, #00a4dc);
 }
 
 .wizard-hint {

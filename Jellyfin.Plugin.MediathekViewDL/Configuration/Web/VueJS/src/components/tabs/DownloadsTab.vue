@@ -342,7 +342,7 @@ onUnmounted(() => {
 
 .item-progress { grid-column: 1 / -1; margin-top: 5px; }
 .progress-bar-bg { background: var(--mvpl-bg, #18181b); height: 8px; border-radius: 4px; overflow: hidden; }
-.progress-bar-fill { background: var(--mvpl-accent, #7c3aed); height: 100%; transition: width 0.3s ease; }
+.progress-bar-fill { background: var(--mvpl-accent, #00a4dc); height: 100%; transition: width 0.3s ease; }
 
 .item-details {
   padding: 0 15px 15px 38px;
