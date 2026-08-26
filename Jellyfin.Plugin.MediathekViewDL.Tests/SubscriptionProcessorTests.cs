@@ -678,5 +678,150 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
             _downloadQueueManagerMock.Verify(x => x.QueueJob(It.IsAny<DownloadJob>(), subscription.Id), Times.Once);
             Assert.NotEqual(default, subscription.LastDownloadedTimestamp);
         }
+
+        [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldSkipItem_WhenRequiredAudioLanguageIsNotFound()
+        {
+            // Arrange: RequiredAudioLanguage is set to "eng", but neither secondary-audio detection
+            // is enabled nor does the main (German) track itself match - so the item has no way to
+            // end up with an English track and must be skipped entirely.
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Accessibility = new AccessibilitySettings { RequiredAudioLanguage = "eng" }
+            };
+            var item = new ResultItem
+            {
+                Id = "123",
+                Title = "TestTitle",
+                UrlVideo = "http://test.com/video.mp4"
+            };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+
+            _apiClientMock
+                .Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "TestTitle", Language = "deu" };
+            _videoParserMock
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mp4" });
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Empty(jobs);
+        }
+
+        [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldKeepItem_WhenMainTrackAlreadyMatchesRequiredAudioLanguage()
+        {
+            // Arrange: MediathekView itself already returned this item as the English-language
+            // track (e.g. a distinct OV search result), so the main track alone already satisfies
+            // the filter without any secondary-audio detection.
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Accessibility = new AccessibilitySettings { RequiredAudioLanguage = "eng" }
+            };
+            var item = new ResultItem
+            {
+                Id = "123",
+                Title = "TestTitle (Originalversion)",
+                UrlVideo = "http://test.com/video.mp4"
+            };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+
+            _apiClientMock
+                .Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "TestTitle", Language = "eng" };
+            _videoParserMock
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mp4" });
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Single(jobs);
+        }
+
+        [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldKeepItem_WhenRequiredAudioLanguageIsFoundViaWorkaroundDetection()
+        {
+            // Arrange: the main track is German, but our own URL-based secondary-audio detection
+            // (SecondaryAudioUrlHelper) finds and resolves an English original-version track for it -
+            // that alone must be enough to satisfy the filter, even though MediathekView's own search
+            // index never surfaced the English track as a distinct result.
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Accessibility = new AccessibilitySettings { RequiredAudioLanguage = "eng" },
+                Download = new DownloadSettings
+                {
+                    DetectUndetectedSecondaryAudio = true,
+                    DownloadOriginalVersionAudio = true,
+                    ResolveOriginalVersionLanguage = true,
+                }
+            };
+            var item = new ResultItem
+            {
+                Id = "123",
+                Title = "TestTitle",
+                UrlVideoHd = "http://test.com/video_sendeton_1080p.mp4",
+                UrlWebsite = "https://www.ardmediathek.de/video/Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw"
+            };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+
+            _apiClientMock
+                .Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "TestTitle", Language = "deu" };
+            _videoParserMock
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mkv" });
+
+            _originalVersionLanguageResolverMock
+                .Setup(x => x.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, It.IsAny<CancellationToken>()))
+                .ReturnsAsync("eng");
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Single(jobs);
+            Assert.Contains(jobs[0].DownloadItems, i => i.Language == "eng");
+        }
     }
 }
