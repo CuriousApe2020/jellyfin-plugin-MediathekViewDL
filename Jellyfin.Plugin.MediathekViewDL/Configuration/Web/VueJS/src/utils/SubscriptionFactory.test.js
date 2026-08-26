@@ -121,7 +121,8 @@ describe('SubscriptionFactory', () => {
             const defaults = {
                 AccessibilitySettings: {
                     AllowAudioDescription: true,
-                    AllowSignLanguage: true
+                    AllowSignLanguage: true,
+                    RequiredAudioLanguage: 'eng'
                 }
             }
             // Act
@@ -129,6 +130,14 @@ describe('SubscriptionFactory', () => {
             // Assert
             expect(subscription.Accessibility.AllowAudioDescription).toBe(true)
             expect(subscription.Accessibility.AllowSignLanguage).toBe(true)
+            expect(subscription.Accessibility.RequiredAudioLanguage).toBe('eng')
+        })
+
+        it('ShouldDefaultRequiredAudioLanguageToEmptyString_WhenNotProvided', () => {
+            // Act
+            const subscription = SubscriptionFactory.createDefault()
+            // Assert: empty string, not undefined - so it binds cleanly to a text input
+            expect(subscription.Accessibility.RequiredAudioLanguage).toBe('')
         })
 
         it('ShouldReturnIndependentObjects_WhenCalledMultipleTimes', () => {

@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Jellyfin.Plugin.MediathekViewDL.Api.External;
 using Jellyfin.Plugin.MediathekViewDL.Api.Models;
 using Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration;
+using Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration.SubscriptionSettings;
 using Jellyfin.Plugin.MediathekViewDL.Data;
 using Jellyfin.Plugin.MediathekViewDL.Exceptions.ExternalApi;
 using Jellyfin.Plugin.MediathekViewDL.Services.Downloading.Clients;
@@ -348,6 +349,16 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                 break;
         }
 
+        if (!HasRequiredAudioLanguage(subscription, tempVideoInfo, downloadJob))
+        {
+            _logger.LogDebug(
+                "Skipping item '{Title}' - no audio track in the required language '{RequiredLanguage}' was found (main track: '{MainLanguage}').",
+                item.Title,
+                subscription.Accessibility.RequiredAudioLanguage,
+                tempVideoInfo.Language);
+            return null;
+        }
+
         // Subtitle Item
         if (downloadSubtitles)
         {
@@ -389,6 +400,32 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         }
 
         return downloadJob;
+    }
+
+    /// <summary>
+    /// Checks whether <paramref name="job"/> ends up with at least one audio track in the
+    /// subscription's configured <see cref="AccessibilitySettings.RequiredAudioLanguage"/> - the main
+    /// item's own language plus every secondary track already added to
+    /// <see cref="DownloadJob.DownloadItems"/> by the time this is called (both the URL-derived
+    /// tracks from <see cref="SecondaryAudioUrlHelper"/> and the cross-result tracks from
+    /// <see cref="AudioVariantGroupingService"/> - whichever detection settings are enabled). Always
+    /// true (no filtering) when the setting is unset, so this is a no-op for every subscription that
+    /// hasn't opted in.
+    /// </summary>
+    private static bool HasRequiredAudioLanguage(Subscription subscription, VideoInfo mainVideoInfo, DownloadJob job)
+    {
+        var requiredLanguage = subscription.Accessibility.RequiredAudioLanguage;
+        if (string.IsNullOrWhiteSpace(requiredLanguage))
+        {
+            return true;
+        }
+
+        if (string.Equals(mainVideoInfo.Language, requiredLanguage, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return job.DownloadItems.Any(i => string.Equals(i.Language, requiredLanguage, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>

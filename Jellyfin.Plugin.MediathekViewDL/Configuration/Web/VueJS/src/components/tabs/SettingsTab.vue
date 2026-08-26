@@ -76,6 +76,7 @@ const defAppendTimeToTitle = ref(false)
 // Subscription Defaults - Accessibility
 const defAllowAudioDesc = ref(false)
 const defAllowSignLanguage = ref(false)
+const defRequiredAudioLanguage = ref('')
 
 // Maintenance
 const enableStrmCleanup = ref(false)
@@ -168,6 +169,7 @@ async function loadConfig() {
 
     defAllowAudioDesc.value = defAccess.AllowAudioDescription ?? false
     defAllowSignLanguage.value = defAccess.AllowSignLanguage ?? false
+    defRequiredAudioLanguage.value = defAccess.RequiredAudioLanguage ?? ''
 
   } catch (e) {
     console.error('Failed to load config', e)
@@ -255,7 +257,8 @@ async function saveConfig() {
       },
       AccessibilitySettings: {
         AllowAudioDescription: defAllowAudioDesc.value,
-        AllowSignLanguage: defAllowSignLanguage.value
+        AllowSignLanguage: defAllowSignLanguage.value,
+        RequiredAudioLanguage: defRequiredAudioLanguage.value
       }
     }
 
@@ -634,6 +637,11 @@ onMounted(() => {
           <div class="checkbox-field">
             <label><input v-model="defAllowSignLanguage" type="checkbox"> Gebärdensprache erlauben</label>
             <p class="field-desc">Lädt auch Inhalte mit Gebärdensprache herunter. (sofern verfügbar).</p>
+          </div>
+          <div class="field">
+            <label>Nur mit Tonspur (ISO Code, z.B. 'eng')</label>
+            <input v-model="defRequiredAudioLanguage" type="text" class="field-input" placeholder="leer = kein Filter">
+            <p class="field-desc">Wenn gesetzt, werden nur Titel heruntergeladen, die zusätzlich zur Hauptspur eine Tonspur in dieser Sprache haben — egal ob MediathekView sie als eigenen Suchtreffer findet oder sie erst über "Fehlende Tonspuren erkennen" bzw. "Verwandte Suchtreffer zusammenführen" erkannt wird. Titel ohne passende Tonspur werden komplett übersprungen (auch die Hauptspur nicht heruntergeladen). Setzt voraus, dass die entsprechende Erkennung weiter oben aktiviert ist. Gilt als Standardwert für neue Abos.</p>
           </div>
         </div>
       </details>
