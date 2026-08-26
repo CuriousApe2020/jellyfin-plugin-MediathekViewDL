@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.7"
+version: "0.0.0.8"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,19 +17,12 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Behebt eine weitere Original/Fork-Kollision im Parallelbetrieb - diesmal
-  im Browser statt auf dem Server. Die Einstellungsseite beider Plugins
-  verwendet denselben, aus der Jellyfin-Plugin-Vorlage übernommenen
-  Container-Element-Namen "configPageVueJSPage". Jellyfins Web-Client
-  entfernt die Seite eines zuvor besuchten Plugins beim Navigieren nicht
-  immer vollständig aus dem DOM - dadurch konnte document.getElementById()
-  die falsche (veraltete) Seite treffen. Sichtbare Folge: es waren immer
-  nur bei dem Plugin (Original oder Fork) Einstellungen zu sehen, das
-  zuletzt neu geladen wurde; das jeweils andere zeigte nichts an, bis man
-  dessen Seite selbst neu lud (wodurch dann wiederum das erste betroffen
-  war).
-
-  Der Fork verwendet jetzt einen eigenen, eindeutigen Element-Namen
-  ("mediathekViewDLForkConfigPage") statt des geteilten Vorlagen-Namens.
-  Reine Frontend-Änderung, keine Auswirkung auf Konfiguration oder Abos.
-
+  Neu: optionaler Tonspur-Filter pro Abo ("Barrierefreiheit"-Reiter bzw.
+  Abo-Standardwerte), "Nur mit Tonspur (ISO Code, z.B. 'eng')". Wenn
+  gesetzt, werden nur Titel heruntergeladen, die zusätzlich zur Hauptspur
+  eine Tonspur in dieser Sprache haben - egal ob MediathekView sie als
+  eigenen Suchtreffer findet ("Verwandte Suchtreffer zusammenführen") oder
+  sie erst über den URL-Workaround erkannt wird ("Fehlende Tonspuren
+  erkennen"). Titel ohne passende Tonspur werden komplett übersprungen,
+  auch die Hauptspur wird dann nicht heruntergeladen. Standardmäßig leer
+  (deaktiviert) - kein Verhaltensunterschied für bestehende Abos.

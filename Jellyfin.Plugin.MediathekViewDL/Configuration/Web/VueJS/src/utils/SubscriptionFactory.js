@@ -43,7 +43,8 @@ export const SubscriptionFactory = {
     },
     Accessibility: {
       AllowAudioDescription: defaults.AccessibilitySettings?.AllowAudioDescription || false,
-      AllowSignLanguage: defaults.AccessibilitySettings?.AllowSignLanguage || false
+      AllowSignLanguage: defaults.AccessibilitySettings?.AllowSignLanguage || false,
+      RequiredAudioLanguage: defaults.AccessibilitySettings?.RequiredAudioLanguage || ''
     }
   })
 };
