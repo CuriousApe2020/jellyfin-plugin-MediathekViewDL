@@ -213,8 +213,8 @@ defineExpose({ refresh: fetchSubscriptions })
   background-color: white;
   transition: .4s;
 }
-input:checked + .slider { background-color: var(--mvpl-accent, #7c3aed); }
-input:focus + .slider { box-shadow: 0 0 1px var(--mvpl-accent, #7c3aed); }
+input:checked + .slider { background-color: var(--mvpl-accent, #00a4dc); }
+input:focus + .slider { box-shadow: 0 0 1px var(--mvpl-accent, #00a4dc); }
 input:checked + .slider:before { transform: translateX(20px); }
 .slider.round { border-radius: 24px; }
 .slider.round:before { border-radius: 50%; }

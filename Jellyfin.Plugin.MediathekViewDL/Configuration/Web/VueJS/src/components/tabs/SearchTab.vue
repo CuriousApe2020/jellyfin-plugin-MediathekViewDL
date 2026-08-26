@@ -435,7 +435,7 @@ function closeAdvancedDownloadDialog() {
 
 .suggestions-list li:hover,
 .suggestions-list li.selected {
-    background: var(--mvpl-accent, #7c3aed);
+    background: var(--mvpl-accent, #00a4dc);
     color: white;
 }
 

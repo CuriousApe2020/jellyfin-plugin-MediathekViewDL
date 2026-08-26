@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.7"
+version: "0.0.0.8"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,19 +17,30 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Behebt eine weitere Original/Fork-Kollision im Parallelbetrieb - diesmal
-  im Browser statt auf dem Server. Die Einstellungsseite beider Plugins
-  verwendet denselben, aus der Jellyfin-Plugin-Vorlage übernommenen
-  Container-Element-Namen "configPageVueJSPage". Jellyfins Web-Client
-  entfernt die Seite eines zuvor besuchten Plugins beim Navigieren nicht
-  immer vollständig aus dem DOM - dadurch konnte document.getElementById()
-  die falsche (veraltete) Seite treffen. Sichtbare Folge: es waren immer
-  nur bei dem Plugin (Original oder Fork) Einstellungen zu sehen, das
-  zuletzt neu geladen wurde; das jeweils andere zeigte nichts an, bis man
-  dessen Seite selbst neu lud (wodurch dann wiederum das erste betroffen
-  war).
+  Behebt die violette Akzentfarbe der Einstellungsseite, die nie zum
+  aktiven Jellyfin-Theme gepasst hat. Ursache: die bisherige
+  Theme-Erkennung ging davon aus, dass Jellyfins Web-Client seine
+  Theme-Farben grundsätzlich nicht als CSS-Variablen bereitstellt, und hat
+  deshalb stattdessen versucht, sie aus unsichtbar gerenderten
+  Jellyfin-Elementen abzulesen. Diese Annahme war falsch: Jellyfin (ab
+  10.11 bestätigt) setzt die aktiven Theme-Farben tatsächlich als
+  "--jf-palette-*"-CSS-Variablen (u.a. "--jf-palette-primary-main",
+  "--jf-palette-background-default", "--jf-palette-text-primary") direkt
+  auf <body>. Die alte Messmethode traf diese Werte nicht zuverlässig und
+  fiel deshalb still auf eine fest einprogrammierte violette Standardfarbe
+  zurück.
 
-  Der Fork verwendet jetzt einen eigenen, eindeutigen Element-Namen
-  ("mediathekViewDLForkConfigPage") statt des geteilten Vorlagen-Namens.
-  Reine Frontend-Änderung, keine Auswirkung auf Konfiguration oder Abos.
+  Die Einstellungsseite liest die Akzent-, Hintergrund-, Text- und
+  Rahmenfarben jetzt direkt aus Jellyfins eigenen "--jf-palette-*"-
+  Variablen und passt sich damit korrekt an das aktive Theme an
+  (einschließlich benutzerdefinierter Skins, die diese Variablen setzen).
+  Fehlt eine Variable (z.B. bei einer älteren Jellyfin-Version), wird
+  weiterhin sicher auf die bisherige Standardpalette zurückgefallen. Reine
+  Frontend-Änderung, keine Auswirkung auf Konfiguration oder Abos.
 
+  Auch die violette Fallback-Farbe selbst ist jetzt Jellyfins eigenes
+  Standard-Akzentblau (#00a4dc statt #7c3aed). Sie greift ohnehin nur
+  noch, wenn Jellyfins "--jf-palette-primary-main"-Variable aus
+  irgendeinem Grund nicht gelesen werden kann - dann passt jetzt
+  wenigstens die Fallback-Farbe selbst zu Jellyfin, statt beliebig lila zu
+  sein.
