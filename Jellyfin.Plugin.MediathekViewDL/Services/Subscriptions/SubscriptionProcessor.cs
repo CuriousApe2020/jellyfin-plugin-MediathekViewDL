@@ -278,17 +278,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                             continue;
                         }
 
-                        var isOriginalVersion = candidate.Kind == SecondaryAudioKind.OriginalVersion;
-                        string? candidateLang;
-                        if (isOriginalVersion && subscription.Download.ResolveOriginalVersionLanguage)
-                        {
-                            _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
-                            candidateLang = (await _originalVersionLanguageResolver.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken).ConfigureAwait(false)) ?? candidate.LanguageCode;
-                        }
-                        else
-                        {
-                            candidateLang = candidate.LanguageCode;
-                        }
+                        var candidateLang = await ResolveSecondaryAudioLanguageAsync(subscription, item, candidate, cancellationToken).ConfigureAwait(false);
 
                         // Standalone file next to the main video, e.g. "Title.eng.mka" or "Title [AD].deu.mka" -
                         // same naming convention already used for secondary-language items found via the API,
@@ -403,6 +393,27 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     }
 
     /// <summary>
+    /// Resolves the language a single URL-derived secondary-audio candidate (ARD-style, see
+    /// <see cref="SecondaryAudioUrlHelper"/>) ends up tagged with - the broadcaster-API lookup for
+    /// original-version tracks when <see cref="BaseDownloadSettings.ResolveOriginalVersionLanguage"/>
+    /// is enabled, falling back to the URL-derived placeholder otherwise. Shared by
+    /// <see cref="BuildDownloadJobAsync"/> (which turns the result into a real
+    /// <see cref="DownloadItem"/>) and the dry-run language-filter probe in
+    /// <see cref="WouldPassAudioLanguageFilterAsync"/> (which only needs the language, not a full
+    /// download item) - so both agree on what a given candidate resolves to.
+    /// </summary>
+    private async Task<string?> ResolveSecondaryAudioLanguageAsync(Subscription subscription, ResultItemDto item, SecondaryAudioCandidate candidate, CancellationToken cancellationToken)
+    {
+        if (candidate.Kind != SecondaryAudioKind.OriginalVersion || !subscription.Download.ResolveOriginalVersionLanguage)
+        {
+            return candidate.LanguageCode;
+        }
+
+        _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
+        return (await _originalVersionLanguageResolver.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken).ConfigureAwait(false)) ?? candidate.LanguageCode;
+    }
+
+    /// <summary>
     /// Checks whether <paramref name="job"/> ends up with at least one audio track in the
     /// subscription's configured <see cref="AccessibilitySettings.RequiredAudioLanguage"/> - the main
     /// item's own language plus every secondary track already added to
@@ -426,6 +437,72 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         }
 
         return job.DownloadItems.Any(i => string.Equals(i.Language, requiredLanguage, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Dry-run counterpart to <see cref="HasRequiredAudioLanguage"/>, used by
+    /// <see cref="TestSubscriptionAsync"/>: determines whether this item would end up with an audio
+    /// track in the subscription's configured <see cref="AccessibilitySettings.RequiredAudioLanguage"/>,
+    /// without building a full download job (no path/URL resolution, no <see cref="DownloadItem"/>s) -
+    /// so the "Abo prüfen" preview reflects the same filter the real download applies, cheaply. Checks
+    /// the same three sources <see cref="HasRequiredAudioLanguage"/> does once the job is built: the
+    /// main item's own language, cross-result siblings already grouped in by
+    /// <see cref="AudioVariantGroupingService"/>, and URL-derived candidates from
+    /// <see cref="SecondaryAudioUrlHelper"/> (the only one needing a network lookup, and only when
+    /// <see cref="BaseDownloadSettings.DetectUndetectedSecondaryAudio"/> and
+    /// <see cref="BaseDownloadSettings.ResolveOriginalVersionLanguage"/> are both enabled).
+    /// </summary>
+    private async Task<bool> WouldPassAudioLanguageFilterAsync(
+        Subscription subscription,
+        ResultItemDto item,
+        VideoInfo mainVideoInfo,
+        IReadOnlyList<AudioVariantSecondary> crossResultSecondaries,
+        CancellationToken cancellationToken)
+    {
+        var requiredLanguage = subscription.Accessibility.RequiredAudioLanguage;
+        if (string.IsNullOrWhiteSpace(requiredLanguage))
+        {
+            return true;
+        }
+
+        if (string.Equals(mainVideoInfo.Language, requiredLanguage, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        foreach (var secondary in crossResultSecondaries)
+        {
+            if (!SecondaryAudioUrlHelper.IsKindEnabled(subscription.Download, secondary.Kind))
+            {
+                continue;
+            }
+
+            var lang = string.IsNullOrWhiteSpace(secondary.VideoInfo.Language) ? "und" : secondary.VideoInfo.Language;
+            if (string.Equals(lang, requiredLanguage, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        if (subscription.Download.DetectUndetectedSecondaryAudio)
+        {
+            var videoUrl = item.VideoUrls.OrderByDescending(v => v.Quality).Select(v => v.Url).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
+            foreach (var candidate in SecondaryAudioUrlHelper.DetectCandidates(videoUrl))
+            {
+                if (!SecondaryAudioUrlHelper.IsKindEnabled(subscription.Download, candidate.Kind))
+                {
+                    continue;
+                }
+
+                var candidateLang = await ResolveSecondaryAudioLanguageAsync(subscription, item, candidate, cancellationToken).ConfigureAwait(false);
+                if (string.Equals(candidateLang, requiredLanguage, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -481,23 +558,74 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         // We ensure IgnoreLocalFiles is set for this call.
         var testSub = subscription with { IgnoreLocalFiles = true };
 
+        if (testSub.Download.DetectCrossResultAudioVariants)
+        {
+            // Mirror GetJobsForSubscriptionAsync's grouping: buffer the whole eligible-item stream so
+            // sibling rows representing the same episode in a different audio track are grouped the
+            // same way the real download would group them, before the audio-language filter below
+            // gets a chance to look at them - otherwise a cross-result-only track (arte/ZDF/3sat) would
+            // never be seen as available and every such item would incorrectly appear filtered out.
+            var eligibleItems = new List<(ResultItemDto Item, VideoInfo VideoInfo)>();
+            await foreach (var eligible in GetEligibleItemsAsync(testSub, cancellationToken).ConfigureAwait(false))
+            {
+                eligibleItems.Add(eligible);
+            }
+
+            foreach (var group in AudioVariantGroupingService.GroupByEpisode(eligibleItems))
+            {
+                var preview = await BuildTestPreviewAsync(testSub, group.MainItem, group.MainVideoInfo, group.Secondaries, cancellationToken).ConfigureAwait(false);
+                if (preview != null)
+                {
+                    yield return preview;
+                }
+            }
+
+            yield break;
+        }
+
         await foreach (var (item, tempVideoInfo) in GetEligibleItemsAsync(testSub, cancellationToken).ConfigureAwait(false))
         {
-            var paths = _fileNameBuilderService.GenerateDownloadPaths(tempVideoInfo, testSub, DownloadContext.Subscription);
-            string path = paths.MainFilePath;
-            if (!paths.IsValid)
+            var preview = await BuildTestPreviewAsync(testSub, item, tempVideoInfo, Array.Empty<AudioVariantSecondary>(), cancellationToken).ConfigureAwait(false);
+            if (preview != null)
             {
-                path = "Warnung: Ungültiger Pfad";
+                yield return preview;
             }
-
-            var description = item.Description ?? string.Empty;
-            if (description.Length > 100)
-            {
-                description = string.Concat(description.AsSpan(0, 100), "...");
-            }
-
-            yield return item with { Description = $"Pfad: {path} | {description}" };
         }
+    }
+
+    /// <summary>
+    /// Builds one dry-run preview row for <see cref="TestSubscriptionAsync"/>, or null if the item
+    /// wouldn't be downloaded at all because of <see cref="AccessibilitySettings.RequiredAudioLanguage"/>
+    /// - matching how a real subscription run silently skips such items (via
+    /// <see cref="HasRequiredAudioLanguage"/> inside <see cref="BuildDownloadJobAsync"/>), rather than
+    /// showing a path for an item that would never actually be downloaded.
+    /// </summary>
+    private async Task<ResultItemDto?> BuildTestPreviewAsync(
+        Subscription testSub,
+        ResultItemDto item,
+        VideoInfo tempVideoInfo,
+        IReadOnlyList<AudioVariantSecondary> crossResultSecondaries,
+        CancellationToken cancellationToken)
+    {
+        if (!await WouldPassAudioLanguageFilterAsync(testSub, item, tempVideoInfo, crossResultSecondaries, cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        var paths = _fileNameBuilderService.GenerateDownloadPaths(tempVideoInfo, testSub, DownloadContext.Subscription);
+        string path = paths.MainFilePath;
+        if (!paths.IsValid)
+        {
+            path = "Warnung: Ungültiger Pfad";
+        }
+
+        var description = item.Description ?? string.Empty;
+        if (description.Length > 100)
+        {
+            description = string.Concat(description.AsSpan(0, 100), "...");
+        }
+
+        return item with { Description = $"Pfad: {path} | {description}" };
     }
 
     /// <summary>

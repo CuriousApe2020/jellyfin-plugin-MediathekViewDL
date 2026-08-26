@@ -823,5 +823,156 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
             Assert.Single(jobs);
             Assert.Contains(jobs[0].DownloadItems, i => i.Language == "eng");
         }
+
+        [Fact]
+        public async Task TestSubscriptionAsync_ShouldExcludeItem_WhenRequiredAudioLanguageIsNotFound()
+        {
+            // Arrange: mirrors GetJobsForSubscriptionAsync_ShouldSkipItem_WhenRequiredAudioLanguageIsNotFound -
+            // the dry-run preview must agree with what a real run would actually download.
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Accessibility = new AccessibilitySettings { RequiredAudioLanguage = "eng" }
+            };
+            var item = new ResultItem
+            {
+                Id = "123",
+                Title = "TestTitle",
+                UrlVideo = "http://test.com/video.mp4"
+            };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+
+            _apiClientMock
+                .Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "TestTitle", Language = "deu" };
+            _videoParserMock
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mp4" });
+
+            // Act
+            var results = new List<ResultItemDto>();
+            await foreach (var result in _processor.TestSubscriptionAsync(subscription, CancellationToken.None))
+            {
+                results.Add(result);
+            }
+
+            // Assert
+            Assert.Empty(results);
+        }
+
+        [Fact]
+        public async Task TestSubscriptionAsync_ShouldIncludeItem_WhenMainTrackAlreadyMatchesRequiredAudioLanguage()
+        {
+            // Arrange
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Accessibility = new AccessibilitySettings { RequiredAudioLanguage = "eng" }
+            };
+            var item = new ResultItem
+            {
+                Id = "123",
+                Title = "TestTitle (Originalversion)",
+                UrlVideo = "http://test.com/video.mp4"
+            };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+
+            _apiClientMock
+                .Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "TestTitle", Language = "eng" };
+            _videoParserMock
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mp4" });
+
+            // Act
+            var results = new List<ResultItemDto>();
+            await foreach (var result in _processor.TestSubscriptionAsync(subscription, CancellationToken.None))
+            {
+                results.Add(result);
+            }
+
+            // Assert
+            Assert.Single(results);
+        }
+
+        [Fact]
+        public async Task TestSubscriptionAsync_ShouldIncludeItem_WhenRequiredAudioLanguageIsFoundViaWorkaroundDetection()
+        {
+            // Arrange: mirrors GetJobsForSubscriptionAsync_ShouldKeepItem_WhenRequiredAudioLanguageIsFoundViaWorkaroundDetection -
+            // the dry-run preview must find the same URL-derived secondary track a real run would.
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Accessibility = new AccessibilitySettings { RequiredAudioLanguage = "eng" },
+                Download = new DownloadSettings
+                {
+                    DetectUndetectedSecondaryAudio = true,
+                    DownloadOriginalVersionAudio = true,
+                    ResolveOriginalVersionLanguage = true,
+                }
+            };
+            var item = new ResultItem
+            {
+                Id = "123",
+                Title = "TestTitle",
+                UrlVideoHd = "http://test.com/video_sendeton_1080p.mp4",
+                UrlWebsite = "https://www.ardmediathek.de/video/Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw"
+            };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+
+            _apiClientMock
+                .Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "TestTitle", Language = "deu" };
+            _videoParserMock
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mkv" });
+
+            _originalVersionLanguageResolverMock
+                .Setup(x => x.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, It.IsAny<CancellationToken>()))
+                .ReturnsAsync("eng");
+
+            // Act
+            var results = new List<ResultItemDto>();
+            await foreach (var result in _processor.TestSubscriptionAsync(subscription, CancellationToken.None))
+            {
+                results.Add(result);
+            }
+
+            // Assert
+            Assert.Single(results);
+        }
     }
 }
