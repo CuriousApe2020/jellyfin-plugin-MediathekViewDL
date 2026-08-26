@@ -28,8 +28,7 @@ if (page) {
         // Standalone / dev-preview: mount immediately
         const container = page.querySelector('#app');
         if (container) {
-            applyJellyfinTheme(page);
-            mountApp(container);
+            applyJellyfinTheme(page).finally(() => mountApp(container));
         }
     } else {
         // Inside Jellyfin: remount on every pageshow so config is reloaded
@@ -37,11 +36,15 @@ if (page) {
             const container = page.querySelector('#app');
             if (container) {
                 // Re-measure the active Jellyfin theme on every pageshow too -
-                // the admin may have switched skins since the last visit.
-                applyJellyfinTheme(page);
-                // Always remount so onMounted fires and config is fetched fresh
-                unmountApp();
-                mountApp(container);
+                // the admin may have switched skins since the last visit. Wait
+                // for it (a couple of animation frames) before mounting so the
+                // first paint already uses the right colors instead of
+                // flashing the fallback palette first.
+                applyJellyfinTheme(page).finally(() => {
+                    // Always remount so onMounted fires and config is fetched fresh
+                    unmountApp();
+                    mountApp(container);
+                });
             }
         });
 

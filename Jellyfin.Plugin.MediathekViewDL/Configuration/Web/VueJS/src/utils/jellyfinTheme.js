@@ -16,6 +16,18 @@
  * for any theme, built-in or custom, regardless of how it implements its
  * colors internally.
  *
+ * Two subtleties that matter for getting a real reading instead of a
+ * silent fallback:
+ *  1. `is="emby-button"` etc. are "customized built-in elements" (Custom
+ *     Elements v1). They must be created via
+ *     `document.createElement('button', { is: 'emby-button' })` - passing
+ *     `is` as an attribute after the fact is not reliably upgraded by the
+ *     browser and can leave the element with no special styling at all.
+ *  2. Jellyfin may apply some of its styling only after the element has
+ *     been upgraded and connected for a frame or two (e.g. via its own
+ *     lifecycle code), so we wait a couple of animation frames before
+ *     reading computed styles rather than reading them synchronously.
+ *
  * This is inherently best-effort: if Jellyfin's markup/classes change in a
  * future release, or a custom skin styles nothing we probe, we silently
  * fall back to the plugin's existing hardcoded palette (the `var(--x, Y)`
@@ -56,57 +68,63 @@ function relativeLuminance(color) {
   return 0.2126 * channel(color.r) + 0.7152 * channel(color.g) + 0.0722 * channel(color.b)
 }
 
-/** Creates a Jellyfin-native element off-screen inside `host`, reads its computed styles, then removes it. */
-function probe(host, build) {
-  const el = build()
+/** Waits two animation frames - gives Jellyfin's custom elements a chance to finish upgrading/styling. */
+function nextPaint() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve))
+  })
+}
+
+/** Creates an element the spec-correct way for a customized built-in element (`is="..."`). */
+function createNative(tag, isValue) {
+  return isValue ? document.createElement(tag, { is: isValue }) : document.createElement(tag)
+}
+
+function hide(el) {
   el.style.position = 'absolute'
   el.style.left = '-9999px'
   el.style.top = '-9999px'
   el.style.visibility = 'hidden'
   el.style.pointerEvents = 'none'
-  host.appendChild(el)
+  return el
+}
+
+function buildAccentProbe() {
+  const form = document.createElement('form')
+  const button = createNative('button', 'emby-button')
+  button.setAttribute('type', 'submit')
+  button.className = 'raised button-submit block emby-button'
+  button.textContent = 'x'
+  form.appendChild(button)
+  return { root: hide(form), target: button }
+}
+
+function buildBorderProbe() {
+  const container = document.createElement('div')
+  container.className = 'inputContainer'
+  const input = createNative('input', 'emby-input')
+  input.setAttribute('type', 'text')
+  container.appendChild(input)
+  return { root: hide(container), target: input }
+}
+
+function readColors(el) {
   const computed = window.getComputedStyle(el)
-  const result = {
+  return {
     background: parseRgb(computed.backgroundColor),
     color: parseRgb(computed.color),
     borderColor: parseRgb(computed.borderBottomColor),
   }
-  host.removeChild(el)
-  return result
-}
-
-function probeAccentButton(host) {
-  return probe(host, () => {
-    const form = document.createElement('form')
-    const button = document.createElement('button')
-    button.setAttribute('is', 'emby-button')
-    button.setAttribute('type', 'submit')
-    button.className = 'raised button-submit block emby-button'
-    button.textContent = 'x'
-    form.appendChild(button)
-    return form
-  }).background
-}
-
-function probeInputBorder(host) {
-  return probe(host, () => {
-    const container = document.createElement('div')
-    container.className = 'inputContainer'
-    const input = document.createElement('input')
-    input.setAttribute('is', 'emby-input')
-    input.setAttribute('type', 'text')
-    container.appendChild(input)
-    return container
-  }).borderColor
 }
 
 /**
  * Measures the active Jellyfin theme and sets --mvpl-* custom properties
  * on `root` (should be an ancestor of everything this plugin renders, so
  * the variables cascade to our components without ever leaking into the
- * rest of the Jellyfin dashboard).
+ * rest of the Jellyfin dashboard). Async: waits a couple of frames so
+ * Jellyfin's custom elements have finished styling before we measure them.
  */
-export function applyJellyfinTheme(root) {
+export async function applyJellyfinTheme(root) {
   try {
     const host = document.body
     const bodyStyle = window.getComputedStyle(host)
@@ -121,8 +139,18 @@ export function applyJellyfinTheme(root) {
     const text = textProbe && textProbe.a > 0.05 ? textProbe : { r: 228, g: 228, b: 231, a: 1 }
     const isDark = relativeLuminance(bg) < 0.5
 
-    const accent = probeAccentButton(host)
-    const border = probeInputBorder(host)
+    const accentProbe = buildAccentProbe()
+    const borderProbe = buildBorderProbe()
+    host.appendChild(accentProbe.root)
+    host.appendChild(borderProbe.root)
+
+    await nextPaint()
+
+    const accent = readColors(accentProbe.target).background
+    const border = readColors(borderProbe.target).borderColor
+
+    host.removeChild(accentProbe.root)
+    host.removeChild(borderProbe.root)
 
     const surfaceTint = isDark ? { r: 255, g: 255, b: 255 } : { r: 0, g: 0, b: 0 }
     const sunkenTint = isDark ? { r: 0, g: 0, b: 0 } : { r: 255, g: 255, b: 255 }

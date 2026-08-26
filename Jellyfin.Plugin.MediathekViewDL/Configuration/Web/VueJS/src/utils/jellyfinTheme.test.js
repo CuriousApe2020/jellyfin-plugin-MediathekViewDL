@@ -7,28 +7,28 @@ describe('jellyfinTheme', () => {
         document.body.removeAttribute('style')
     })
 
-    it('AppliesBgAndTextPrimary_FromBodyComputedStyle_WhenBodyIsStyled', () => {
+    it('AppliesBgAndTextPrimary_FromBodyComputedStyle_WhenBodyIsStyled', async () => {
         // Arrange
         document.body.style.backgroundColor = 'rgb(24, 24, 27)'
         document.body.style.color = 'rgb(228, 228, 231)'
         const root = document.createElement('div')
 
         // Act
-        applyJellyfinTheme(root)
+        await applyJellyfinTheme(root)
 
         // Assert
         expect(root.style.getPropertyValue('--mvpl-bg')).toBe('rgb(24, 24, 27)')
         expect(root.style.getPropertyValue('--mvpl-text-primary')).toBe('rgb(228, 228, 231)')
     })
 
-    it('DerivesLighterSurface_FromDarkBackground_WhenThemeIsDark', () => {
+    it('DerivesLighterSurface_FromDarkBackground_WhenThemeIsDark', async () => {
         // Arrange: a dark background (low luminance)
         document.body.style.backgroundColor = 'rgb(24, 24, 27)'
         document.body.style.color = 'rgb(228, 228, 231)'
         const root = document.createElement('div')
 
         // Act
-        applyJellyfinTheme(root)
+        await applyJellyfinTheme(root)
 
         // Assert: surface should be a lightened variant of the background, not identical to it
         const bg = root.style.getPropertyValue('--mvpl-bg')
@@ -37,19 +37,19 @@ describe('jellyfinTheme', () => {
         expect(surface).not.toBe(bg)
     })
 
-    it('FallsBackToDefaults_WithoutThrowing_WhenBodyHasNoComputedColors', () => {
+    it('FallsBackToDefaults_WithoutThrowing_WhenBodyHasNoComputedColors', async () => {
         // Arrange: no styles set anywhere - computed backgroundColor/color come back
         // fully transparent ("rgba(0, 0, 0, 0)"), which must not be read as "the theme
         // background is black".
         const root = document.createElement('div')
 
-        // Act / Assert: must never throw, and must fall back to the built-in default palette
-        expect(() => applyJellyfinTheme(root)).not.toThrow()
+        // Act / Assert: must never throw/reject, and must fall back to the built-in default palette
+        await applyJellyfinTheme(root)
         expect(root.style.getPropertyValue('--mvpl-bg')).toBe('rgb(24, 24, 27)')
         expect(root.style.getPropertyValue('--mvpl-text-primary')).toBe('rgb(228, 228, 231)')
     })
 
-    it('NeverThrows_WhenRootIsInvalid', () => {
+    it('NeverThrows_WhenRootIsInvalid', async () => {
         // Arrange: a root that will blow up when we try to set a CSS property on it
         const brokenRoot = {
             style: {
@@ -59,7 +59,7 @@ describe('jellyfinTheme', () => {
             },
         }
 
-        // Act / Assert
-        expect(() => applyJellyfinTheme(brokenRoot)).not.toThrow()
+        // Act / Assert: must resolve, not reject
+        await expect(applyJellyfinTheme(brokenRoot)).resolves.toBeUndefined()
     })
 })

@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.1"
+version: "0.0.0.2"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,16 +17,14 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Erster Release unter neuer Versionierung (ab v0.0.0.1) und neuem Namen
-  "CuriousApes-MediathekView-Downloader". Baut auf dem aktuellen Stand von
-  CatNoir2006/jellyfin-plugin-MediathekViewDL auf und ergänzt: Erkennung
-  fehlender Tonspuren (ARD), Auflösung der echten Originalversion-Sprache
-  (ARD, arte), optionale Bereinigung eingebetteter Tonspur-Bezeichnungen,
-  Sender-übergreifende Tonspur-Gruppierung (arte, ZDF/ZDFneo/3sat),
-  Korrektur der arte-Standardsprache (ARTE.FR) sowie diverse Fixes, damit
-  dieser Fork parallel zum Original-Plugin installiert und betrieben
-  werden kann (eigene API-Routen, eigene Konfigurationsdatei, eigene
-  Scheduled-Task-Keys). Die Einstellungsseite passt ihre Farben jetzt
-  außerdem automatisch an das aktuell aktive Jellyfin-Theme an (inkl.
-  benutzerdefinierter Skins), statt fest verdrahtete Farben zu verwenden.
+  Behebt einen Fehler in der Jellyfin-Theme-Erkennung der Einstellungsseite
+  (seit v0.0.0.1): Das Plugin sollte die Akzentfarbe von einem echten
+  Jellyfin-Bedienelement übernehmen, hat dabei aber ein "customized built-in
+  element" (is="emby-button") nicht spezifikationsgerecht erzeugt und dadurch
+  nie eine gültige Farbe gemessen - die Einstellungsseite zeigte deshalb
+  weiterhin die fest codierte lila Standardfarbe statt der echten
+  Jellyfin-Akzentfarbe (typischerweise Blau/Cyan). Behoben durch
+  spezifikationsgerechte Erzeugung (document.createElement(tag, { is })) und
+  eine kurze Wartezeit vor dem Messen, damit Jellyfin das Element vollständig
+  stylen kann, bevor gemessen wird.
 
