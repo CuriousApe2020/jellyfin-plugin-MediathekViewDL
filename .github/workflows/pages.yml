@@ -43,7 +43,7 @@ jobs:
         run: |
           mkdir deployment
           cp Jellyfin.Plugin.MediathekViewDL/Configuration/Web/index_preview.html deployment/index.html
-          cp Jellyfin.Plugin.MediathekViewDL/Configuration/Web/VueJS/dist/MediathekViewDLVueJS.js deployment/
+          cp Jellyfin.Plugin.MediathekViewDL/Configuration/Web/VueJS/dist/MediathekViewDLForkVueJS.js deployment/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
