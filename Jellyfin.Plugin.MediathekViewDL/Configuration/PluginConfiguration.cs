@@ -80,6 +80,13 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>
     /// Gets the list of download subscriptions.
     /// </summary>
+    /// <remarks>
+    /// <see cref="XmlArrayItemAttribute"/> pins the per-item XML element tag to "Subscription" -
+    /// the item element name that XmlSerializer defaulted to before <see cref="Subscription"/> got
+    /// its own explicit, collision-avoiding <see cref="XmlTypeAttribute"/> (which would otherwise
+    /// change the default item tag and make existing saved subscriptions unreadable).
+    /// </remarks>
+    [XmlArrayItem(ElementName = "Subscription")]
     public Collection<Subscription> Subscriptions { get; init; }
 
     /// <summary>

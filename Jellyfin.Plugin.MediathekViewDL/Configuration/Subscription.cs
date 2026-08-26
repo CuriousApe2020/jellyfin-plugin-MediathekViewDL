@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Xml.Serialization;
 using Jellyfin.Plugin.MediathekViewDL.Api.External.Models;
 using Jellyfin.Plugin.MediathekViewDL.Api.Models;
 using Jellyfin.Plugin.MediathekViewDL.Configuration.SubscriptionSettings;
@@ -9,6 +10,17 @@ namespace Jellyfin.Plugin.MediathekViewDL.Configuration;
 /// <summary>
 /// Represents a single download subscription based on a search query.
 /// </summary>
+/// <remarks>
+/// <see cref="XmlTypeAttribute"/> is set explicitly for the same reason as on
+/// <see cref="PluginConfiguration"/>: this fork intentionally keeps the same C# namespace/class
+/// name as the upstream plugin's identically-named type. XmlSerializer's internal type-mapping
+/// cache is shared across all plugin assemblies loaded into the same Jellyfin process and keyed
+/// by (among other things) the XML type name, which defaults to the bare class name - without an
+/// explicit, distinct name here, the two types get confused (InvalidCastException) as soon as a
+/// subscription is (de)serialized, even though the top-level configuration root is already
+/// disambiguated.
+/// </remarks>
+[XmlType(TypeName = "MediathekViewDLForkSubscription")]
 [DebuggerDisplay("Name={Name}, Enabled={IsEnabled}, Search={Search}")]
 public record Subscription
 {
