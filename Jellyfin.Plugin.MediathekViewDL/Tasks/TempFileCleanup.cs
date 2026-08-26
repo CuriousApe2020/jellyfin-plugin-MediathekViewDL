@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Jellyfin.Plugin.MediathekViewDL.Configuration;
+using Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration;
 using MediaBrowser.Controller;
 using MediaBrowser.Model.Tasks;
 using Microsoft.Extensions.Logging;

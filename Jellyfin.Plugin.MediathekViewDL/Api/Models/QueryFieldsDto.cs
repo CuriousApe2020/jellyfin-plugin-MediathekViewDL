@@ -10,9 +10,9 @@ namespace Jellyfin.Plugin.MediathekViewDL.Api.Models;
 /// <remarks>
 /// <see cref="XmlTypeAttribute"/> is set explicitly to avoid an XmlSerializer type-mapping
 /// collision with the upstream plugin's identically-named type when both are loaded side by
-/// side - see the remarks on <see cref="Configuration.PluginConfiguration"/> for the full explanation.
+/// side - see the remarks on <see cref="Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration.PluginConfiguration"/> for the full explanation.
 /// This type is reachable from the plugin configuration via
-/// <see cref="Configuration.SubscriptionSettings.SearchSettings.Criteria"/>.
+/// <see cref="Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration.SubscriptionSettings.SearchSettings.Criteria"/>.
 /// </remarks>
 [XmlType(TypeName = "MediathekViewDLForkQueryFieldsDto")]
 public record QueryFieldsDto

@@ -39,7 +39,7 @@ public class DownloadItem
 
     /// <summary>
     /// Gets or sets a value indicating whether the audio track's title/handler metadata should be
-    /// replaced with a clean, generated label (see <see cref="Configuration.SubscriptionSettings.BaseDownloadSettings.CleanAudioTrackLabels"/>).
+    /// replaced with a clean, generated label (see <see cref="Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration.SubscriptionSettings.BaseDownloadSettings.CleanAudioTrackLabels"/>).
     /// </summary>
     public bool CleanAudioTrackLabel { get; set; }
 

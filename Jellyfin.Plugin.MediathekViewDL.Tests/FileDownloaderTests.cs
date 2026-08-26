@@ -4,7 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Jellyfin.Plugin.MediathekViewDL.Configuration;
+using Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration;
 using Jellyfin.Plugin.MediathekViewDL.Services.Downloading.Clients;
 using Jellyfin.Plugin.MediathekViewDL.Services.Metadata;
 using Microsoft.Extensions.Logging;
@@ -33,7 +33,7 @@ public class FileDownloaderTests : IDisposable
 
         var config = new PluginConfiguration
         {
-            Maintenance = new Configuration.Groups.MaintenanceOptions { AllowDownloadOnUnknownDiskSpace = true }
+            Maintenance = new Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration.Groups.MaintenanceOptions { AllowDownloadOnUnknownDiskSpace = true }
         };
         _configProviderMock.Setup(x => x.ConfigurationOrNull).Returns(config);
 
@@ -165,7 +165,7 @@ public class FileDownloaderTests : IDisposable
         // Arrange
         var config = new PluginConfiguration
         {
-            Network = new Configuration.Groups.NetworkOptions { AllowUnknownDomains = false }
+            Network = new Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration.Groups.NetworkOptions { AllowUnknownDomains = false }
         };
         _configProviderMock.Setup(x => x.ConfigurationOrNull).Returns(config);
         var path = Path.Combine(_tempDir, "video.mp4");

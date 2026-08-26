@@ -3,9 +3,9 @@ using System.Diagnostics;
 using System.Xml.Serialization;
 using Jellyfin.Plugin.MediathekViewDL.Api.External.Models;
 using Jellyfin.Plugin.MediathekViewDL.Api.Models;
-using Jellyfin.Plugin.MediathekViewDL.Configuration.SubscriptionSettings;
+using Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration.SubscriptionSettings;
 
-namespace Jellyfin.Plugin.MediathekViewDL.Configuration;
+namespace Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration;
 
 /// <summary>
 /// Represents a single download subscription based on a search query.

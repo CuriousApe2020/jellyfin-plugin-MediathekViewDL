@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Jellyfin.Plugin.MediathekViewDL.Configuration;
+using Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration;
 using Jellyfin.Plugin.MediathekViewDL.Services.Downloading.Models;
 
 namespace Jellyfin.Plugin.MediathekViewDL.Services.Media;

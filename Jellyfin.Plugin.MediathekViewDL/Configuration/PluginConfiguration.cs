@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Xml.Serialization;
-using Jellyfin.Plugin.MediathekViewDL.Configuration.Groups;
+using Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration.Groups;
 using MediaBrowser.Model.Plugins;
 
-namespace Jellyfin.Plugin.MediathekViewDL.Configuration;
+namespace Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration;
 
 /// <summary>
 /// Plugin configuration.
@@ -15,7 +15,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Configuration;
 /// would be the bare class name "PluginConfiguration") because .NET's XmlSerializer generates and
 /// caches its (de)serialization code by root element name. The upstream plugin
 /// (CatNoir2006/jellyfin-plugin-MediathekViewDL) declares its own, identically-named
-/// "Jellyfin.Plugin.MediathekViewDL.Configuration.PluginConfiguration" type (this fork intentionally
+/// "Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration.PluginConfiguration" type (this fork intentionally
 /// keeps the same C# namespace/class names - see ServiceRegistrator.cs for why). With the default
 /// root name, loading both plugins into the same Jellyfin process causes XmlSerializer's internal
 /// cache to confuse the two types, throwing InvalidCastException ("[A]...PluginConfiguration cannot

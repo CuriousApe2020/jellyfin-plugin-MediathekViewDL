@@ -1,4 +1,4 @@
-using Jellyfin.Plugin.MediathekViewDL.Configuration.SubscriptionSettings;
+using Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration.SubscriptionSettings;
 using Jellyfin.Plugin.MediathekViewDL.Services.Media;
 using Xunit;
 

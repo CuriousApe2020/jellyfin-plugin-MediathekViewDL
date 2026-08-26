@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.5"
+version: "0.0.0.6"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,22 +17,32 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Behebt die gleiche XmlSerializer-Kollision mit dem Original-Plugin wie
-  0.0.0.4, diesmal aber in den verschachtelten Konfigurationsklassen statt
-  nur in der obersten "PluginConfiguration". Der 0.0.0.4-Fix hat nur die
-  oberste Konfigurationsklasse eindeutig benannt - alle Klassen darunter
-  (Abos, Pfade, Download-/Such-/Netzwerk-/Wartungsoptionen, Abo-
-  Standardwerte, Sender-Suchkriterien) tragen weiterhin denselben
-  Namespace/Klassennamen wie im Original und waren daher weiterhin von
-  genau derselben Verwechslungsgefahr betroffen (InvalidCastException,
-  diesmal beim Schreiben eines einzelnen Abos statt der gesamten
-  Konfiguration). Alle diese Klassen bekommen jetzt ebenfalls einen
-  expliziten, eindeutigen internen XML-Typnamen.
+  Behebt die Konfigurations-Kollision mit dem Original-Plugin endgültig -
+  0.0.0.4 und 0.0.0.5 haben das Problem nicht wirklich gelöst. Der
+  tatsächliche Fehler liegt nicht in .NETs XmlSerializer selbst, sondern in
+  Jellyfins eigenem Wrapper dafür (MyXmlSerializer): der cached erzeugte
+  XmlSerializer-Instanzen in einem Dictionary, das nur nach dem Klassennamen
+  inkl. Namespace (type.FullName) schlüsselt - ohne die Assembly zu
+  berücksichtigen. Da Original und Fork bewusst denselben Namespace/Klassen-
+  namen "Jellyfin.Plugin.MediathekViewDL.Configuration.PluginConfiguration"
+  verwenden, bekommt eines der beiden Plugins beim Speichern/Laden seiner
+  Konfiguration den XmlSerializer des JEWEILS ANDEREN Plugins aus diesem
+  Cache zurück - unabhängig von XML-Root- oder Typnamen, die 0.0.0.4/0.0.0.5
+  geändert hatten. Das erklärt, warum beide vorherigen Versionen den Crash
+  nicht behoben haben.
 
-  Im Unterschied zu 0.0.0.4 bleibt das gespeicherte XML-Format dabei
-  unverändert: die betroffenen Klassen werden nur über Eigenschaftsnamen
-  bzw. explizit fixierte Element-Namen serialisiert, nicht über den neuen
-  internen Typnamen. Bereits gespeicherte Einstellungen, Abos und deren
-  Suchkriterien werden also normal weiterverwendet - kein erneutes
-  Zurücksetzen wie bei 0.0.0.4.
+  Die einzige wirksame Lösung: die komplette Konfigurationsklassen-Hierarchie
+  des Forks (PluginConfiguration, Subscription, alle Groups/- und
+  SubscriptionSettings/-Klassen) läuft jetzt unter einem eigenen,
+  Fork-spezifischen Namespace statt dem bisher geteilten. Damit ist
+  type.FullName garantiert eindeutig und Jellyfins Cache kann die beiden
+  Plugins nicht mehr verwechseln.
+
+  Achtung: Da der Fork zwischen 0.0.0.4 und jetzt bei jedem Start abgestürzt
+  ist (die Konfiguration wurde nie erfolgreich gespeichert), gab es in dieser
+  Zeit vermutlich keine funktionierende, gespeicherte Fork-Konfiguration.
+  Nach dem Update auf 0.0.0.6 startet der Fork daher voraussichtlich mit
+  Standardwerten und leeren Abos - bitte einmal prüfen und ggf. neu
+  einrichten. Bereits heruntergeladene Dateien in der Jellyfin-Bibliothek
+  sind davon nicht betroffen.
 

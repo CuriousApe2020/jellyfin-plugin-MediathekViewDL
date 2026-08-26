@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using Jellyfin.Plugin.MediathekViewDL.Configuration;
+using Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration;
 using MediaBrowser.Controller;
 using Microsoft.Extensions.Logging;
 

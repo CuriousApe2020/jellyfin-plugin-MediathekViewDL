@@ -1,4 +1,4 @@
-using Jellyfin.Plugin.MediathekViewDL.Configuration;
+using Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration;
 using Xunit;
 
 namespace Jellyfin.Plugin.MediathekViewDL.Tests

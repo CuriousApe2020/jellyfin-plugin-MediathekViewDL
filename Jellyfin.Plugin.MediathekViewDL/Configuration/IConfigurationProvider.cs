@@ -1,4 +1,4 @@
-namespace Jellyfin.Plugin.MediathekViewDL.Configuration;
+namespace Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration;
 
 /// <summary>
 /// Provides access to the plugin configuration.

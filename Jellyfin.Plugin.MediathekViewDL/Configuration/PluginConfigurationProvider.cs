@@ -1,6 +1,6 @@
 using System;
 
-namespace Jellyfin.Plugin.MediathekViewDL.Configuration;
+namespace Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration;
 
 /// <summary>
 /// Implementation of <see cref="IConfigurationProvider"/> that retrieves the configuration from the static <see cref="Plugin"/> instance.
