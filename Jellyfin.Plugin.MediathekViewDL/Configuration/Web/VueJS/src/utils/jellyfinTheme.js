@@ -127,7 +127,10 @@ export async function applyJellyfinTheme(root) {
   try {
     const DEFAULT_BG = { r: 24, g: 24, b: 27, a: 1 }
     const DEFAULT_TEXT = { r: 228, g: 228, b: 231, a: 1 }
-    const DEFAULT_ACCENT = { r: 124, g: 58, b: 237, a: 1 }
+    // Jellyfin's own default (non-custom) theme color - #00a4dc, MUI's $primary-main in
+    // jellyfin-web's base palette - used only as a last resort when --jf-palette-primary-main
+    // itself is unavailable (e.g. standalone dev preview with no Jellyfin body to read from).
+    const DEFAULT_ACCENT = { r: 0, g: 164, b: 220, a: 1 }
 
     const bg = readJellyfinColor('--jf-palette-background-default') || DEFAULT_BG
     const text = readJellyfinColor('--jf-palette-text-primary') || DEFAULT_TEXT

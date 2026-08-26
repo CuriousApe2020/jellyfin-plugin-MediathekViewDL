@@ -70,7 +70,7 @@ describe('jellyfinTheme', () => {
         await applyJellyfinTheme(root)
         expect(root.style.getPropertyValue('--mvpl-bg')).toBe('rgb(24, 24, 27)')
         expect(root.style.getPropertyValue('--mvpl-text-primary')).toBe('rgb(228, 228, 231)')
-        expect(root.style.getPropertyValue('--mvpl-accent')).toBe('rgb(124, 58, 237)')
+        expect(root.style.getPropertyValue('--mvpl-accent')).toBe('rgb(0, 164, 220)')
     })
 
     it('NeverThrows_WhenRootIsInvalid', async () => {

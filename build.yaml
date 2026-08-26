@@ -38,3 +38,9 @@ changelog: >
   weiterhin sicher auf die bisherige Standardpalette zurückgefallen. Reine
   Frontend-Änderung, keine Auswirkung auf Konfiguration oder Abos.
 
+  Auch die violette Fallback-Farbe selbst ist jetzt Jellyfins eigenes
+  Standard-Akzentblau (#00a4dc statt #7c3aed). Sie greift ohnehin nur
+  noch, wenn Jellyfins "--jf-palette-primary-main"-Variable aus
+  irgendeinem Grund nicht gelesen werden kann - dann passt jetzt
+  wenigstens die Fallback-Farbe selbst zu Jellyfin, statt beliebig lila zu
+  sein.
