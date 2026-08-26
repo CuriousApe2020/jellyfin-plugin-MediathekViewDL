@@ -19,7 +19,11 @@ function unmountApp() {
     }
 }
 
-const pageElementId = 'configPageVueJSPage';
+// Fork-specific id - must match configPageVueJS.html. Not the template default
+// ("configPageVueJSPage") because that collides with the upstream plugin's identically
+// templated page: Jellyfin's web client can leave a previously-visited plugin page's DOM in
+// place, so a shared id can make getElementById() resolve to the wrong plugin's stale page.
+const pageElementId = 'mediathekViewDLForkConfigPage';
 const page = document.getElementById(pageElementId);
 const isStandalone = import.meta.env.DEV || !window.Dashboard;
 

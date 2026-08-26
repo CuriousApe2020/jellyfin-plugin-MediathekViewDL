@@ -5,7 +5,16 @@
     <title>Template VueJS</title>
 </head>
 <body>
-    <div id="configPageVueJSPage" data-role="page" class="page type-interior pluginConfigurationPage" data-controller="__plugin/MediathekViewDLForkVueJS.js">
+    <!--
+        The container id is fork-specific (not the template default "configPageVueJSPage")
+        to avoid colliding with the upstream plugin's identically-templated page: Jellyfin's
+        web client can keep a previously-visited plugin config page's DOM around (e.g. for
+        back/forward navigation) instead of fully discarding it, so two plugins sharing the
+        same container id can make document.getElementById() resolve to the wrong plugin's
+        (stale) page element - the settings then only render for whichever plugin's page was
+        loaded last, exactly as long as the other one isn't revisited.
+    -->
+    <div id="mediathekViewDLForkConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-controller="__plugin/MediathekViewDLForkVueJS.js">
         <div data-role="content">
             <div class="content-primary">
                 <div id="app"></div>
