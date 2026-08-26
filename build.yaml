@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.2"
+version: "0.0.0.3"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,24 +17,14 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Behebt einen Fehler in der Jellyfin-Theme-Erkennung der Einstellungsseite
-  (seit v0.0.0.1): Das Plugin sollte die Akzentfarbe von einem echten
-  Jellyfin-Bedienelement übernehmen, hat dabei aber ein "customized built-in
-  element" (is="emby-button") nicht spezifikationsgerecht erzeugt und dadurch
-  nie eine gültige Farbe gemessen - die Einstellungsseite zeigte deshalb
-  weiterhin die fest codierte lila Standardfarbe statt der echten
-  Jellyfin-Akzentfarbe (typischerweise Blau/Cyan). Behoben durch
-  spezifikationsgerechte Erzeugung (document.createElement(tag, { is })) und
-  eine kurze Wartezeit vor dem Messen, damit Jellyfin das Element vollständig
-  stylen kann, bevor gemessen wird.
-
-  Behebt außerdem einen kritischen Fehler, der das Original-Plugin beim
-  Parallelbetrieb "Malfunctioned" werden ließ: AddHttpClient<TClient,...>()
+  Behebt einen kritischen Fehler, der das Original-Plugin beim Parallelbetrieb
+  mit diesem Fork "Malfunctioned" werden ließ: AddHttpClient<TClient,...>()
   ohne expliziten Namen registriert den HttpClient unter dem einfachen
   Typnamen (z. B. "IMediathekViewApiClient"), ohne den Namespace zu
   berücksichtigen. Da Original und Fork denselben Namespace/Klassennamen
   verwenden, kollidierten beide Plugins beim gemeinsamen Start auf denselben
   Namen, wodurch die Registrierung des zuletzt geladenen Plugins mit einer
   InvalidOperationException abbrach. Alle betroffenen AddHttpClient-Aufrufe
-  verwenden jetzt einen expliziten, eindeutigen Namen.
+  verwenden jetzt einen expliziten, eindeutigen Namen - beide Plugins können
+  jetzt gleichzeitig aktiv sein.
 
