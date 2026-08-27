@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Jellyfin.Plugin.MediathekViewDL.Services.Downloading.Models;
 
 /// <summary>
@@ -9,6 +11,19 @@ public class DownloadItem
     /// Gets or sets the source URL (Video URL, Subtitle URL, etc.).
     /// </summary>
     public string SourceUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets other quality-tier URLs for the same item, ordered best-first, to fall back to
+    /// if <see cref="SourceUrl"/> fails its pre-download validation. A job can sit in the download
+    /// queue (currently strictly one-at-a-time) for a while after the URL was resolved and
+    /// validated at discovery time - broadcaster CDN URLs are often time-limited, so by the time
+    /// execution actually starts, the previously-valid <see cref="SourceUrl"/> can have expired even
+    /// though a lower-quality sibling from the same search result is still reachable. Only populated
+    /// for the main video item, where the broadcaster actually offers multiple quality tiers to fall
+    /// back to; left null/empty for everything else (subtitles, secondary-audio tracks) since those
+    /// only ever have the one URL.
+    /// </summary>
+    public IReadOnlyList<string>? FallbackSourceUrls { get; set; }
 
     /// <summary>
     /// Gets or sets the full local path where the result should be saved.

@@ -588,6 +588,11 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
             _strmValidationServiceMock.Verify(x => x.ValidateUrlAsync("http://hd.mp4", It.IsAny<CancellationToken>()), Times.Once);
             _strmValidationServiceMock.Verify(x => x.ValidateUrlAsync("http://sd.mp4", It.IsAny<CancellationToken>()), Times.Once);
             _strmValidationServiceMock.Verify(x => x.ValidateUrlAsync("http://low.mp4", It.IsAny<CancellationToken>()), Times.Never);
+
+            // The item still carries the other known quality URLs as execution-time fallbacks, in
+            // case the chosen "http://sd.mp4" has since expired by the time the queue gets to it
+            // (see DownloadItem.FallbackSourceUrls).
+            Assert.Contains("http://low.mp4", job.DownloadItems.First().FallbackSourceUrls!);
         }
 
         [Fact]

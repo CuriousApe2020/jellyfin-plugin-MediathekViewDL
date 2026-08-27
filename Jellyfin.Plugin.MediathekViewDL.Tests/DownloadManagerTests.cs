@@ -46,7 +46,7 @@ public class DownloadManagerTests
             _validationServiceMock.Object);
     }
 
-    private static DownloadJob CreateJob(string sourceUrl, string destPath, DownloadType type = DownloadType.SubtitleDownload)
+    private static DownloadJob CreateJob(string sourceUrl, string destPath, DownloadType type = DownloadType.SubtitleDownload, IReadOnlyList<string>? fallbackSourceUrls = null)
     {
         return new DownloadJob
         {
@@ -58,6 +58,7 @@ public class DownloadManagerTests
                 new DownloadItem
                 {
                     SourceUrl = sourceUrl,
+                    FallbackSourceUrls = fallbackSourceUrls,
                     DestinationPath = destPath,
                     JobType = type
                 }
@@ -132,6 +133,64 @@ public class DownloadManagerTests
                 It.IsAny<IProgress<double>>(),
                 It.IsAny<CancellationToken>()),
             Times.Once());
+    }
+
+    [Fact]
+    public async Task ExecuteJobAsync_PrimaryUrlExpiredWhileQueued_FallsBackToStillValidFallback()
+    {
+        // Arrange: simulates a URL that validated fine at discovery time but has since expired
+        // while the job sat in the (currently strictly-serial) download queue - a lower-quality
+        // sibling from the same search result is still reachable.
+        var destPath = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid():N}.tmp");
+        var job = CreateJob(
+            "https://ard.de/expired-hd.mp4",
+            destPath,
+            fallbackSourceUrls: new[] { "https://ard.de/still-valid-sd.mp4" });
+
+        _validationServiceMock
+            .Setup(s => s.ValidateUrlAsync("https://ard.de/expired-hd.mp4", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _validationServiceMock
+            .Setup(s => s.ValidateUrlAsync("https://ard.de/still-valid-sd.mp4", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _downloadManager.ExecuteJobAsync(job, Mock.Of<IProgress<double>>(), CancellationToken.None);
+
+        // Assert
+        Assert.True(result.Success);
+        _fileDownloaderMock.As<IDownloadHandler>().Verify(
+            h => h.ExecuteAsync(
+                It.Is<DownloadItem>(i => i.SourceUrl == "https://ard.de/still-valid-sd.mp4"),
+                job,
+                It.IsAny<IProgress<double>>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task ExecuteJobAsync_PrimaryAndAllFallbackUrlsInvalid_SkipsHandlerAndReturnsFalse()
+    {
+        // Arrange
+        var destPath = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid():N}.tmp");
+        var job = CreateJob(
+            "https://ard.de/expired-hd.mp4",
+            destPath,
+            fallbackSourceUrls: new[] { "https://ard.de/also-expired-sd.mp4" });
+
+        _validationServiceMock
+            .Setup(s => s.ValidateUrlAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _downloadManager.ExecuteJobAsync(job, Mock.Of<IProgress<double>>(), CancellationToken.None);
+
+        // Assert
+        Assert.False(result.Success);
+        _fileDownloaderMock.As<IDownloadHandler>().Verify(
+            h => h.ExecuteAsync(It.IsAny<DownloadItem>(), It.IsAny<DownloadJob>(),
+                It.IsAny<IProgress<double>>(), It.IsAny<CancellationToken>()),
+            Times.Never());
     }
 
     [Fact]

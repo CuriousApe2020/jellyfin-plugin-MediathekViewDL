@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.12"
+version: "0.0.0.13"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -65,3 +65,15 @@ changelog: >
   weiter, auch wenn die Verbindung währenddessen unterbrochen wird -
   gefundene Treffer und bereits eingereihte Downloads gehen dadurch nicht
   mehr verloren.
+
+  Fix: Downloads schlugen gelegentlich mit "Ungültige URL" fehl, obwohl
+  der Titel beim Suchen noch verfügbar war. Ursache: die Download-
+  Warteschlange verarbeitet aktuell strikt einen Download nach dem
+  anderen - bei vielen neu gefundenen Titeln in einem Abo-Lauf kann ein
+  später eingereihter Download deshalb erst nach einer ganzen Weile an
+  die Reihe kommen, und manche Sender-CDN-URLs sind zeitlich begrenzt
+  gültig. War die zum Zeitpunkt der Suche gültige URL bis dahin
+  abgelaufen, wurde der komplette Titel übersprungen, obwohl eine
+  andere Qualitätsstufe desselben Treffers oft noch erreichbar gewesen
+  wäre. Der Download versucht jetzt beim tatsächlichen Start erneut alle
+  bekannten Qualitätsstufen, nicht nur die beim Suchen ausgewählte.
