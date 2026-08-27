@@ -39,13 +39,13 @@
 }
 
 .btn-save {
-    background: #10b981;
+    background: var(--mvpl-accent, #00a4dc);
     color: white;
     padding: 10px 30px;
 }
 
 .btn-save:hover:not(:disabled) {
-    background: #059669;
+    background: var(--mvpl-accent-hover, #00729a);
 }
 
 .btn-danger {

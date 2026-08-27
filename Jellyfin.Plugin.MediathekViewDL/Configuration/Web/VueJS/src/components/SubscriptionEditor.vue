@@ -558,7 +558,9 @@ function updateDate(target, field, value) {
     border-radius: 4px;
     border: 1px solid var(--mvpl-border, #3f3f46);
     background: var(--mvpl-surface, #27272a);
-    color: white;
+    /* Theme text color, not hardcoded white - on a light theme, --mvpl-surface is a light
+       background, and white text on it is unreadable. */
+    color: var(--mvpl-text-primary, #e4e4e7);
     cursor: pointer;
     font-size: 0.75rem;
 }
