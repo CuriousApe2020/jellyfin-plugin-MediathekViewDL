@@ -446,6 +446,12 @@ function updateDate(target, field, value) {
 }
 
 .editor-modal {
+    /* Declared directly rather than relying solely on the shared .card class (combined via
+       class="editor-modal card") - every other modal in this plugin (see
+       AdvancedDownloadDialog.vue's .modal-dialog) sets its own background explicitly, and this
+       one didn't, letting the page underneath show through the dialog itself instead of just the
+       dimmed overlay around it. Same color as the rest of this page's cards (.card in style.css). */
+    background: var(--mvpl-bg, #18181b);
     width: 100%;
     max-width: 800px;
     height: 80vh;
