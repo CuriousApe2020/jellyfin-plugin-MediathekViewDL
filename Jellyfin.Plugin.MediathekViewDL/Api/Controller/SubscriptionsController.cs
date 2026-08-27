@@ -194,12 +194,11 @@ public class SubscriptionsController : ControllerBase
     /// Processes a subscription. This will download all new items since the last download and update the last downloaded timestamp.
     /// </summary>
     /// <param name="id">The ID of the Subscription.</param>
-    /// <param name="cancellationToken">The cancellationToken.</param>
     /// <returns>The number of new Items.</returns>
     [HttpPost("{id}/Process")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<int>> ProcessSubscription(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<int>> ProcessSubscription(Guid id)
     {
         var subscription = _configurationProvider.Configuration.Subscriptions.FirstOrDefault(s => id == s.Id);
 
@@ -208,7 +207,18 @@ public class SubscriptionsController : ControllerBase
             return NotFound("Subscription not found");
         }
 
-        var count = await _subscriptionProcessor.ProcessSubscriptionAsync(subscription, cancellationToken).ConfigureAwait(false);
+        // Deliberately not a request-bound CancellationToken here (no CancellationToken parameter
+        // on this action): ASP.NET Core cancels an action's own cancellation token when the client
+        // disconnects (browser tab closed, a reverse-proxy read-timeout, etc.), and this endpoint
+        // awaits the entire search-and-queue pipeline before responding - for a subscription with a
+        // broad enough query (many matching items, each needing its own original-version-language
+        // lookup), that can run long enough for exactly that to happen. Observed live: every manual
+        // "Process" click on one particular subscription failed with "The operation was canceled"
+        // (4/4 in a captured server log), while the same subscription processed fine every time via
+        // the unrelated, not-request-bound scheduled task. CancellationToken.None here means a
+        // client disconnect only loses the HTTP response, not the actual work - items found and
+        // jobs queued so far are not thrown away.
+        var count = await _subscriptionProcessor.ProcessSubscriptionAsync(subscription, CancellationToken.None).ConfigureAwait(false);
         _configurationProvider.TrySave();
 
         return Ok(count);
