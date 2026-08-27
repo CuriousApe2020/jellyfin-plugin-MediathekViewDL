@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.11"
+version: "0.0.0.12"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -52,3 +52,16 @@ changelog: >
   der Mediathek gestreamt. Der Kanalname weicht bewusst vom Original-Plugin
   ab, damit beide Kanäle unterscheidbar bleiben, falls beide Plugins
   gleichzeitig installiert sind.
+
+  Fix: "Jetzt verarbeiten" (manuelles Abo-Prüfen über die Weboberfläche)
+  konnte bei Abos mit vielen Treffern (z.B. breite Suchkriterien mit
+  entsprechend vielen Originalversion-Sprachauflösungen) fehlschlagen -
+  "Der Vorgang wurde abgebrochen". Ursache: der Verarbeitungs-Vorgang war
+  an die Lebensdauer der HTTP-Anfrage gekoppelt und brach komplett ab,
+  sobald der Browser/eine Zwischenstation die Verbindung beendete, noch
+  bevor die Suche fertig war - dieselbe Suche über den automatischen
+  Zeitplan (alle 6 Stunden) war davon nicht betroffen und lief zuverlässig
+  durch. Der manuelle Trigger läuft jetzt unabhängig von der HTTP-Anfrage
+  weiter, auch wenn die Verbindung währenddessen unterbrochen wird -
+  gefundene Treffer und bereits eingereihte Downloads gehen dadurch nicht
+  mehr verloren.
