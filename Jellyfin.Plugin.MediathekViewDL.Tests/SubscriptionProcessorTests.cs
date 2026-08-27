@@ -498,6 +498,75 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
         }
 
         [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldSkip_RecognizedSeriesEpisode_WhenExcludeSeriesEnabled()
+        {
+            // Arrange
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Series = new SeriesSettings { ExcludeSeries = true }
+            };
+            var item = new ResultItem { Id = "123", Title = "Some Show S01E02" };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+            _apiClientMock.Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "Some Show S01E02", IsShow = true };
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Empty(jobs);
+        }
+
+        [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldKeepItem_WhenExcludeSeriesEnabled_AndItemIsNotAShow()
+        {
+            // Arrange
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Series = new SeriesSettings { ExcludeSeries = true }
+            };
+            var item = new ResultItem
+            {
+                Id = "123",
+                Title = "Some Movie",
+                UrlVideo = "http://test.com/video.mp4"
+            };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+            _apiClientMock.Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "Some Movie", IsShow = false };
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mp4" });
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Single(jobs);
+        }
+
+        [Fact]
         public async Task GetJobsForSubscriptionAsync_ShouldCreateSubtitleJob_WhenEnabled()
         {
             // Arrange

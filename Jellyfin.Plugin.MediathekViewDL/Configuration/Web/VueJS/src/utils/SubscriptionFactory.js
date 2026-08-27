@@ -28,6 +28,7 @@ export const SubscriptionFactory = {
     },
     Series: {
       EnforceSeriesParsing: defaults.SeriesSettings?.EnforceSeriesParsing || false,
+      ExcludeSeries: defaults.SeriesSettings?.ExcludeSeries || false,
       AllowAbsoluteEpisodeNumbering: defaults.SeriesSettings?.AllowAbsoluteEpisodeNumbering || false,
       TreatNonEpisodesAsExtras: defaults.SeriesSettings?.TreatNonEpisodesAsExtras || false,
       SaveTrailers: defaults.SeriesSettings?.SaveTrailers ?? true,

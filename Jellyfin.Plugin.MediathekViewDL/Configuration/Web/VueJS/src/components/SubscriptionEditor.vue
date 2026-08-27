@@ -324,9 +324,15 @@ function updateDate(target, field, value) {
                 <div v-if="activeTab === 'series'" class="tab-pane">
                     <div class="checkbox-field">
                         <label>
-                            <input v-model="editedSub.Series.EnforceSeriesParsing" type="checkbox"> Nur Serien herunterladen
+                            <input v-model="editedSub.Series.EnforceSeriesParsing" type="checkbox" :disabled="editedSub.Series.ExcludeSeries"> Nur Serien herunterladen
                         </label>
                         <p class="field-desc">Nur Videos herunterladen, die als Serie erkannt werden</p>
+                    </div>
+                    <div class="checkbox-field">
+                        <label>
+                            <input v-model="editedSub.Series.ExcludeSeries" type="checkbox" :disabled="editedSub.Series.EnforceSeriesParsing"> Keine Serien herunterladen
+                        </label>
+                        <p class="field-desc">Videos, die als Serie erkannt werden, überspringen - z.B. für Abos, die gezielt nur Spielfilme/Einzelsendungen fangen sollen und keine zufällig gleich benannte Serienfolge mit herunterladen wollen.</p>
                     </div>
                     <div v-if="editedSub.Series.EnforceSeriesParsing" class="sub-options">
                         <div class="checkbox-field">

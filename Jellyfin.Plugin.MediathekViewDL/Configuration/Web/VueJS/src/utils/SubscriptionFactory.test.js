@@ -66,6 +66,7 @@ describe('SubscriptionFactory', () => {
             const defaults = {
                 SeriesSettings: {
                     EnforceSeriesParsing: true,
+                    ExcludeSeries: true,
                     AllowAbsoluteEpisodeNumbering: true,
                     TreatNonEpisodesAsExtras: true,
                     SaveTrailers: false,
@@ -78,6 +79,7 @@ describe('SubscriptionFactory', () => {
             const subscription = SubscriptionFactory.createDefault(defaults)
             // Assert
             expect(subscription.Series.EnforceSeriesParsing).toBe(true)
+            expect(subscription.Series.ExcludeSeries).toBe(true)
             expect(subscription.Series.AllowAbsoluteEpisodeNumbering).toBe(true)
             expect(subscription.Series.TreatNonEpisodesAsExtras).toBe(true)
             expect(subscription.Series.SaveTrailers).toBe(false)
@@ -93,6 +95,13 @@ describe('SubscriptionFactory', () => {
             expect(subscription.Series.SaveTrailers).toBe(true)
             expect(subscription.Series.SaveInterviews).toBe(true)
             expect(subscription.Series.SaveGenericExtras).toBe(true)
+        })
+
+        it('ShouldDefaultExcludeSeriesToFalse_WhenNotProvided', () => {
+            // Arrange / Act
+            const subscription = SubscriptionFactory.createDefault({})
+            // Assert
+            expect(subscription.Series.ExcludeSeries).toBe(false)
         })
 
         it('ShouldUseMetadataSettingsFlags_WhenProvided', () => {

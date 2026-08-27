@@ -19,6 +19,18 @@ public record SeriesSettings
     public bool EnforceSeriesParsing { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether to skip content recognized as a series episode (the
+    /// opposite of <see cref="EnforceSeriesParsing"/>) - for subscriptions meant to catch
+    /// standalone films/specials that shouldn't accidentally also pull in an episode of an
+    /// unrelated series matching the same search criteria. If both this and
+    /// <see cref="EnforceSeriesParsing"/> are enabled at once, nothing will ever match, since
+    /// every item would need to be recognized as a series episode and not be one at the same
+    /// time; the checkbox for whichever was already on gets disabled while the other is checked
+    /// to prevent that combination.
+    /// </summary>
+    public bool ExcludeSeries { get; init; }
+
+    /// <summary>
     /// Gets a value indicating whether to allow downloading content with absolute episode numbering.
     /// This is ignored if EnforceSeriesParsing is false.
     /// </summary>

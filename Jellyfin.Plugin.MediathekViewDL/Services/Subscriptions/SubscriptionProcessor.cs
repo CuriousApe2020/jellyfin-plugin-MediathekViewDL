@@ -738,6 +738,12 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             return false;
         }
 
+        if (subscription.Series.ExcludeSeries && tempVideoInfo.IsShow)
+        {
+            _logger.LogDebug("Skipping item '{Title}' because it was recognized as a series episode and ExcludeSeries is enabled.", item.Title);
+            return false;
+        }
+
         if (subscription.Series.EnforceSeriesParsing && !tempVideoInfo.IsShow && !subscription.Series.TreatNonEpisodesAsExtras)
         {
             _logger.LogDebug("Skipping item '{Title}' due to EnforceSeriesParsing and parsing result.", item.Title);
