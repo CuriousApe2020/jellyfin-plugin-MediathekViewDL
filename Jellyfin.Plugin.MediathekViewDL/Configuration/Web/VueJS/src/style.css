@@ -22,7 +22,7 @@
 
 .btn-primary {
     background: var(--mvpl-accent, #00a4dc);
-    color: white;
+    color: var(--mvpl-on-accent, white);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -31,7 +31,7 @@
 
 .btn-secondary {
     background: var(--mvpl-border, #3f3f46);
-    color: white;
+    color: var(--mvpl-on-border, white);
 }
 
 .btn-secondary:hover:not(:disabled) {
@@ -40,7 +40,7 @@
 
 .btn-save {
     background: var(--mvpl-accent, #00a4dc);
-    color: white;
+    color: var(--mvpl-on-accent, white);
     padding: 10px 30px;
 }
 
@@ -78,7 +78,7 @@
 
 .btn-icon:hover:not(:disabled) {
     background: var(--mvpl-border, #3f3f46);
-    color: white;
+    color: var(--mvpl-on-border, white);
 }
 
 .btn-icon-only {
@@ -102,7 +102,9 @@
     width: 100%;
     background: var(--mvpl-surface, #27272a);
     border: 1px solid var(--mvpl-border, #3f3f46);
-    color: white;
+    /* Theme text tone, not hardcoded white: --mvpl-surface is a *light* panel on light
+       themes, where white input text is invisible while typing. */
+    color: var(--mvpl-text-primary, #e4e4e7);
     padding: 10px;
     border-radius: 4px;
     box-sizing: border-box;

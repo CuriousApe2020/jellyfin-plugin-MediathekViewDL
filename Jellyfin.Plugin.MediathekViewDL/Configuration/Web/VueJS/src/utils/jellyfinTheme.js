@@ -58,6 +58,30 @@ function relativeLuminance(color) {
   return 0.2126 * channel(color.r) + 0.7152 * channel(color.g) + 0.0722 * channel(color.b)
 }
 
+/**
+ * Foreground for text/icons sitting *on top of* `background`: white, unless
+ * that background is itself light, in which case a near-black.
+ *
+ * Several of our controls sit on a theme-derived background (the accent
+ * color, the divider color) whose lightness can't be known in advance -
+ * hardcoding `color: white` there is what made buttons unreadable ("white on
+ * white") on light themes.
+ *
+ * Deliberately a lightness test rather than "pick the higher WCAG contrast
+ * ratio": Jellyfin's own default accent (#00a4dc) actually scores better with
+ * dark text, but Jellyfin itself renders white on it, and blending in with the
+ * host UI is the whole point of this module. So white stays the default and we
+ * only flip when it would genuinely be unreadable. The 0.5 threshold matches
+ * the `isDark` test used for the rest of the palette below.
+ */
+function contrastText(background) {
+  const white = { r: 255, g: 255, b: 255 }
+  // The plugin's darkest palette tone rather than pure black, so the result
+  // still looks at home in the surrounding design.
+  const nearBlack = { r: 24, g: 24, b: 27 }
+  return relativeLuminance(background) < 0.5 ? white : nearBlack
+}
+
 /** Parses a `#rgb`/`#rgba`/`#rrggbb`/`#rrggbbaa` hex color string into { r, g, b, a }, or null if malformed. */
 function parseHex(hex) {
   const clean = hex.slice(1)
@@ -161,6 +185,12 @@ export async function applyJellyfinTheme(root) {
       '--mvpl-border-hover': toCss(mix(divider, surfaceTint, 0.3)),
       '--mvpl-accent': toCss(accent),
       '--mvpl-accent-hover': toCss(accentHover),
+      // Readable foreground for the two theme-derived backgrounds we put text/icons on.
+      // Never hardcode `white` against these: on a light theme the divider is a light
+      // gray and a light accent is possible too, which is what made these controls
+      // unreadable before.
+      '--mvpl-on-accent': toCss(contrastText(accent)),
+      '--mvpl-on-border': toCss(contrastText(divider)),
     }
 
     for (const [key, value] of Object.entries(vars)) {

@@ -73,6 +73,58 @@ describe('jellyfinTheme', () => {
         expect(root.style.getPropertyValue('--mvpl-accent')).toBe('rgb(0, 164, 220)')
     })
 
+    it('UsesDarkOnAccent_WhenThemeAccentIsLight', async () => {
+        // Arrange: a pale accent - white text on this is the "white on white" bug
+        document.body.style.setProperty('--jf-palette-primary-main', '#e8f4fb')
+        const root = document.createElement('div')
+
+        // Act
+        await applyJellyfinTheme(root)
+
+        // Assert
+        expect(root.style.getPropertyValue('--mvpl-on-accent')).toBe('rgb(24, 24, 27)')
+    })
+
+    it('UsesWhiteOnAccent_WhenThemeAccentIsDark', async () => {
+        // Arrange: Jellyfin's own default accent
+        document.body.style.setProperty('--jf-palette-primary-main', '#00a4dc')
+        const root = document.createElement('div')
+
+        // Act
+        await applyJellyfinTheme(root)
+
+        // Assert
+        expect(root.style.getPropertyValue('--mvpl-on-accent')).toBe('rgb(255, 255, 255)')
+    })
+
+    it('UsesDarkOnBorder_WhenThemeIsLight', async () => {
+        // Arrange: a light theme - its divider is a light gray, and .btn-secondary /
+        // .btn-icon:hover put text directly on that divider color.
+        document.body.style.setProperty('--jf-palette-background-default', '#ffffff')
+        document.body.style.setProperty('--jf-palette-text-primary', '#111111')
+        document.body.style.setProperty('--jf-palette-divider', '#e0e0e0')
+        const root = document.createElement('div')
+
+        // Act
+        await applyJellyfinTheme(root)
+
+        // Assert: must not be white, or the button label is invisible
+        expect(root.style.getPropertyValue('--mvpl-on-border')).toBe('rgb(24, 24, 27)')
+    })
+
+    it('UsesWhiteOnBorder_WhenThemeIsDark', async () => {
+        // Arrange
+        document.body.style.setProperty('--jf-palette-background-default', '#18181b')
+        document.body.style.setProperty('--jf-palette-divider', '#3f3f46')
+        const root = document.createElement('div')
+
+        // Act
+        await applyJellyfinTheme(root)
+
+        // Assert
+        expect(root.style.getPropertyValue('--mvpl-on-border')).toBe('rgb(255, 255, 255)')
+    })
+
     it('NeverThrows_WhenRootIsInvalid', async () => {
         // Arrange: a root that will blow up when we try to set a CSS property on it
         const brokenRoot = {

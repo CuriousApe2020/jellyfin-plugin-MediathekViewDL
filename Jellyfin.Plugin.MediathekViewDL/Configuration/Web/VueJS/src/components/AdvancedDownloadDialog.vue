@@ -222,7 +222,8 @@ function closeDialog() {
 }
 
 .modal-close:hover:not(:disabled) {
-    color: #fff;
+    /* No background behind this one - white was invisible on a light theme's modal. */
+    color: var(--mvpl-text-primary, #e4e4e7);
 }
 
 .modal-close:disabled {

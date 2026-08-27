@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.17"
+version: "0.0.0.18"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,98 +17,20 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Neu: optionaler Tonspur-Filter pro Abo ("Barrierefreiheit"-Reiter bzw.
-  Abo-Standardwerte), "Nur mit Tonspur (ISO Code, z.B. 'eng')". Wenn
-  gesetzt, werden nur Titel heruntergeladen, die zusätzlich zur Hauptspur
-  eine Tonspur in dieser Sprache haben - egal ob MediathekView sie als
-  eigenen Suchtreffer findet ("Verwandte Suchtreffer zusammenführen") oder
-  sie erst über den URL-Workaround erkannt wird ("Fehlende Tonspuren
-  erkennen"). Titel ohne passende Tonspur werden komplett übersprungen,
-  auch die Hauptspur wird dann nicht heruntergeladen. Standardmäßig leer
-  (deaktiviert) - kein Verhaltensunterschied für bestehende Abos.
+  Fix: erneuter Anlauf beim "weiß auf weiß"-Problem - der vorherige Versuch
+  (0.0.0.15) hatte nur die Grundfarbe der Symbol-Buttons im Abo-Tab
+  korrigiert und dabei die eigentlich betroffenen Stellen übersehen. Nach
+  wie vor fest auf Weiß gesetzt waren: die Beschriftung der sekundären
+  Buttons (Ordner-Auswahl "Ordner auswählen", "Zapp Tuner/Guide
+  hinzufügen", "Kopieren"), die Textfarbe *aller* Eingabefelder und
+  Auswahllisten, sowie die Hover-Farbe der Symbol-Buttons in Suche,
+  Abo-Editor und Download-Dialog. Diese sitzen alle auf einer aus dem
+  Theme abgeleiteten Fläche, die auf hellen Themes selbst hell ist - die
+  Buttons waren dadurch praktisch unlesbar, und in Eingabefeldern war der
+  eingegebene Text unsichtbar.
 
-  Fix: der Tonspur-Filter wurde beim "Abo prüfen (Dry Run)" bisher gar
-  nicht angewendet - die Vorschau zeigte weiterhin alle Treffer, egal ob
-  eine passende Tonspur gefunden wurde oder nicht. Ursache war, dass der
-  Dry-Run-Pfad intern nicht denselben Code wie der echte Download-Lauf
-  durchläuft. Die Vorschau prüft jetzt denselben Filter (inkl. Erkennung
-  über "Verwandte Suchtreffer zusammenführen" und "Fehlende Tonspuren
-  erkennen") und zeigt nur noch Titel an, die auch tatsächlich
-  heruntergeladen würden.
-
-  Fix: durch "Erweiterte Duplikaterkennung" bereits lokal gefundene,
-  längst vorhandene Dateien (z.B. eine Audiodeskription-Spur, die
-  heruntergeladen wurde bevor "Audiodeskription erlauben" deaktiviert
-  wurde) sprangen bei jedem Abo-Lauf erneut mit dem aktuellen Zeitstempel
-  an die Spitze des Download-Verlaufs, obwohl gar nichts neu
-  heruntergeladen wurde. Der Verlaufseintrag wird jetzt nur noch einmal
-  pro Abo nachgetragen, nicht bei jedem erneuten Fund.
-
-  Neu (von CatNoir2006/jellyfin-plugin-MediathekViewDL übernommen, PR #179):
-  virtuelle Abos. Ein Abo kann jetzt als "Virtuell" markiert werden - es
-  werden dann keine Dateien heruntergeladen und keine STRMs erstellt.
-  Stattdessen erscheinen die Sendungen im neuen Jellyfin-Kanal "Mediathek
-  (Virtual) [CuriousApe2020 Fork]" und werden bei der Wiedergabe direkt aus
-  der Mediathek gestreamt. Der Kanalname weicht bewusst vom Original-Plugin
-  ab, damit beide Kanäle unterscheidbar bleiben, falls beide Plugins
-  gleichzeitig installiert sind.
-
-  Fix: "Jetzt verarbeiten" (manuelles Abo-Prüfen über die Weboberfläche)
-  konnte bei Abos mit vielen Treffern (z.B. breite Suchkriterien mit
-  entsprechend vielen Originalversion-Sprachauflösungen) fehlschlagen -
-  "Der Vorgang wurde abgebrochen". Ursache: der Verarbeitungs-Vorgang war
-  an die Lebensdauer der HTTP-Anfrage gekoppelt und brach komplett ab,
-  sobald der Browser/eine Zwischenstation die Verbindung beendete, noch
-  bevor die Suche fertig war - dieselbe Suche über den automatischen
-  Zeitplan (alle 6 Stunden) war davon nicht betroffen und lief zuverlässig
-  durch. Der manuelle Trigger läuft jetzt unabhängig von der HTTP-Anfrage
-  weiter, auch wenn die Verbindung währenddessen unterbrochen wird -
-  gefundene Treffer und bereits eingereihte Downloads gehen dadurch nicht
-  mehr verloren.
-
-  Fix: Downloads schlugen gelegentlich mit "Ungültige URL" fehl, obwohl
-  der Titel beim Suchen noch verfügbar war. Ursache: die Download-
-  Warteschlange verarbeitet aktuell strikt einen Download nach dem
-  anderen - bei vielen neu gefundenen Titeln in einem Abo-Lauf kann ein
-  später eingereihter Download deshalb erst nach einer ganzen Weile an
-  die Reihe kommen, und manche Sender-CDN-URLs sind zeitlich begrenzt
-  gültig. War die zum Zeitpunkt der Suche gültige URL bis dahin
-  abgelaufen, wurde der komplette Titel übersprungen, obwohl eine
-  andere Qualitätsstufe desselben Treffers oft noch erreichbar gewesen
-  wäre. Der Download versucht jetzt beim tatsächlichen Start erneut alle
-  bekannten Qualitätsstufen, nicht nur die beim Suchen ausgewählte.
-
-  Fix: der neue Jellyfin-Kanal "Mediathek (Virtual) [CuriousApe2020
-  Fork]" (virtuelle Abos) erschien bisher in der Kanal-Liste, sobald das
-  Plugin geladen war - auch wenn gar kein Abo als "Virtuell" markiert
-  war. Der Kanal wird jetzt nur noch angezeigt, wenn mindestens ein
-  aktiviertes Abo tatsächlich virtuell ist.
-
-  Fix: mehrere Buttons in der Weboberfläche hatten fest einprogrammierte
-  Farben statt der Jellyfin-Theme-Farben. Die Symbol-Buttons im Abo-Tab
-  (Verlauf zurücksetzen, Jetzt verarbeiten, Bearbeiten, Löschen) waren
-  fest auf Weiß gesetzt und dazu entsättigt - auf helleren Themes kaum
-  bis gar nicht zu erkennen ("weiß auf weiß"). Derselbe Fehler betraf den
-  "NICHT"-Button bei den Suchkriterien im Abo-Editor. Der "Speichern"-
-  Button auf der Einstellungsseite war zudem fest auf Grün gesetzt statt
-  auf die Akzentfarbe des aktiven Themes (wie z.B. "Neues Abo" oder
-  "Suche starten"). Alle drei verwenden jetzt die Theme-Farben.
-
-  Fix: das Abo-Bearbeiten/Neues-Abo-Fenster (und der Einrichtungs-
-  Assistent) hatten keinen eigenen, deckenden Hintergrund - der Inhalt
-  der Seite dahinter schimmerte durch das Fenster selbst hindurch, nicht
-  nur durch die abgedunkelte Fläche drumherum. Beide setzen jetzt
-  explizit dieselbe Hintergrundfarbe wie die übrigen Karten/Container
-  der Seite.
-
-  Neu: Option "Keine Serien herunterladen" im "Serien"-Reiter eines
-  Abos bzw. bei den Abo-Standardwerten - das Gegenstück zu "Nur Serien
-  herunterladen". Ist sie aktiviert, werden Treffer, die als
-  Serienfolge erkannt werden, komplett übersprungen. Gedacht für Abos,
-  die gezielt nur Spielfilme/Einzelsendungen fangen sollen, ohne dass
-  dabei versehentlich eine gleich benannte Folge einer unabhängigen
-  Serie mit heruntergeladen wird, die zufällig auf dieselben
-  Suchkriterien passt. Beide Optionen lassen sich nicht gleichzeitig
-  aktivieren (das jeweils andere Kästchen wird deaktiviert), da sonst
-  kein Treffer mehr passen könnte. Standardmäßig deaktiviert - kein
-  Verhaltensunterschied für bestehende Abos.
+  Die Theme-Erkennung berechnet jetzt zusätzlich passende Vordergrundfarben
+  für Flächen, deren Helligkeit vorab nicht bekannt ist (Akzentfarbe und
+  Trennlinienfarbe): Weiß bleibt der Normalfall, auf einer hellen Fläche
+  wird automatisch auf Dunkel umgeschaltet. Eingabefelder verwenden jetzt
+  die Textfarbe des Themes. Auf dunklen Themes ändert sich dadurch nichts.

@@ -436,7 +436,7 @@ function closeAdvancedDownloadDialog() {
 .suggestions-list li:hover,
 .suggestions-list li.selected {
     background: var(--mvpl-accent, #00a4dc);
-    color: white;
+    color: var(--mvpl-on-accent, white);
 }
 
 .search-grid {
@@ -503,7 +503,10 @@ function closeAdvancedDownloadDialog() {
 }
 
 .btn-icon:hover:not(:disabled) {
-    color: #fff;
+    /* This scoped rule wins over the shared .btn-icon:hover in style.css, which also
+       supplies a background - here there is none, so hardcoded white left these icons
+       invisible against a light theme's page background. */
+    color: var(--mvpl-text-primary, #e4e4e7);
 }
 
 .btn-icon:disabled {
