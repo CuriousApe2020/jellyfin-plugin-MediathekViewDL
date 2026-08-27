@@ -72,8 +72,7 @@ public class DownloadManager : IDownloadManager
 
             try
             {
-                bool isValidUrl = await _urlValidationService.ValidateUrlAsync(item.SourceUrl, cancellationToken).ConfigureAwait(false);
-                if (!isValidUrl)
+                if (!await TryResolveValidUrlAsync(item, cancellationToken).ConfigureAwait(false))
                 {
                     _logger.LogError("Invalid URL: {Url}", item.SourceUrl);
                     overallSuccess = false;
@@ -165,5 +164,78 @@ public class DownloadManager : IDownloadManager
             Success = overallSuccess,
             ItemResults = itemResults
         };
+    }
+
+    /// <summary>
+    /// Validates <paramref name="item"/>'s <see cref="DownloadItem.SourceUrl"/>, falling back through
+    /// <see cref="DownloadItem.FallbackSourceUrls"/> (in order) if it fails. A job can sit in the
+    /// download queue - currently strictly one download at a time - for a while after its URL was
+    /// already resolved and validated at discovery time; broadcaster CDN URLs are often
+    /// time-limited, so the previously-valid URL can have expired by the time execution actually
+    /// starts even though a lower-quality sibling from the same search result is still reachable.
+    /// On success, mutates <paramref name="item"/>.SourceUrl in place to whichever URL actually
+    /// validated, since every <see cref="IDownloadHandler"/> reads it directly.
+    /// </summary>
+    /// <param name="item">The download item to resolve a working URL for.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>True if <paramref name="item"/>.SourceUrl now points at a validated URL; false if none of it and its fallbacks validated.</returns>
+    private async Task<bool> TryResolveValidUrlAsync(DownloadItem item, CancellationToken cancellationToken)
+    {
+        var deadUrl = item.SourceUrl;
+        if (await ValidateCandidateAsync(deadUrl, cancellationToken).ConfigureAwait(false))
+        {
+            return true;
+        }
+
+        if (item.FallbackSourceUrls is not { Count: > 0 })
+        {
+            return false;
+        }
+
+        foreach (var fallbackUrl in item.FallbackSourceUrls)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (string.IsNullOrWhiteSpace(fallbackUrl) || fallbackUrl == deadUrl)
+            {
+                continue;
+            }
+
+            if (await ValidateCandidateAsync(fallbackUrl, cancellationToken).ConfigureAwait(false))
+            {
+                _logger.LogWarning(
+                    "URL for '{Path}' expired while queued ('{DeadUrl}' - originally valid at discovery time). Falling back to '{FallbackUrl}'.",
+                    item.DestinationPath,
+                    deadUrl,
+                    fallbackUrl);
+                item.SourceUrl = fallbackUrl;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Validates a single URL, treating a validation-time exception (e.g. a transient network
+    /// error) the same as an outright invalid URL - just move on to the next candidate - rather
+    /// than aborting the whole fallback attempt. A genuine cancellation still propagates: only
+    /// non-cancellation exceptions are swallowed here.
+    /// </summary>
+    private async Task<bool> ValidateCandidateAsync(string url, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _urlValidationService.ValidateUrlAsync(url, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "URL candidate validation threw for '{Url}'; treating as invalid.", url);
+            return false;
+        }
     }
 }

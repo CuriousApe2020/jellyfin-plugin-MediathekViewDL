@@ -153,9 +153,10 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     /// <param name="item">The API result item.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The streamable URL, or <c>null</c> if none could be resolved.</returns>
-    public Task<string?> GetStreamUrlAsync(Subscription subscription, ResultItemDto item, CancellationToken cancellationToken = default)
+    public async Task<string?> GetStreamUrlAsync(Subscription subscription, ResultItemDto item, CancellationToken cancellationToken = default)
     {
-        return GetUrlCandidate(item, subscription, cancellationToken);
+        var (url, _) = await GetUrlCandidate(item, subscription, cancellationToken).ConfigureAwait(false);
+        return url;
     }
 
     /// <summary>
@@ -299,7 +300,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             return null;
         }
 
-        string? videoUrl = await GetUrlCandidate(item, subscription, cancellationToken).ConfigureAwait(false);
+        var (videoUrl, videoUrlFallbacks) = await GetUrlCandidate(item, subscription, cancellationToken).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(videoUrl))
         {
             return null;
@@ -321,10 +322,10 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         switch (paths.MainType)
         {
             case FileType.Strm:
-                downloadJob.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.StreamingUrl });
+                downloadJob.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, FallbackSourceUrls = videoUrlFallbacks, DestinationPath = paths.MainFilePath, JobType = DownloadType.StreamingUrl });
                 break;
             case FileType.Video:
-                downloadJob.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.FFmpegDownload, CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels });
+                downloadJob.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, FallbackSourceUrls = videoUrlFallbacks, DestinationPath = paths.MainFilePath, JobType = DownloadType.FFmpegDownload, CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels });
 
                 if (subscription.Download.DetectUndetectedSecondaryAudio)
                 {
@@ -377,6 +378,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                 downloadJob.DownloadItems.Add(new DownloadItem
                 {
                     SourceUrl = videoUrl,
+                    FallbackSourceUrls = videoUrlFallbacks,
                     DestinationPath = paths.MainFilePath,
                     Language = resolvedLang,
                     CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
@@ -581,7 +583,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                 continue;
             }
 
-            var secondaryUrl = await GetUrlCandidate(secondary.Item, subscription, cancellationToken).ConfigureAwait(false);
+            var (secondaryUrl, secondaryUrlFallbacks) = await GetUrlCandidate(secondary.Item, subscription, cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(secondaryUrl))
             {
                 _logger.LogWarning("Could not resolve a video URL for grouped audio-variant sibling '{Title}' (ID: {Id}); skipping this track.", secondary.Item.Title, secondary.Item.Id);
@@ -595,6 +597,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             downloadJob.DownloadItems.Add(new DownloadItem
             {
                 SourceUrl = secondaryUrl,
+                FallbackSourceUrls = secondaryUrlFallbacks,
                 DestinationPath = standaloneDestination,
                 Language = lang,
                 IsAudioDescription = secondary.Kind == SecondaryAudioKind.AudioDescription,
@@ -828,23 +831,28 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     /// <param name="subscription">The subscription.</param>
     /// <param name="cancellationToken">The cancellationToken.</param>
     /// <returns>The best URL candidate, or null if none found.</returns>
-    private async Task<string?> GetUrlCandidate(ResultItemDto item, Subscription subscription, CancellationToken cancellationToken = default)
+    private async Task<(string? Url, IReadOnlyList<string> Fallbacks)> GetUrlCandidate(ResultItemDto item, Subscription subscription, CancellationToken cancellationToken = default)
     {
         // Quality: 3=HD, 2=Std, 1=Low
         var hdUrl = item.VideoUrls.FirstOrDefault(v => v.Quality == 3)?.Url;
 
-        // If no fallback is allowed, return HD URL if available
+        // If no fallback is allowed, return HD URL if available - and no fallback candidates either,
+        // since the subscription explicitly opted out of ever falling back to a lower quality, at
+        // discovery time or (see DownloadItem.FallbackSourceUrls) at download-execution time.
         if (!subscription.Download.AllowFallbackToLowerQuality)
         {
-            return hdUrl;
+            return (hdUrl, Array.Empty<string>());
         }
 
         List<string> candidateUrls = item.VideoUrls.OrderByDescending(s => s.Quality).Select(s => s.Url).ToList();
 
-        // If no url availability check is required, return the first URL
+        // If no url availability check is required, return the first URL - still with the rest of
+        // the list as execution-time fallbacks, since this candidate was never actually validated.
         if (!subscription.Download.QualityCheckWithUrl)
         {
-            return candidateUrls.Count > 0 ? candidateUrls[0] : null;
+            return candidateUrls.Count > 0
+                ? (candidateUrls[0], candidateUrls.Skip(1).ToList())
+                : (null, Array.Empty<string>());
         }
 
         string? candidateUrl = null;
@@ -876,10 +884,14 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         if (string.IsNullOrWhiteSpace(candidateUrl))
         {
             _logger.LogWarning("No valid video URL found for item '{Title}'.", item.Title);
-            return null;
+            return (null, Array.Empty<string>());
         }
 
-        return candidateUrl;
+        // The remaining candidates (in the same best-first order) are worth trying again at
+        // download-execution time if candidateUrl itself has since gone stale - see
+        // DownloadItem.FallbackSourceUrls.
+        var fallbacks = validCandidates.Where(u => u != candidateUrl).ToList();
+        return (candidateUrl, fallbacks);
     }
 
     /// <summary>
