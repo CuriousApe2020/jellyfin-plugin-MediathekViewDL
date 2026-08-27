@@ -43,3 +43,12 @@ changelog: >
   an die Spitze des Download-Verlaufs, obwohl gar nichts neu
   heruntergeladen wurde. Der Verlaufseintrag wird jetzt nur noch einmal
   pro Abo nachgetragen, nicht bei jedem erneuten Fund.
+
+  Neu (von CatNoir2006/jellyfin-plugin-MediathekViewDL übernommen, PR #179):
+  virtuelle Abos. Ein Abo kann jetzt als "Virtuell" markiert werden - es
+  werden dann keine Dateien heruntergeladen und keine STRMs erstellt.
+  Stattdessen erscheinen die Sendungen im neuen Jellyfin-Kanal "Mediathek
+  (Virtual) [CuriousApe2020 Fork]" und werden bei der Wiedergabe direkt aus
+  der Mediathek gestreamt. Der Kanalname weicht bewusst vom Original-Plugin
+  ab, damit beide Kanäle unterscheidbar bleiben, falls beide Plugins
+  gleichzeitig installiert sind.
