@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.16"
+version: "0.0.0.17"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -100,3 +100,15 @@ changelog: >
   nur durch die abgedunkelte Fläche drumherum. Beide setzen jetzt
   explizit dieselbe Hintergrundfarbe wie die übrigen Karten/Container
   der Seite.
+
+  Neu: Option "Keine Serien herunterladen" im "Serien"-Reiter eines
+  Abos bzw. bei den Abo-Standardwerten - das Gegenstück zu "Nur Serien
+  herunterladen". Ist sie aktiviert, werden Treffer, die als
+  Serienfolge erkannt werden, komplett übersprungen. Gedacht für Abos,
+  die gezielt nur Spielfilme/Einzelsendungen fangen sollen, ohne dass
+  dabei versehentlich eine gleich benannte Folge einer unabhängigen
+  Serie mit heruntergeladen wird, die zufällig auf dieselben
+  Suchkriterien passt. Beide Optionen lassen sich nicht gleichzeitig
+  aktivieren (das jeweils andere Kästchen wird deaktiviert), da sonst
+  kein Treffer mehr passen könnte. Standardmäßig deaktiviert - kein
+  Verhaltensunterschied für bestehende Abos.

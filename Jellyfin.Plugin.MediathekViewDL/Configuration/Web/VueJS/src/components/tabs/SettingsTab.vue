@@ -59,6 +59,7 @@ const defQualityCheckWithUrl = ref(false)
 
 // Subscription Defaults - Series
 const defEnforceSeries = ref(false)
+const defExcludeSeries = ref(false)
 const defAllowAbsoluteEpisodeNumbering = ref(false)
 const defTreatNonEpisodesAsExtras = ref(false)
 const defSaveExtrasAsStrm = ref(false)
@@ -154,6 +155,7 @@ async function loadConfig() {
     defQualityCheckWithUrl.value = defDl.QualityCheckWithUrl ?? false
 
     defEnforceSeries.value = defSeries.EnforceSeriesParsing ?? false
+    defExcludeSeries.value = defSeries.ExcludeSeries ?? false
     defAllowAbsoluteEpisodeNumbering.value = defSeries.AllowAbsoluteEpisodeNumbering ?? false
     defTreatNonEpisodesAsExtras.value = defSeries.TreatNonEpisodesAsExtras ?? false
     defSaveExtrasAsStrm.value = defSeries.SaveExtrasAsStrm ?? false
@@ -241,6 +243,7 @@ async function saveConfig() {
       },
       SeriesSettings: {
         EnforceSeriesParsing: defEnforceSeries.value,
+        ExcludeSeries: defExcludeSeries.value,
         AllowAbsoluteEpisodeNumbering: defAllowAbsoluteEpisodeNumbering.value,
         TreatNonEpisodesAsExtras: defTreatNonEpisodesAsExtras.value,
         SaveExtrasAsStrm: defSaveExtrasAsStrm.value,
@@ -570,8 +573,12 @@ onMounted(() => {
 
           <div class="sub-section-title">Serien</div>
           <div class="checkbox-field">
-            <label><input v-model="defEnforceSeries" type="checkbox"> Nur Serien herunterladen</label>
+            <label><input v-model="defEnforceSeries" type="checkbox" :disabled="defExcludeSeries"> Nur Serien herunterladen</label>
             <p class="field-desc">Nur Videos herunterladen, die als Serie erkannt werden</p>
+          </div>
+          <div class="checkbox-field">
+            <label><input v-model="defExcludeSeries" type="checkbox" :disabled="defEnforceSeries"> Keine Serien herunterladen</label>
+            <p class="field-desc">Videos, die als Serie erkannt werden, überspringen - z.B. für Abos, die gezielt nur Spielfilme/Einzelsendungen fangen sollen und keine zufällig gleich benannte Serienfolge mit herunterladen wollen.</p>
           </div>
           <div v-if="defEnforceSeries" class="sub-options">
             <div class="checkbox-field">
