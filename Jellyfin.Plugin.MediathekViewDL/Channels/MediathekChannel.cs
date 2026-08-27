@@ -101,7 +101,17 @@ public class MediathekChannel : IChannel, IRequiresMediaInfoCallback
     public ChannelParentalRating ParentalRating => ChannelParentalRating.GeneralAudience;
 
     /// <inheritdoc />
-    public bool IsEnabledFor(string userId) => true;
+    public bool IsEnabledFor(string userId)
+    {
+        // The channel is registered unconditionally at plugin startup (Jellyfin's channel system has
+        // no concept of "register only if configured"), so without this check it would show up in
+        // every installation's channel list even for users who never touch virtual subscriptions -
+        // IChannel instances are DI singletons with no per-request re-evaluation of whether they're
+        // wanted otherwise. Hiding it here until at least one subscription is actually marked
+        // "Virtuell" keeps it out of sight for everyone else.
+        var config = _configurationProvider.ConfigurationOrNull;
+        return config != null && config.Subscriptions.Any(s => s.IsEnabled && s.IsVirtual);
+    }
 
     /// <inheritdoc />
     public IEnumerable<ImageType> GetSupportedChannelImages() => [];
