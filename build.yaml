@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.14"
+version: "0.0.0.15"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -83,3 +83,13 @@ changelog: >
   Plugin geladen war - auch wenn gar kein Abo als "Virtuell" markiert
   war. Der Kanal wird jetzt nur noch angezeigt, wenn mindestens ein
   aktiviertes Abo tatsächlich virtuell ist.
+
+  Fix: mehrere Buttons in der Weboberfläche hatten fest einprogrammierte
+  Farben statt der Jellyfin-Theme-Farben. Die Symbol-Buttons im Abo-Tab
+  (Verlauf zurücksetzen, Jetzt verarbeiten, Bearbeiten, Löschen) waren
+  fest auf Weiß gesetzt und dazu entsättigt - auf helleren Themes kaum
+  bis gar nicht zu erkennen ("weiß auf weiß"). Derselbe Fehler betraf den
+  "NICHT"-Button bei den Suchkriterien im Abo-Editor. Der "Speichern"-
+  Button auf der Einstellungsseite war zudem fest auf Grün gesetzt statt
+  auf die Akzentfarbe des aktiven Themes (wie z.B. "Neues Abo" oder
+  "Suche starten"). Alle drei verwenden jetzt die Theme-Farben.

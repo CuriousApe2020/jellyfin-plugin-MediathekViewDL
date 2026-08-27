@@ -182,8 +182,10 @@ defineExpose({ refresh: fetchSubscriptions })
 .sub-name { font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 10px; }
 .sub-meta { font-size: 0.85rem; color: var(--mvpl-text-secondary, #a1a1aa); margin-top: 4px; }
 .sub-actions { display: flex; gap: 15px; }
-.btn-icon { background: none; border: none; cursor: pointer; font-size: 1.4rem; padding: 5px; border-radius: 4px; filter: grayscale(1); color: white; }
-.btn-icon:hover { background: var(--mvpl-border, #3f3f46); filter: none; }
+/* Slightly larger than the shared .btn-icon default (style.css) - color and hover background
+   still come from there. The grayscale filter + hardcoded white text this used to have made the
+   icons unreadable on light themes (white glyphs on a light background). */
+.btn-icon { font-size: 1.4rem; }
 .btn-delete:hover { color: #ef4444; }
 .state-msg { text-align: center; padding: 40px; color: var(--mvpl-text-secondary, #a1a1aa); }
 .error-container { text-align: center; padding: 30px; background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 8px; color: #ef4444; }
