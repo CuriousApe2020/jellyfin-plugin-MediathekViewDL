@@ -543,7 +543,7 @@ function updateDate(target, field, value) {
 
 .field-tag.active {
     background: var(--mvpl-accent, #00a4dc);
-    color: white;
+    color: var(--mvpl-on-accent, white);
 }
 
 .query-input-row {
