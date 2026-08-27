@@ -415,6 +415,59 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
         }
 
         [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldNotReAddHistory_IfFoundLocally_AndAlreadyRecorded()
+        {
+            // Arrange: an item that was already backfilled into history on a previous run (e.g. an
+            // Audiodeskription track downloaded before "AllowAudioDescription" was turned off). A
+            // subsequent subscription run - manual "Process" click, scheduled run, whatever - still
+            // sees it via local duplicate detection and must not touch history again: doing so would
+            // insert a fresh row with "now" as the timestamp, making the item jump back to the top of
+            // "Download Verlauf" as if it had just been downloaded, even though nothing happened.
+            var subscription = new Subscription
+            {
+                Id = Guid.NewGuid(),
+                Name = "TestSub",
+                Download = new DownloadSettings { EnhancedDuplicateDetection = true }
+            };
+            var item = new ResultItem { Id = "456", Title = "ExistingTitle" };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+
+            _apiClientMock.Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "ExistingTitle", Language = "deu", AbsoluteEpisodeNumber = 100 };
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock.Setup(x => x.GetSubscriptionBaseDirectory(It.IsAny<Subscription>(), It.IsAny<DownloadContext>()))
+                .Returns("/tmp/TestSub");
+
+            var localCache = new LocalEpisodeCache();
+            localCache.Add(null, null, 100, "path/to/file.mp4", "deu");
+            _localMediaScannerMock.Setup(x => x.ScanDirectory("/tmp/TestSub", "TestSub"))
+               .Returns(localCache);
+
+            // Already backfilled by an earlier run.
+            _downloadHistoryRepositoryMock
+                .Setup(x => x.ExistsByItemIdAndSubscriptionIdAsync("456", subscription.Id))
+                .ReturnsAsync(true);
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Empty(jobs);
+            _downloadHistoryRepositoryMock.Verify(
+                x => x.AddAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+                Times.Never);
+        }
+
+        [Fact]
         public async Task GetJobsForSubscriptionAsync_ShouldSkip_AudioDescription_IfDisabled()
         {
             // Arrange
