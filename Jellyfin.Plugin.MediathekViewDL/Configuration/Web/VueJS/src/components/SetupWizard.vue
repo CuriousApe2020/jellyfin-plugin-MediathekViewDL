@@ -540,6 +540,10 @@ defineExpose({
 }
 
 .wizard-card {
+    /* Declared directly, same reasoning as SubscriptionEditor.vue's .editor-modal: relying only on
+       the shared .card class (combined via class="wizard-card card") let the page underneath show
+       through the dialog itself. Same color as the rest of this page's cards (.card in style.css). */
+    background: var(--mvpl-bg, #18181b);
     width: 100%;
     max-width: 720px;
     max-height: 90vh;
