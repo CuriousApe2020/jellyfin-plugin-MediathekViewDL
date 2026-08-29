@@ -51,8 +51,11 @@ public class ActiveDownload
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     /// <summary>
-    /// Gets the cancellation token source for this job.
+    /// Gets or sets the cancellation token source for this job. The queue manager replaces the
+    /// default with one linked to its shutdown token, so that stopping the plugin/server also
+    /// cancels a download that is already running instead of leaving it to write into a
+    /// half-torn-down service scope.
     /// </summary>
     [JsonIgnore]
-    public CancellationTokenSource Cts { get; } = new();
+    public CancellationTokenSource Cts { get; set; } = new();
 }

@@ -750,7 +750,17 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             return false;
         }
 
-        if ((subscription.Series.EnforceSeriesParsing && !subscription.Series.AllowAbsoluteEpisodeNumbering && !tempVideoInfo.HasSeasonEpisodeNumbering) && (!subscription.Series.TreatNonEpisodesAsExtras && !tempVideoInfo.IsShow))
+        // Only-absolute-numbering rejection ("Absolute Episodennummerierung erlauben" unticked).
+        // The previous form of this check also required !IsShow, which made it unreachable: the
+        // EnforceSeriesParsing check directly above already returns for every item that is not a
+        // show, so nothing could ever satisfy both - the setting silently did nothing.
+        // Deliberately keyed on HasAbsoluteNumbering rather than just "no season/episode": the
+        // parser also flags season-only and (as a last resort) date-titled items as shows, and
+        // those are not what this checkbox is about, so they keep passing through.
+        if (subscription.Series.EnforceSeriesParsing
+            && !subscription.Series.AllowAbsoluteEpisodeNumbering
+            && tempVideoInfo.HasAbsoluteNumbering
+            && !tempVideoInfo.HasSeasonEpisodeNumbering)
         {
             _logger.LogDebug("Skipping item '{Title}' due to absolute episode numbering and subscription preference.", item.Title);
             return false;

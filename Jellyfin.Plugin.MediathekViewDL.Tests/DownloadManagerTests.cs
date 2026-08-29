@@ -67,6 +67,73 @@ public class DownloadManagerTests
     }
 
     [Fact]
+    public async Task ExecuteJobAsync_ShouldStillWriteNfo_WhenOnlyASubtitleSidecarFailed()
+    {
+        // Arrange: a video item that succeeds plus a subtitle item that fails.
+        var videoPath = Path.Combine(Path.GetTempPath(), $"video_{Guid.NewGuid():N}.mp4");
+        var subtitlePath = Path.Combine(Path.GetTempPath(), $"subs_{Guid.NewGuid():N}.ttml");
+        var nfoPath = Path.Combine(Path.GetTempPath(), $"nfo_{Guid.NewGuid():N}.nfo");
+
+        var job = CreateJob("https://ard.de/video.mp4", videoPath, DownloadType.FFmpegDownload);
+        job.DownloadItems.Add(new DownloadItem
+        {
+            SourceUrl = "https://ard.de/subs.ttml",
+            DestinationPath = subtitlePath,
+            JobType = DownloadType.SubtitleDownload
+        });
+        job.NfoMetadata = new NfoDTO { FilePath = nfoPath };
+
+        _validationServiceMock
+            .Setup(s => s.ValidateUrlAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var handler = _fileDownloaderMock.As<IDownloadHandler>();
+        handler.Setup(h => h.ExecuteAsync(
+                It.Is<DownloadItem>(i => i.JobType == DownloadType.SubtitleDownload),
+                It.IsAny<DownloadJob>(),
+                It.IsAny<IProgress<double>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _downloadManager.ExecuteJobAsync(job, Mock.Of<IProgress<double>>(), CancellationToken.None);
+
+        // Assert: the job as a whole failed, but the video landed - so its NFO must still be written.
+        Assert.False(result.Success);
+        _nfoServiceMock.Verify(n => n.CreateNfo(It.IsAny<NfoDTO>()), Times.Once());
+    }
+
+    [Fact]
+    public async Task ExecuteJobAsync_ShouldNotWriteNfo_WhenTheMediaItemItselfFailed()
+    {
+        // Arrange
+        var videoPath = Path.Combine(Path.GetTempPath(), $"video_{Guid.NewGuid():N}.mp4");
+        var nfoPath = Path.Combine(Path.GetTempPath(), $"nfo_{Guid.NewGuid():N}.nfo");
+
+        var job = CreateJob("https://ard.de/video.mp4", videoPath, DownloadType.FFmpegDownload);
+        job.NfoMetadata = new NfoDTO { FilePath = nfoPath };
+
+        _validationServiceMock
+            .Setup(s => s.ValidateUrlAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        _fileDownloaderMock.As<IDownloadHandler>()
+            .Setup(h => h.ExecuteAsync(
+                It.IsAny<DownloadItem>(),
+                It.IsAny<DownloadJob>(),
+                It.IsAny<IProgress<double>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _downloadManager.ExecuteJobAsync(job, Mock.Of<IProgress<double>>(), CancellationToken.None);
+
+        // Assert: no media landed, so there is nothing for an NFO to describe.
+        Assert.False(result.Success);
+        _nfoServiceMock.Verify(n => n.CreateNfo(It.IsAny<NfoDTO>()), Times.Never());
+    }
+
+    [Fact]
     public async Task ExecuteJobAsync_ValidationReturnsFalse_SkipsHandlerAndReturnsFalse()
     {
         // Arrange

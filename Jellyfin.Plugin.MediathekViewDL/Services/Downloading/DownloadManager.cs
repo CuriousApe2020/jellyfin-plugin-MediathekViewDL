@@ -152,11 +152,17 @@ public class DownloadManager : IDownloadManager
         if (overallSuccess)
         {
             progress.Report(100);
+        }
 
-            if (job.NfoMetadata is not null && !File.Exists(job.NfoMetadata.FilePath))
-            {
-                _nfoService.CreateNfo(job.NfoMetadata);
-            }
+        // The NFO describes the media that landed, so a failed *sidecar* must not suppress it:
+        // previously any failure at all (a subtitle 404 being the common one) skipped NFO creation
+        // entirely, leaving a perfectly good video file without its metadata for good - the retry
+        // on the next run skips the already-present video via the File.Exists check above and so
+        // never reached this branch again either.
+        var mediaLanded = itemResults.Any(r => r.Success && r.JobType != DownloadType.SubtitleDownload);
+        if (mediaLanded && job.NfoMetadata is not null && !File.Exists(job.NfoMetadata.FilePath))
+        {
+            _nfoService.CreateNfo(job.NfoMetadata);
         }
 
         return new DownloadJobResult

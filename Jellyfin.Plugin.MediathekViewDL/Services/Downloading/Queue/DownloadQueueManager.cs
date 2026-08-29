@@ -26,7 +26,9 @@ public sealed class DownloadQueueManager : IDownloadQueueManager, IDisposable
     private readonly ILogger<DownloadQueueManager> _logger;
     private readonly IConfigurationProvider _configurationProvider;
     private readonly CancellationTokenSource _shutdownCts = new();
+    private readonly ConcurrentDictionary<Guid, Task> _runningDownloads = new();
     private readonly Task _queueProcessor;
+    private bool _disposed;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DownloadQueueManager"/> class.
@@ -51,7 +53,15 @@ public sealed class DownloadQueueManager : IDownloadQueueManager, IDisposable
     {
         CleanupOldDownloads();
 
-        var activeDownload = new ActiveDownload { Job = job, Status = DownloadStatus.Queued, SubscriptionId = subscriptionId };
+        var activeDownload = new ActiveDownload
+        {
+            Job = job,
+            Status = DownloadStatus.Queued,
+            SubscriptionId = subscriptionId,
+            // Linked to shutdown so Dispose() actually stops an in-progress download instead of
+            // letting it run on against a disposed service scope.
+            Cts = CancellationTokenSource.CreateLinkedTokenSource(_shutdownCts.Token)
+        };
 
         if (_activeDownloads.TryAdd(activeDownload.Id, activeDownload))
         {
@@ -82,7 +92,10 @@ public sealed class DownloadQueueManager : IDownloadQueueManager, IDisposable
 
         foreach (var key in keysToRemove)
         {
-            _activeDownloads.TryRemove(key, out _);
+            if (_activeDownloads.TryRemove(key, out var removed))
+            {
+                removed.Cts.Dispose();
+            }
         }
     }
 
@@ -142,7 +155,10 @@ public sealed class DownloadQueueManager : IDownloadQueueManager, IDisposable
 
         foreach (var key in keysToRemove)
         {
-            _activeDownloads.TryRemove(key, out _);
+            if (_activeDownloads.TryRemove(key, out var removed))
+            {
+                removed.Cts.Dispose();
+            }
         }
     }
 
@@ -153,11 +169,58 @@ public sealed class DownloadQueueManager : IDownloadQueueManager, IDisposable
     }
 
     /// <summary>
-    /// Disposes the manager.
+    /// Disposes the manager, cancelling the queue loop and any download still running and waiting
+    /// (bounded) for them to unwind before the primitives they use are torn down.
     /// </summary>
+    /// <remarks>
+    /// The wait matters: previously this cancelled and then disposed <c>_shutdownCts</c> and
+    /// <c>_concurrencySemaphore</c> immediately, while a download - which can easily run for
+    /// minutes - was still holding the semaphore. Its <c>finally</c> then released an
+    /// already-disposed semaphore, throwing <see cref="ObjectDisposedException"/> on a
+    /// fire-and-forget task where nothing observed it. Cancelling first also actually stops those
+    /// downloads now, because their token sources are linked to <c>_shutdownCts</c>.
+    /// </remarks>
     public void Dispose()
     {
-        _shutdownCts.Cancel();
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
+        try
+        {
+            _shutdownCts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Already torn down - nothing left to signal.
+        }
+
+        // Give the queue loop and any in-flight download a bounded chance to observe the
+        // cancellation and run their cleanup before the primitives disappear underneath them.
+        try
+        {
+            var pending = _runningDownloads.Values.Append(_queueProcessor).ToArray();
+            _ = Task.WaitAll(pending, TimeSpan.FromSeconds(15));
+        }
+        catch (AggregateException)
+        {
+            // WaitAll surfaces the cancellations we just triggered - the expected outcome here.
+        }
+        catch (ObjectDisposedException)
+        {
+            // A task's underlying state was already torn down; nothing left to wait for.
+        }
+
+        foreach (var download in _activeDownloads.Values)
+        {
+            download.Cts.Dispose();
+        }
+
+        _activeDownloads.Clear();
+        _runningDownloads.Clear();
         _shutdownCts.Dispose();
         _concurrencySemaphore.Dispose();
         GC.SuppressFinalize(this);
@@ -184,12 +247,17 @@ public sealed class DownloadQueueManager : IDownloadQueueManager, IDisposable
                         continue;
                     }
 
-                    _ = Task.Run(
+                    var downloadId = download.Id;
+                    var runningTask = Task.Run(
                         async () =>
                         {
                             try
                             {
                                 await ExecuteDownloadAsync(download).ConfigureAwait(false);
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                _logger.LogInformation("Download job '{Title}' (ID: {Id}) was cancelled.", download.Job.Title, download.Id);
                             }
                             catch (Exception ex)
                             {
@@ -197,10 +265,31 @@ public sealed class DownloadQueueManager : IDownloadQueueManager, IDisposable
                             }
                             finally
                             {
-                                _concurrencySemaphore.Release();
+                                _runningDownloads.TryRemove(downloadId, out _);
+
+                                try
+                                {
+                                    _concurrencySemaphore.Release();
+                                }
+                                catch (ObjectDisposedException)
+                                {
+                                    // Shutdown won the race and already tore the semaphore down;
+                                    // there is no queue left for this slot to be handed to.
+                                }
                             }
                         },
                         _shutdownCts.Token);
+
+                    // A short download can reach its finally - and its TryRemove - before this
+                    // line runs, which would strand the finished task in the dictionary forever.
+                    // Pruning completed entries on every insert makes that race self-healing;
+                    // with a concurrency limit of 1 there is at most a handful to look at.
+                    foreach (var finished in _runningDownloads.Where(kvp => kvp.Value.IsCompleted).ToList())
+                    {
+                        _runningDownloads.TryRemove(finished.Key, out _);
+                    }
+
+                    _runningDownloads[downloadId] = runningTask;
                 }
             }
         }

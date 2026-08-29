@@ -86,14 +86,18 @@ public class SubscriptionsController : ControllerBase
         }
 
         subscription.Id = Guid.NewGuid();
-        _configurationProvider.Configuration.Subscriptions.Add(subscription);
-        if (_configurationProvider.TrySave())
-        {
-            return CreatedAtAction(nameof(GetSubscription), new { id = subscription.Id }, subscription);
-        }
 
-        _configurationProvider.Configuration.Subscriptions.Remove(subscription);
-        return BadRequest("Failed to create subscription");
+        return SubscriptionsLock.Run<ActionResult<Subscription>>(() =>
+        {
+            _configurationProvider.Configuration.Subscriptions.Add(subscription);
+            if (_configurationProvider.TrySave())
+            {
+                return CreatedAtAction(nameof(GetSubscription), new { id = subscription.Id }, subscription);
+            }
+
+            _configurationProvider.Configuration.Subscriptions.Remove(subscription);
+            return BadRequest("Failed to create subscription");
+        });
     }
 
     /// <summary>
@@ -114,23 +118,27 @@ public class SubscriptionsController : ControllerBase
             return BadRequest("Subscription cannot be null");
         }
 
-        var existingSubscriptionIndex = _configurationProvider.Configuration.Subscriptions.FindIndex(s => s.Id == id);
-        if (existingSubscriptionIndex == -1)
-        {
-            return NotFound("Subscription not found");
-        }
-
-        var oldSubscription = _configurationProvider.Configuration.Subscriptions[existingSubscriptionIndex];
         subscription.Id = id;
-        _configurationProvider.Configuration.Subscriptions[existingSubscriptionIndex] = subscription;
 
-        if (_configurationProvider.TrySave())
+        return SubscriptionsLock.Run<ActionResult<Subscription>>(() =>
         {
-            return Ok(subscription);
-        }
+            var existingSubscriptionIndex = _configurationProvider.Configuration.Subscriptions.FindIndex(s => s.Id == id);
+            if (existingSubscriptionIndex == -1)
+            {
+                return NotFound("Subscription not found");
+            }
 
-        _configurationProvider.Configuration.Subscriptions[existingSubscriptionIndex] = oldSubscription;
-        return BadRequest("Failed to update subscription");
+            var oldSubscription = _configurationProvider.Configuration.Subscriptions[existingSubscriptionIndex];
+            _configurationProvider.Configuration.Subscriptions[existingSubscriptionIndex] = subscription;
+
+            if (_configurationProvider.TrySave())
+            {
+                return Ok(subscription);
+            }
+
+            _configurationProvider.Configuration.Subscriptions[existingSubscriptionIndex] = oldSubscription;
+            return BadRequest("Failed to update subscription");
+        });
     }
 
     /// <summary>
@@ -143,22 +151,25 @@ public class SubscriptionsController : ControllerBase
     [ProducesResponseType(404)]
     public ActionResult DeleteSubscription(Guid id)
     {
-        var existingSubscriptionIndex = _configurationProvider.Configuration.Subscriptions.FindIndex(s => s.Id == id);
-        if (existingSubscriptionIndex == -1)
+        return SubscriptionsLock.Run<ActionResult>(() =>
         {
-            return NotFound("Subscription not found");
-        }
+            var existingSubscriptionIndex = _configurationProvider.Configuration.Subscriptions.FindIndex(s => s.Id == id);
+            if (existingSubscriptionIndex == -1)
+            {
+                return NotFound("Subscription not found");
+            }
 
-        var oldSubscription = _configurationProvider.Configuration.Subscriptions[existingSubscriptionIndex];
-        _configurationProvider.Configuration.Subscriptions.RemoveAt(existingSubscriptionIndex);
+            var oldSubscription = _configurationProvider.Configuration.Subscriptions[existingSubscriptionIndex];
+            _configurationProvider.Configuration.Subscriptions.RemoveAt(existingSubscriptionIndex);
 
-        if (_configurationProvider.TrySave())
-        {
-            return NoContent();
-        }
+            if (_configurationProvider.TrySave())
+            {
+                return NoContent();
+            }
 
-        _configurationProvider.Configuration.Subscriptions.Insert(existingSubscriptionIndex, oldSubscription);
-        return BadRequest("Failed to delete subscription");
+            _configurationProvider.Configuration.Subscriptions.Insert(existingSubscriptionIndex, oldSubscription);
+            return BadRequest("Failed to delete subscription");
+        });
     }
 
     /// <summary>
