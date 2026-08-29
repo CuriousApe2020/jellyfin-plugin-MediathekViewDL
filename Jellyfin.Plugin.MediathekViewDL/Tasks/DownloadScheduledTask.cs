@@ -78,7 +78,14 @@ public class DownloadScheduledTask : IScheduledTask
         }
 
         var newLastRun = DateTime.UtcNow;
-        var subscriptions = config.Subscriptions.ToList();
+        // Snapshot under the lock: an admin editing a subscription from the web UI mutates this
+        // very list, and a structural change landing mid-copy can throw or produce a torn result.
+        List<Subscription> subscriptions;
+        lock (SubscriptionsLock.SyncRoot)
+        {
+            subscriptions = config.Subscriptions.ToList();
+        }
+
         var subscriptionProgressShare = subscriptions.Count > 0 ? 100.0 / subscriptions.Count : 0;
 
         for (int i = 0; i < subscriptions.Count; i++)

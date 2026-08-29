@@ -567,6 +567,140 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
         }
 
         [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldSkip_AbsoluteOnlyEpisode_WhenAbsoluteNumberingDisallowed()
+        {
+            // Arrange
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Series = new SeriesSettings { EnforceSeriesParsing = true, AllowAbsoluteEpisodeNumbering = false }
+            };
+            var item = new ResultItem { Id = "123", Title = "Some Show - Episode 5", UrlVideo = "http://test.com/video.mp4" };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+            _apiClientMock.Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            // Recognized as a show, but only via an absolute episode number - no season/episode pair.
+            var videoInfo = new VideoInfo { Title = "Some Show", IsShow = true, AbsoluteEpisodeNumber = 5 };
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Empty(jobs);
+        }
+
+        [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldKeep_AbsoluteOnlyEpisode_WhenAbsoluteNumberingAllowed()
+        {
+            // Arrange
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Series = new SeriesSettings { EnforceSeriesParsing = true, AllowAbsoluteEpisodeNumbering = true }
+            };
+            var item = new ResultItem { Id = "123", Title = "Some Show - Episode 5", UrlVideo = "http://test.com/video.mp4" };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+            _apiClientMock.Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "Some Show", IsShow = true, AbsoluteEpisodeNumber = 5 };
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mp4" });
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Single(jobs);
+        }
+
+        [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldKeep_ProperlyNumberedEpisode_WhenAbsoluteNumberingDisallowed()
+        {
+            // Arrange: a real S/E match must never be caught by the absolute-numbering rejection.
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Series = new SeriesSettings { EnforceSeriesParsing = true, AllowAbsoluteEpisodeNumbering = false }
+            };
+            var item = new ResultItem { Id = "123", Title = "Some Show S01E05", UrlVideo = "http://test.com/video.mp4" };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+            _apiClientMock.Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "Some Show", IsShow = true, SeasonNumber = 1, EpisodeNumber = 5 };
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mp4" });
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Single(jobs);
+        }
+
+        [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldKeep_DateTitledShow_WhenAbsoluteNumberingDisallowed()
+        {
+            // Arrange: the parser also flags date-titled items as shows as a last resort. Those have
+            // no absolute number, so the absolute-numbering rejection must leave them alone.
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Series = new SeriesSettings { EnforceSeriesParsing = true, AllowAbsoluteEpisodeNumbering = false }
+            };
+            var item = new ResultItem { Id = "123", Title = "Tagesschau 27.08.2026", UrlVideo = "http://test.com/video.mp4" };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+            _apiClientMock.Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "Tagesschau", IsShow = true };
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mp4" });
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Single(jobs);
+        }
+
+        [Fact]
         public async Task GetJobsForSubscriptionAsync_ShouldCreateSubtitleJob_WhenEnabled()
         {
             // Arrange
