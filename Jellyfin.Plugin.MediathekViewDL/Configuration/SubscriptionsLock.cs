@@ -16,11 +16,16 @@ namespace Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration;
 /// configuration object wholesale, so a per-instance or per-configuration lock would not actually
 /// be mutually exclusive between callers.
 /// </para>
+/// <para>
+/// Deliberately <c>internal</c>: a lock object reachable from outside the assembly lets unrelated
+/// code take the same lock and deadlock us (MT1000), and nothing outside this plugin has any
+/// business touching the subscription list anyway.
+/// </para>
 /// </remarks>
-public static class SubscriptionsLock
+internal static class SubscriptionsLock
 {
     /// <summary>
     /// Gets the object to lock on when modifying or snapshotting the subscription list.
     /// </summary>
-    public static object SyncRoot { get; } = new();
+    internal static object SyncRoot { get; } = new();
 }
