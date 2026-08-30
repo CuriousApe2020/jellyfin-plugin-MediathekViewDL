@@ -52,10 +52,17 @@ public class DownloadManager : IDownloadManager
     {
         _logger.LogInformation("Starting download job for '{Title}'.", job.Title);
         var overallSuccess = true;
+        var cancelled = false;
         var itemResults = new List<DownloadItemResult>();
 
         foreach (var item in job.DownloadItems)
         {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                cancelled = true;
+                break;
+            }
+
             _logger.LogInformation("Processing download item: {Type} -> {Path}", item.JobType, item.DestinationPath);
             if (File.Exists(item.DestinationPath))
             {
@@ -85,6 +92,14 @@ public class DownloadManager : IDownloadManager
                     });
                     continue;
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                // A cancelled job is not a failed URL. Without this the general handler below
+                // swallowed the cancellation, logged it at error level as if the broadcaster had
+                // gone away, and carried on validating every remaining item of the job.
+                cancelled = true;
+                break;
             }
             catch (Exception ex)
             {
@@ -125,7 +140,17 @@ public class DownloadManager : IDownloadManager
             var handler = _downloadHandlers.FirstOrDefault(h => h.CanHandle(item.JobType));
             if (handler != null)
             {
-                var itemSuccess = await handler.ExecuteAsync(item, job, progress, cancellationToken).ConfigureAwait(false);
+                bool itemSuccess;
+                try
+                {
+                    itemSuccess = await handler.ExecuteAsync(item, job, progress, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    cancelled = true;
+                    break;
+                }
+
                 overallSuccess &= itemSuccess;
                 itemResults.Add(new DownloadItemResult
                 {
@@ -149,7 +174,7 @@ public class DownloadManager : IDownloadManager
             }
         }
 
-        if (overallSuccess)
+        if (overallSuccess && !cancelled)
         {
             progress.Report(100);
         }
@@ -163,6 +188,15 @@ public class DownloadManager : IDownloadManager
         if (mediaLanded && job.NfoMetadata is not null && !File.Exists(job.NfoMetadata.FilePath))
         {
             _nfoService.CreateNfo(job.NfoMetadata);
+        }
+
+        // Surfaced only after the NFO step above: a job cancelled midway can still have a complete
+        // video file on disk, and that file gets its metadata now or never - the next run skips it
+        // via the File.Exists shortcut and never reaches this code again.
+        if (cancelled)
+        {
+            overallSuccess = false;
+            cancellationToken.ThrowIfCancellationRequested();
         }
 
         return new DownloadJobResult
