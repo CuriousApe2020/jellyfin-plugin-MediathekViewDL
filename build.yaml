@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.19"
+version: "0.0.0.20"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,34 +17,14 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Fix: die Option "Absolute Episodennummerierung erlauben" hatte nie eine
-  Wirkung. Die zugehörige Prüfung verlangte zusätzlich, dass der Treffer
-  *nicht* als Serie erkannt wurde - genau das schließt aber die direkt
-  darüberliegende Prüfung von "Nur Serien herunterladen" bereits aus, die
-  solche Treffer schon vorher aussortiert. Die Bedingung konnte damit nie
-  zutreffen, das Häkchen war folgenlos. Jetzt werden bei aktivem "Nur
-  Serien herunterladen" und abgewähltem Häkchen tatsächlich die Folgen
-  übersprungen, die nur eine absolute Episodennummer haben. Rein
-  datumsbetitelte Sendungen (z.B. Nachrichten) und Treffer mit nur einer
-  Staffelangabe sind davon bewusst nicht betroffen.
-
-  Fix: beim Beenden von Jellyfin bzw. Entladen des Plugins wurden die
-  internen Synchronisationsobjekte der Download-Warteschlange sofort
-  freigegeben, während ein Download noch lief. Der laufende Download gab
-  danach eine bereits freigegebene Sperre zurück, was eine unbeachtete
-  Ausnahme auslöste; zudem wurde er überhaupt nicht abgebrochen und lief
-  gegen eine schon abgebaute Umgebung weiter. Das Beenden bricht laufende
-  Downloads jetzt aktiv ab und wartet begrenzt auf deren Ende, bevor
-  aufgeräumt wird. Außerdem werden die Abbruch-Objekte beendeter Downloads
-  jetzt freigegeben, statt sich über die Laufzeit anzusammeln.
-
-  Fix: schlug beim Herunterladen nur eine Begleitdatei fehl (typischerweise
-  die Untertitel), wurde für das erfolgreich geladene Video keine
-  NFO-Datei erstellt - und beim nächsten Lauf auch nicht nachgeholt, da das
-  Video dann bereits vorhanden war. Die NFO wird jetzt erstellt, sobald die
-  eigentliche Mediendatei vorliegt.
-
-  Intern: die Abo-Liste wird beim Anlegen/Ändern/Löschen über die
-  Weboberfläche und beim Einlesen durch den Zeitplan-Task jetzt gegen
-  gleichzeitigen Zugriff abgesichert; eine ungenutzte Basisklasse
-  (BaseDownloadHandler) wurde entfernt.
+  Fix: wurde ein laufender Download abgebrochen ("Alle Downloads
+  abbrechen" bzw. beim Beenden), behandelte der Download-Vorgang den
+  Abbruch wie eine fehlgeschlagene URL-Prüfung: im Protokoll erschien ein
+  Fehler samt Stapelüberwachung, obwohl nichts kaputt war, und der Auftrag
+  arbeitete anschließend seine restlichen Bestandteile (Untertitel,
+  weitere Tonspuren) einfach weiter ab, statt zu stoppen. Ein Abbruch wird
+  jetzt als solcher erkannt: der Auftrag hält sofort an und wird als
+  abgebrochen und nicht als fehlgeschlagen geführt. Eine zu diesem
+  Zeitpunkt bereits vollständig geladene Videodatei bekommt weiterhin ihre
+  NFO-Datei - sonst wäre sie dauerhaft ohne Metadaten geblieben, da der
+  nächste Lauf die vorhandene Datei überspringt.

@@ -67,6 +67,84 @@ public class DownloadManagerTests
     }
 
     [Fact]
+    public async Task ExecuteJobAsync_ShouldStopAndNotLogAnError_WhenValidationIsCancelled()
+    {
+        // Arrange: reproduces a real server log - the user hit "cancel all downloads" while a job
+        // was mid-flight, the cancellation surfaced out of URL validation as a TaskCanceledException,
+        // and the general catch treated it as a failed URL: an [ERR] for a user action, and the job
+        // ground on through its remaining items.
+        var videoPath = Path.Combine(Path.GetTempPath(), $"video_{Guid.NewGuid():N}.mp4");
+        var subtitlePath = Path.Combine(Path.GetTempPath(), $"subs_{Guid.NewGuid():N}.ttml");
+
+        var job = CreateJob("https://zdf.de/video.mp4", videoPath, DownloadType.FFmpegDownload);
+        job.DownloadItems.Add(new DownloadItem
+        {
+            SourceUrl = "https://zdf.de/subs.ttml",
+            DestinationPath = subtitlePath,
+            JobType = DownloadType.SubtitleDownload
+        });
+
+        using var cts = new CancellationTokenSource();
+
+        // Cancel *during* validation, exactly as the real cancellation arrived - pre-cancelling
+        // would just trip the loop's top-of-iteration check and never reach the code under test.
+        _validationServiceMock
+            .Setup(s => s.ValidateUrlAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback(() => cts.Cancel())
+            .ThrowsAsync(new TaskCanceledException("A task was canceled."));
+
+        // Act / Assert: the cancellation must surface as such, not be reported as a URL failure.
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => _downloadManager.ExecuteJobAsync(job, Mock.Of<IProgress<double>>(), cts.Token));
+
+        _fileDownloaderMock.As<IDownloadHandler>().Verify(
+            h => h.ExecuteAsync(It.IsAny<DownloadItem>(), It.IsAny<DownloadJob>(),
+                It.IsAny<IProgress<double>>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task ExecuteJobAsync_ShouldNotProcessRemainingItems_WhenAHandlerIsCancelled()
+    {
+        // Arrange: the video handler is cancelled partway; the subtitle item behind it must not
+        // then be picked up and validated as if nothing had happened.
+        var videoPath = Path.Combine(Path.GetTempPath(), $"video_{Guid.NewGuid():N}.mp4");
+        var subtitlePath = Path.Combine(Path.GetTempPath(), $"subs_{Guid.NewGuid():N}.ttml");
+
+        var job = CreateJob("https://zdf.de/video.mp4", videoPath, DownloadType.FFmpegDownload);
+        job.DownloadItems.Add(new DownloadItem
+        {
+            SourceUrl = "https://zdf.de/subs.ttml",
+            DestinationPath = subtitlePath,
+            JobType = DownloadType.SubtitleDownload
+        });
+
+        _validationServiceMock
+            .Setup(s => s.ValidateUrlAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        using var cts = new CancellationTokenSource();
+
+        _fileDownloaderMock.As<IDownloadHandler>()
+            .Setup(h => h.ExecuteAsync(
+                It.IsAny<DownloadItem>(),
+                It.IsAny<DownloadJob>(),
+                It.IsAny<IProgress<double>>(),
+                It.IsAny<CancellationToken>()))
+            .Callback(() => cts.Cancel())
+            .ThrowsAsync(new OperationCanceledException());
+
+        // Act / Assert
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => _downloadManager.ExecuteJobAsync(job, Mock.Of<IProgress<double>>(), cts.Token));
+
+        // Exactly one item was reached; the one behind it must not have been validated.
+        _validationServiceMock.Verify(
+            s => s.ValidateUrlAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
     public async Task ExecuteJobAsync_ShouldStillWriteNfo_WhenOnlyASubtitleSidecarFailed()
     {
         // Arrange: a video item that succeeds plus a subtitle item that fails.
