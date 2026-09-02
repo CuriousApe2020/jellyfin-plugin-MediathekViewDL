@@ -160,17 +160,11 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     }
 
     /// <summary>
-    /// Returns all items matching the subscription, optionally filtering out items that were
-    /// already processed according to the download history.
-    /// </summary>
-    /// <param name="subscription">The subscription.</param>
-    /// <param name="honorHistory">Whether to skip items already present in the download history.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The matching items.</returns>
-    /// <summary>
     /// Scans the subscription's target directory for episodes already on disk, or returns null when
     /// duplicate detection is off (or explicitly bypassed, as in the dry run).
     /// </summary>
+    /// <param name="subscription">The subscription whose target directory to scan.</param>
+    /// <returns>The scanned episodes, or null when duplicate detection does not apply.</returns>
     private LocalEpisodeCache? BuildLocalEpisodeCache(Subscription subscription)
     {
         if (!subscription.Download.EnhancedDuplicateDetection || subscription.IgnoreLocalFiles)
@@ -184,6 +178,15 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             : _localMediaScanner.ScanDirectory(subscriptionBaseDir, subscription.Name);
     }
 
+    /// <summary>
+    /// Returns all items matching the subscription, optionally filtering out items that were
+    /// already processed according to the download history.
+    /// </summary>
+    /// <param name="subscription">The subscription.</param>
+    /// <param name="honorHistory">Whether to skip items already present in the download history.</param>
+    /// <param name="localEpisodeCache">Episodes already on disk, or null when duplicate detection does not apply.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The matching items.</returns>
     private async IAsyncEnumerable<(ResultItemDto Item, VideoInfo VideoInfo)> GetEligibleItemsAsync(
         Subscription subscription,
         bool honorHistory,
@@ -295,16 +298,17 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     }
 
     /// <summary>
-    /// Builds the download job for a single main item, optionally with grouped-in secondary-audio
-    /// siblings from <see cref="AudioVariantGroupingService"/>.
-    /// </summary>
-    /// <returns>The built job, or null if paths/URL resolution failed and the item should be skipped.</returns>
-    /// <summary>
     /// Builds an audio-only job that attaches <paramref name="item"/>'s audio to an episode already
     /// on disk, when that episode exists locally in a different language. Returns null when the
     /// feature is off, no local video matches, or this language is already present - in which case
     /// the caller falls through to a normal download.
     /// </summary>
+    /// <param name="subscription">The subscription the item belongs to.</param>
+    /// <param name="item">The API result the audio would be taken from.</param>
+    /// <param name="tempVideoInfo">The parsed episode information for <paramref name="item"/>.</param>
+    /// <param name="localEpisodeCache">Episodes already on disk, or null when duplicate detection does not apply.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>An audio-only job, or null when the caller should build a normal download job.</returns>
     /// <remarks>
     /// The track is written *next to* the existing video as a ".mka", exactly like the secondary
     /// tracks produced for freshly downloaded episodes. Jellyfin then presents the episode as one
@@ -380,6 +384,11 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         return downloadJob;
     }
 
+    /// <summary>
+    /// Builds the download job for a single main item, optionally with grouped-in secondary-audio
+    /// siblings from <see cref="AudioVariantGroupingService"/>.
+    /// </summary>
+    /// <returns>The built job, or null if paths/URL resolution failed and the item should be skipped.</returns>
     private async Task<DownloadJob?> BuildDownloadJobAsync(
         Subscription subscription,
         bool downloadSubtitles,

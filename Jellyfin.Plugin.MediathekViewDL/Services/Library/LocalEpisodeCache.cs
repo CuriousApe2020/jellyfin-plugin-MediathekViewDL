@@ -20,13 +20,6 @@ public class LocalEpisodeCache
     private readonly Dictionary<(int Season, int Episode), EpisodeVariants> _seasonEpisodeVariants = new();
     private readonly Dictionary<int, EpisodeVariants> _absoluteEpisodeVariants = new();
 
-    private sealed class EpisodeVariants
-    {
-        public string? VideoFilePath { get; set; }
-
-        public HashSet<string> Languages { get; } = new(StringComparer.OrdinalIgnoreCase);
-    }
-
     /// <summary>
     /// Gets the count of unique Season/Episode pairs in the cache.
     /// </summary>
@@ -63,26 +56,6 @@ public class LocalEpisodeCache
         {
             _absoluteEpisodes[(absolute.Value, lang)] = filePath;
             AddVariant(_absoluteEpisodeVariants, absolute.Value, filePath, lang, isSidecarAudio);
-        }
-    }
-
-    private static void AddVariant<TKey>(Dictionary<TKey, EpisodeVariants> target, TKey key, string filePath, string language, bool isSidecarAudio)
-        where TKey : notnull
-    {
-        if (!target.TryGetValue(key, out var variants))
-        {
-            variants = new EpisodeVariants();
-            target[key] = variants;
-        }
-
-        variants.Languages.Add(language);
-
-        // First video wins: with several videos for one episode (e.g. a leftover from an older
-        // naming scheme) any choice is arbitrary, and picking a stable one at least keeps repeated
-        // runs consistent instead of attaching tracks to a different file each time.
-        if (!isSidecarAudio && variants.VideoFilePath == null)
-        {
-            variants.VideoFilePath = filePath;
         }
     }
 
@@ -199,5 +172,36 @@ public class LocalEpisodeCache
         }
 
         return null;
+    }
+
+    private static void AddVariant<TKey>(Dictionary<TKey, EpisodeVariants> target, TKey key, string filePath, string language, bool isSidecarAudio)
+        where TKey : notnull
+    {
+        if (!target.TryGetValue(key, out var variants))
+        {
+            variants = new EpisodeVariants();
+            target[key] = variants;
+        }
+
+        variants.Languages.Add(language);
+
+        // First video wins: with several videos for one episode (e.g. a leftover from an older
+        // naming scheme) any choice is arbitrary, and picking a stable one at least keeps repeated
+        // runs consistent instead of attaching tracks to a different file each time.
+        if (!isSidecarAudio && variants.VideoFilePath == null)
+        {
+            variants.VideoFilePath = filePath;
+        }
+    }
+
+    /// <summary>
+    /// The languages an episode already has on disk, plus the video file further audio tracks would
+    /// be written next to.
+    /// </summary>
+    private sealed class EpisodeVariants
+    {
+        public string? VideoFilePath { get; set; }
+
+        public HashSet<string> Languages { get; } = new(StringComparer.OrdinalIgnoreCase);
     }
 }

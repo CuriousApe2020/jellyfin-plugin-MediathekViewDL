@@ -35,6 +35,7 @@ public class LocalMediaScanner : ILocalMediaScanner
     /// </summary>
     /// <param name="logger">The logger.</param>
     /// <param name="videoParser">The video parser.</param>
+    /// <param name="languageDetectionService">The language detection service, used to recover the language of secondary-audio sidecars from their file name.</param>
     public LocalMediaScanner(ILogger<LocalMediaScanner> logger, IVideoParser videoParser, ILanguageDetectionService languageDetectionService)
     {
         _logger = logger;
