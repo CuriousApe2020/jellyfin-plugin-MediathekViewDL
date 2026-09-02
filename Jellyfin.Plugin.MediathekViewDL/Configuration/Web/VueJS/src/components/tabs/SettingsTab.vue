@@ -47,6 +47,7 @@ const defUseStreamingUrlFiles = ref(false)
 const defDownloadFullVideoSecondaryAudio = ref(false)
 const defDetectUndetectedSecondaryAudio = ref(false)
 const defDetectCrossResultAudioVariants = ref(false)
+const defAddAudioToExistingEpisodes = ref(false)
 const defDownloadOriginalVersionAudio = ref(true)
 const defDownloadAudioDescriptionAudio = ref(false)
 const defDownloadClearSpeechAudio = ref(false)
@@ -144,6 +145,7 @@ async function loadConfig() {
     defDownloadFullVideoSecondaryAudio.value = defDl.DownloadFullVideoForSecondaryAudio ?? false
     defDetectUndetectedSecondaryAudio.value = defDl.DetectUndetectedSecondaryAudio ?? false
     defDetectCrossResultAudioVariants.value = defDl.DetectCrossResultAudioVariants ?? false
+    defAddAudioToExistingEpisodes.value = defDl.AddAudioToExistingEpisodes ?? false
     defDownloadOriginalVersionAudio.value = defDl.DownloadOriginalVersionAudio ?? true
     defDownloadAudioDescriptionAudio.value = defDl.DownloadAudioDescriptionAudio ?? false
     defDownloadClearSpeechAudio.value = defDl.DownloadClearSpeechAudio ?? false
@@ -231,6 +233,7 @@ async function saveConfig() {
         DownloadFullVideoForSecondaryAudio: defDownloadFullVideoSecondaryAudio.value,
         DetectUndetectedSecondaryAudio: defDetectUndetectedSecondaryAudio.value,
         DetectCrossResultAudioVariants: defDetectCrossResultAudioVariants.value,
+        AddAudioToExistingEpisodes: defAddAudioToExistingEpisodes.value,
         DownloadOriginalVersionAudio: defDownloadOriginalVersionAudio.value,
         DownloadAudioDescriptionAudio: defDownloadAudioDescriptionAudio.value,
         DownloadClearSpeechAudio: defDownloadClearSpeechAudio.value,
@@ -559,6 +562,10 @@ onMounted(() => {
           <div class="checkbox-field">
             <label><input v-model="defEnhancedDuplicateDetection" type="checkbox"> Erweiterte Duplikaterkennung</label>
             <p class="field-desc">Scannt das Zielverzeichnis nach vorhandenen Dateien mit passenden SxxExx-Mustern (oder absoluter Nummerierung), um doppelte Downloads zu vermeiden (auch bei abweichenden Dateinamen).</p>
+          </div>
+          <div class="checkbox-field">
+            <label><input v-model="defAddAudioToExistingEpisodes" type="checkbox" :disabled="!defEnhancedDuplicateDetection"> Neue Tonspuren zu vorhandenen Folgen hinzufügen</label>
+            <p class="field-desc">Wird eine Sendung gefunden, die bereits lokal vorliegt - aber in einer anderen Sprache -, wird nur deren Tonspur geladen und als zusätzliche Tonspur-Datei neben das vorhandene Video gelegt, statt ein zweites, fast identisches Video herunterzuladen. Jellyfin zeigt die Folge dadurch als einen Eintrag mit auswählbaren Tonspuren statt als zwei. Die vorhandene Videodatei wird dabei nicht verändert. Setzt "Erweiterte Duplikaterkennung" voraus.</p>
           </div>
           <div class="checkbox-field">
             <label><input v-model="defAllowFallbackToLowerQuality" type="checkbox"> Fallback auf niedrigere Qualität erlauben</label>

@@ -415,6 +415,133 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
         }
 
         [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldAttachAudioToExistingEpisode_InsteadOfDownloadingASecondVideo()
+        {
+            // Arrange: S01E01 is already on disk in English; the German variant of the same episode
+            // shows up in the search results. Without this feature that becomes a second video file
+            // and Jellyfin shows the episode twice.
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Download = new DownloadSettings
+                {
+                    EnhancedDuplicateDetection = true,
+                    AddAudioToExistingEpisodes = true
+                }
+            };
+            var item = new ResultItem { Id = "456", Title = "Title", UrlVideo = "http://test.com/video.mp4" };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+            _apiClientMock.Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(new VideoInfo { Title = "Title", SeasonNumber = 1, EpisodeNumber = 1, Language = "deu" });
+
+            _fileNameBuilderServiceMock.Setup(x => x.GetSubscriptionBaseDirectory(It.IsAny<Subscription>(), It.IsAny<DownloadContext>()))
+                .Returns("/tmp/TestSub");
+
+            var localCache = new LocalEpisodeCache();
+            localCache.Add(1, 1, null, "/tmp/TestSub/S01E01 - Title.mkv", "eng");
+            _localMediaScannerMock.Setup(x => x.ScanDirectory("/tmp/TestSub", "TestSub")).Returns(localCache);
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert: one audio-only item, written next to the existing video - no video download.
+            Assert.Single(jobs);
+            var downloadItem = Assert.Single(jobs[0].DownloadItems);
+            Assert.Equal(DownloadType.AudioExtraction, downloadItem.JobType);
+            Assert.Equal("/tmp/TestSub/S01E01 - Title.deu.mka", downloadItem.DestinationPath);
+            Assert.Equal("deu", downloadItem.Language);
+        }
+
+        [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldNotReAttachAudio_WhenThatLanguageIsAlreadyPresent()
+        {
+            // Arrange: an earlier run already attached the German track.
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Download = new DownloadSettings
+                {
+                    EnhancedDuplicateDetection = true,
+                    AddAudioToExistingEpisodes = true
+                }
+            };
+            var item = new ResultItem { Id = "456", Title = "Title", UrlVideo = "http://test.com/video.mp4" };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+            _apiClientMock.Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(new VideoInfo { Title = "Title", SeasonNumber = 1, EpisodeNumber = 1, Language = "deu" });
+
+            _fileNameBuilderServiceMock.Setup(x => x.GetSubscriptionBaseDirectory(It.IsAny<Subscription>(), It.IsAny<DownloadContext>()))
+                .Returns("/tmp/TestSub");
+
+            var localCache = new LocalEpisodeCache();
+            localCache.Add(1, 1, null, "/tmp/TestSub/S01E01 - Title.mkv", "eng");
+            localCache.Add(1, 1, null, "/tmp/TestSub/S01E01 - Title.deu.mka", "deu", isSidecarAudio: true);
+            _localMediaScannerMock.Setup(x => x.ScanDirectory("/tmp/TestSub", "TestSub")).Returns(localCache);
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert: the exact-language duplicate check already drops it - nothing to do.
+            Assert.Empty(jobs);
+        }
+
+        [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldDownloadAFullVideo_WhenAttachingIsDisabled()
+        {
+            // Arrange: same situation, feature off - the previous behaviour must be unchanged.
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Download = new DownloadSettings { EnhancedDuplicateDetection = true }
+            };
+            var item = new ResultItem { Id = "456", Title = "Title", UrlVideo = "http://test.com/video.mp4" };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+            _apiClientMock.Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(new VideoInfo { Title = "Title", SeasonNumber = 1, EpisodeNumber = 1, Language = "deu" });
+
+            _fileNameBuilderServiceMock.Setup(x => x.GetSubscriptionBaseDirectory(It.IsAny<Subscription>(), It.IsAny<DownloadContext>()))
+                .Returns("/tmp/TestSub");
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mp4" });
+
+            var localCache = new LocalEpisodeCache();
+            localCache.Add(1, 1, null, "/tmp/TestSub/S01E01 - Title.mkv", "eng");
+            _localMediaScannerMock.Setup(x => x.ScanDirectory("/tmp/TestSub", "TestSub")).Returns(localCache);
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Single(jobs);
+            Assert.Equal(DownloadType.FFmpegDownload, jobs[0].DownloadItems.First().JobType);
+        }
+
+        [Fact]
         public async Task GetJobsForSubscriptionAsync_ShouldNotReAddHistory_IfFoundLocally_AndAlreadyRecorded()
         {
             // Arrange: an item that was already backfilled into history on a previous run (e.g. an

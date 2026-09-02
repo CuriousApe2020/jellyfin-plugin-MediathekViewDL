@@ -1,4 +1,5 @@
 using Jellyfin.Plugin.MediathekViewDL.Services.Library;
+using Jellyfin.Plugin.MediathekViewDL.Services.Media;
 using Xunit;
 
 namespace Jellyfin.Plugin.MediathekViewDL.Tests;
@@ -55,5 +56,82 @@ public class LocalEpisodeCacheTests
         // No match
         Assert.False(cache.Contains(1, 2, null, "deu"));
         Assert.False(cache.Contains(null, null, 6, "eng"));
+    }
+
+    [Fact]
+    public void TryGetEpisodeVideo_FindsEpisodeRecordedUnderADifferentLanguage()
+    {
+        // Arrange: the episode is on disk in English only - exactly the case that makes the
+        // language-keyed Contains() say "not a duplicate" for the German variant.
+        var cache = new LocalEpisodeCache();
+        cache.Add(1, 1, null, "/media/S01E01 - Title.mkv", "eng");
+
+        var german = new VideoInfo { Title = "Title", SeasonNumber = 1, EpisodeNumber = 1, Language = "deu" };
+
+        // Act
+        var found = cache.TryGetEpisodeVideo(german, out var path, out var languages);
+
+        // Assert
+        Assert.False(cache.Contains(german));
+        Assert.True(found);
+        Assert.Equal("/media/S01E01 - Title.mkv", path);
+        Assert.Contains("eng", languages);
+        Assert.DoesNotContain("deu", languages);
+    }
+
+    [Fact]
+    public void TryGetEpisodeVideo_ReportsLanguageAlreadyPresentAsASidecar()
+    {
+        // Arrange: a previous run already attached the German track next to the English video.
+        var cache = new LocalEpisodeCache();
+        cache.Add(1, 1, null, "/media/S01E01 - Title.mkv", "eng");
+        cache.Add(1, 1, null, "/media/S01E01 - Title.deu.mka", "deu", isSidecarAudio: true);
+
+        var german = new VideoInfo { Title = "Title", SeasonNumber = 1, EpisodeNumber = 1, Language = "deu" };
+
+        // Act
+        var found = cache.TryGetEpisodeVideo(german, out var path, out var languages);
+
+        // Assert: the sidecar must not become the anchor, but its language must count as present
+        // - otherwise the same track would be re-fetched on every run.
+        Assert.True(found);
+        Assert.Equal("/media/S01E01 - Title.mkv", path);
+        Assert.Contains("deu", languages);
+        Assert.Contains("eng", languages);
+    }
+
+    [Fact]
+    public void TryGetEpisodeVideo_ReturnsFalse_WhenOnlyASidecarExists()
+    {
+        // Arrange: no video to attach anything to.
+        var cache = new LocalEpisodeCache();
+        cache.Add(1, 1, null, "/media/S01E01 - Title.deu.mka", "deu", isSidecarAudio: true);
+
+        // Act
+        var found = cache.TryGetEpisodeVideo(
+            new VideoInfo { Title = "Title", SeasonNumber = 1, EpisodeNumber = 1, Language = "eng" },
+            out _,
+            out _);
+
+        // Assert
+        Assert.False(found);
+    }
+
+    [Fact]
+    public void TryGetEpisodeVideo_MatchesOnAbsoluteNumbering()
+    {
+        // Arrange
+        var cache = new LocalEpisodeCache();
+        cache.Add(null, null, 7, "/media/Title - 07.mkv", "eng");
+
+        // Act
+        var found = cache.TryGetEpisodeVideo(
+            new VideoInfo { Title = "Title", AbsoluteEpisodeNumber = 7, Language = "deu" },
+            out var path,
+            out _);
+
+        // Assert
+        Assert.True(found);
+        Assert.Equal("/media/Title - 07.mkv", path);
     }
 }

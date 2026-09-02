@@ -46,6 +46,21 @@ public record BaseDownloadSettings
     public bool DetectCrossResultAudioVariants { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether a newly found audio variant of an episode that already exists
+    /// locally should be attached to that existing video as an extra audio track, instead of being
+    /// downloaded as a second, near-duplicate video file.
+    /// </summary>
+    /// <remarks>
+    /// Duplicate detection is language-aware, so an episode present only in one language does not
+    /// suppress the same episode in another - which is what produces two video files for one episode
+    /// and, in Jellyfin, two entries where the user expects one with selectable audio. With this
+    /// enabled the second language is written next to the existing video as a ".mka" track instead.
+    /// The existing video file itself is never touched or rewritten. Requires
+    /// <see cref="EnhancedDuplicateDetection"/>, which is what scans the library in the first place.
+    /// </remarks>
+    public bool AddAudioToExistingEpisodes { get; init; }
+
+    /// <summary>
     /// Gets a value indicating whether to download a detected original-version (different-language) audio
     /// track. Only relevant when <see cref="DetectUndetectedSecondaryAudio"/> or
     /// <see cref="DetectCrossResultAudioVariants"/> is enabled.

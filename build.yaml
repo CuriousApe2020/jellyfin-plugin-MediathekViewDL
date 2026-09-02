@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.20"
+version: "0.0.0.21"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,14 +17,23 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Fix: wurde ein laufender Download abgebrochen ("Alle Downloads
-  abbrechen" bzw. beim Beenden), behandelte der Download-Vorgang den
-  Abbruch wie eine fehlgeschlagene URL-Prüfung: im Protokoll erschien ein
-  Fehler samt Stapelüberwachung, obwohl nichts kaputt war, und der Auftrag
-  arbeitete anschließend seine restlichen Bestandteile (Untertitel,
-  weitere Tonspuren) einfach weiter ab, statt zu stoppen. Ein Abbruch wird
-  jetzt als solcher erkannt: der Auftrag hält sofort an und wird als
-  abgebrochen und nicht als fehlgeschlagen geführt. Eine zu diesem
-  Zeitpunkt bereits vollständig geladene Videodatei bekommt weiterhin ihre
-  NFO-Datei - sonst wäre sie dauerhaft ohne Metadaten geblieben, da der
-  nächste Lauf die vorhandene Datei überspringt.
+  Neu: Option "Neue Tonspuren zu vorhandenen Folgen hinzufügen" (Download-
+  Reiter eines Abos bzw. Abo-Standardwerte). Bisher war die
+  Duplikaterkennung sprachbewusst: lag eine Folge nur auf Englisch vor,
+  galt dieselbe Folge auf Deutsch als neu und wurde als zweites,
+  nahezu identisches Video heruntergeladen - Jellyfin zeigte die Folge
+  dann doppelt statt als einen Eintrag mit auswählbaren Tonspuren. Ist
+  die Option aktiviert, wird in diesem Fall nur noch die Tonspur geladen
+  und als zusätzliche Tonspur-Datei (.mka) neben das bereits vorhandene
+  Video gelegt - genauso, wie es bei frisch heruntergeladenen Folgen
+  schon immer passiert ist. Die vorhandene Videodatei wird dabei nicht
+  geöffnet, verändert oder verschoben. Setzt "Erweiterte
+  Duplikaterkennung" voraus und ist standardmäßig deaktiviert.
+
+  Fix: beim Einlesen der Bibliothek wurde die Sprache von Tonspur-Dateien
+  nicht erkannt. Der Dateiname erreichte die Spracherkennung ohne
+  Dateiendung ("Titel.eng" statt "Titel.eng.mka"), womit die Sprache nicht
+  mehr das vorletzte Segment war und stillschweigend auf Deutsch
+  zurückfiel. Eine englische Tonspur galt dadurch als deutsche - was ohne
+  die neue Option folgenlos blieb, mit ihr aber dazu geführt hätte,
+  dieselbe Tonspur bei jedem Lauf erneut zu laden.

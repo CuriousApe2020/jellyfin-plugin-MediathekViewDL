@@ -14,9 +14,15 @@ public class LocalMediaScanner : ILocalMediaScanner
 {
     private readonly ILogger<LocalMediaScanner> _logger;
     private readonly IVideoParser _videoParser;
+    private readonly ILanguageDetectionService _languageDetectionService;
 
     // Supported video extensions
     private readonly string[] _videoExtensions = { ".mkv", ".mp4", ".avi", ".mov", ".wmv", ".m4v", ".strm", ".mka", ".webm" };
+
+    // Extensions we write secondary audio tracks to. These sit *next to* a video file rather than
+    // being an episode's own video, so they contribute their language to an episode without being
+    // eligible as the file other tracks get attached to.
+    private readonly string[] _sidecarAudioExtensions = { ".mka" };
 
     // Supported subtitle extensions
     private readonly string[] _subtitleExtensions = { ".vtt", ".ttml", ".srt" };
@@ -29,10 +35,11 @@ public class LocalMediaScanner : ILocalMediaScanner
     /// </summary>
     /// <param name="logger">The logger.</param>
     /// <param name="videoParser">The video parser.</param>
-    public LocalMediaScanner(ILogger<LocalMediaScanner> logger, IVideoParser videoParser)
+    public LocalMediaScanner(ILogger<LocalMediaScanner> logger, IVideoParser videoParser, ILanguageDetectionService languageDetectionService)
     {
         _logger = logger;
         _videoParser = videoParser;
+        _languageDetectionService = languageDetectionService;
     }
 
     /// <inheritdoc />
@@ -71,6 +78,21 @@ public class LocalMediaScanner : ILocalMediaScanner
                 if (_videoExtensions.Contains(extension))
                 {
                     var videoInfo = _videoParser.ParseVideoInfo(seriesName, fileName);
+                    var isSidecarAudio = _sidecarAudioExtensions.Contains(extension);
+
+                    if (videoInfo != null)
+                    {
+                        // The parser only ever sees the name without its extension, so a track written
+                        // as "Title.eng.mka" reaches it as "Title.eng" - and the language-suffix rule
+                        // wants the language to be the *second to last* dot segment, which it no longer
+                        // is. Re-running detection over the full file name restores that, so a sidecar
+                        // reports the language it actually carries instead of silently defaulting to
+                        // German (which would make us re-fetch it on every run).
+                        videoInfo.Language = _languageDetectionService
+                            .DetectLanguage(Path.GetFileName(file), videoInfo.Language)
+                            .LanguageCode;
+                    }
+
                     result.Files.Add(new ScannedFile
                     {
                         FilePath = file,
@@ -82,7 +104,7 @@ public class LocalMediaScanner : ILocalMediaScanner
                     {
                         if ((videoInfo.SeasonNumber.HasValue && videoInfo.EpisodeNumber.HasValue) || videoInfo.AbsoluteEpisodeNumber.HasValue)
                         {
-                            result.EpisodeCache.Add(videoInfo.SeasonNumber, videoInfo.EpisodeNumber, videoInfo.AbsoluteEpisodeNumber, file, videoInfo.Language);
+                            result.EpisodeCache.Add(videoInfo.SeasonNumber, videoInfo.EpisodeNumber, videoInfo.AbsoluteEpisodeNumber, file, videoInfo.Language, isSidecarAudio);
                         }
                     }
                 }
