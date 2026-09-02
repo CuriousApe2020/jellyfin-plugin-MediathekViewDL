@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.MediathekViewDL.Services.Downloading.Handlers;
+using Jellyfin.Plugin.MediathekViewDL.Services.Downloading.Helpers;
 using Jellyfin.Plugin.MediathekViewDL.Services.Downloading.Models;
 using Jellyfin.Plugin.MediathekViewDL.Services.Library;
 using Jellyfin.Plugin.MediathekViewDL.Services.Metadata;
@@ -53,6 +54,7 @@ public class DownloadManager : IDownloadManager
         _logger.LogInformation("Starting download job for '{Title}'.", job.Title);
         var overallSuccess = true;
         var cancelled = false;
+        var notWritable = false;
         var itemResults = new List<DownloadItemResult>();
 
         foreach (var item in job.DownloadItems)
@@ -122,6 +124,12 @@ public class DownloadManager : IDownloadManager
                 {
                     Directory.CreateDirectory(directory);
                 }
+                catch (UnauthorizedAccessException ex)
+                {
+                    notWritable = true;
+                    itemResults.Add(ReportNotWritable(job, item, directory, ex.Message));
+                    break;
+                }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Failed to create directory '{Directory}'.", directory);
@@ -137,6 +145,21 @@ public class DownloadManager : IDownloadManager
                 }
             }
 
+            // Asked before the handler runs, not after it failed: ffmpeg reports a non-writable
+            // output directory as an ordinary non-zero exit code, so without this a permission
+            // problem looked exactly like an unreachable broadcaster - and only surfaced after a
+            // full transfer attempt.
+            if (!string.IsNullOrEmpty(directory))
+            {
+                var writeFailure = TargetDirectoryAccess.GetWriteFailure(directory);
+                if (writeFailure != null)
+                {
+                    notWritable = true;
+                    itemResults.Add(ReportNotWritable(job, item, directory, writeFailure));
+                    break;
+                }
+            }
+
             var handler = _downloadHandlers.FirstOrDefault(h => h.CanHandle(item.JobType));
             if (handler != null)
             {
@@ -148,6 +171,14 @@ public class DownloadManager : IDownloadManager
                 catch (OperationCanceledException)
                 {
                     cancelled = true;
+                    break;
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    // The probe above catches the common case up front; this covers a write that
+                    // only fails later, e.g. an existing file owned by somebody else.
+                    notWritable = true;
+                    itemResults.Add(ReportNotWritable(job, item, directory, ex.Message));
                     break;
                 }
 
@@ -184,8 +215,11 @@ public class DownloadManager : IDownloadManager
         // entirely, leaving a perfectly good video file without its metadata for good - the retry
         // on the next run skips the already-present video via the File.Exists check above and so
         // never reached this branch again either.
+        // ...but a job aborted over missing write permissions skips it: the NFO write would only
+        // add a second failure for the same cause. Nothing is lost - the next run finds the video
+        // through the File.Exists shortcut above, counts it as landed, and writes the NFO then.
         var mediaLanded = itemResults.Any(r => r.Success && r.JobType != DownloadType.SubtitleDownload);
-        if (mediaLanded && job.NfoMetadata is not null && !File.Exists(job.NfoMetadata.FilePath))
+        if (mediaLanded && !notWritable && job.NfoMetadata is not null && !File.Exists(job.NfoMetadata.FilePath))
         {
             _nfoService.CreateNfo(job.NfoMetadata);
         }
@@ -199,10 +233,50 @@ public class DownloadManager : IDownloadManager
             cancellationToken.ThrowIfCancellationRequested();
         }
 
+        if (notWritable)
+        {
+            overallSuccess = false;
+        }
+
         return new DownloadJobResult
         {
             Success = overallSuccess,
             ItemResults = itemResults
+        };
+    }
+
+    /// <summary>
+    /// Logs a non-writable destination as a single line and builds the item result for it.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately without a stack trace: this is a server-side filesystem problem, not a plugin
+    /// fault, and the trace says nothing the message does not. The caller aborts the rest of the
+    /// job right after - every remaining item writes into the same directory and would fail
+    /// identically, and previously each of them produced its own logged exception. Nothing is
+    /// recorded in the download history for a failed job, so the next subscription run simply tries
+    /// the episode again, by which time the cause may well have been fixed.
+    /// </remarks>
+    /// <param name="job">The job being aborted.</param>
+    /// <param name="item">The item whose destination could not be written.</param>
+    /// <param name="directory">The directory that could not be written to, if known.</param>
+    /// <param name="reason">What the filesystem said, carried through so a full disk is not reported as a permission problem.</param>
+    /// <returns>The failed item result to report to the caller.</returns>
+    private DownloadItemResult ReportNotWritable(DownloadJob job, DownloadItem item, string? directory, string reason)
+    {
+        var path = string.IsNullOrEmpty(directory) ? item.DestinationPath : directory;
+
+        _logger.LogError(
+            "Cannot write to '{Path}': {Reason}. Aborting the download of '{Title}' - the remaining parts of this job are skipped, and the next subscription run will try again. If this is a permission problem, check the owner and permissions of that directory for the user Jellyfin runs as.",
+            path,
+            reason,
+            job.Title);
+
+        return new DownloadItemResult
+        {
+            DestinationPath = item.DestinationPath,
+            JobType = item.JobType,
+            Success = false,
+            ErrorMessage = $"Zielverzeichnis '{path}' ist nicht beschreibbar ({reason}). Download abgebrochen - wird beim nächsten Abo-Lauf erneut versucht."
         };
     }
 

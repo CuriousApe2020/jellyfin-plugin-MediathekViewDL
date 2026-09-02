@@ -184,6 +184,13 @@ public class FileDownloader : IFileDownloader
             _logger.LogInformation("Successfully downloaded '{DestinationPath}'.", destinationPath);
             return true;
         }
+        catch (UnauthorizedAccessException)
+        {
+            // Not a download failure but a filesystem one, and the only exception here the caller
+            // must see: the DownloadManager aborts the whole job on it rather than working through
+            // every remaining sidecar of the same, unwritable directory.
+            throw;
+        }
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "HTTP request failed during download of '{FileUrl}': {Message}", fileUrl, ex.Message);
@@ -243,6 +250,11 @@ public class FileDownloader : IFileDownloader
 
             _logger.LogInformation("Successfully created streaming URL file at '{DestinationPath}'.", destinationPath);
             return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // See DownloadFileAsync: the DownloadManager aborts the job on this one.
+            throw;
         }
         catch (IOException ex)
         {
