@@ -20,6 +20,7 @@ export const SubscriptionFactory = {
       DownloadFullVideoForSecondaryAudio: defaults.DownloadSettings?.DownloadFullVideoForSecondaryAudio || false,
       DetectUndetectedSecondaryAudio: defaults.DownloadSettings?.DetectUndetectedSecondaryAudio || false,
       DetectCrossResultAudioVariants: defaults.DownloadSettings?.DetectCrossResultAudioVariants || false,
+      AddAudioToExistingEpisodes: defaults.DownloadSettings?.AddAudioToExistingEpisodes || false,
       DownloadOriginalVersionAudio: defaults.DownloadSettings?.DownloadOriginalVersionAudio ?? true,
       DownloadAudioDescriptionAudio: defaults.DownloadSettings?.DownloadAudioDescriptionAudio || false,
       DownloadClearSpeechAudio: defaults.DownloadSettings?.DownloadClearSpeechAudio || false,

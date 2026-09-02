@@ -268,6 +268,12 @@ function updateDate(target, field, value) {
                             </label>
                             <p class="field-desc">Manche Sender (arte, ZDF/ZDFneo/3sat) führen dieselbe Sendung als mehrere eigenständige Suchtreffer in unterschiedlichen Sprachen, statt als eine Sendung mit wählbaren Tonspuren. Wenn aktiviert, werden solche zusammengehörigen Treffer erkannt (gleiches Thema, gleicher Titel, ähnliche Dauer und Sendezeit) und als zusätzliche Tonspur-Dateien neben dem Hauptvideo gespeichert, statt als eigene, sich überschneidende Downloads. Unabhängig von "Fehlende Tonspuren erkennen" oben — beide lassen sich zusammen aktivieren.</p>
                         </div>
+                        <div class="checkbox-field">
+                            <label>
+                                <input v-model="editedSub.Download.AddAudioToExistingEpisodes" type="checkbox" :disabled="!editedSub.Download.EnhancedDuplicateDetection"> Neue Tonspuren zu vorhandenen Folgen hinzufügen
+                            </label>
+                            <p class="field-desc">Wird eine Sendung gefunden, die bereits lokal vorliegt - aber in einer anderen Sprache -, wird nur deren Tonspur geladen und als zusätzliche Tonspur-Datei neben das vorhandene Video gelegt, statt ein zweites, fast identisches Video herunterzuladen. Jellyfin zeigt die Folge dadurch als einen Eintrag mit auswählbaren Tonspuren statt als zwei. Die vorhandene Videodatei wird dabei nicht verändert. Setzt "Erweiterte Duplikaterkennung" voraus, da nur diese die Bibliothek überhaupt einliest.</p>
+                        </div>
                         <div v-if="editedSub.Download.DetectUndetectedSecondaryAudio || editedSub.Download.DetectCrossResultAudioVariants" class="sub-options">
                             <div class="checkbox-field">
                                 <label><input v-model="editedSub.Download.DownloadOriginalVersionAudio" type="checkbox"> Originalversion (andere Sprache)</label>

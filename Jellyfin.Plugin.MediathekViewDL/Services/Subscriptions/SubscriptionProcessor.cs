@@ -121,7 +121,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         Subscription subscription,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        await foreach (var entry in GetEligibleItemsAsync(subscription, honorHistory: true, cancellationToken).ConfigureAwait(false))
+        await foreach (var entry in GetEligibleItemsAsync(subscription, honorHistory: true, BuildLocalEpisodeCache(subscription), cancellationToken).ConfigureAwait(false))
         {
             yield return entry;
         }
@@ -139,7 +139,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         Subscription subscription,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        await foreach (var entry in GetEligibleItemsAsync(subscription, honorHistory: false, cancellationToken).ConfigureAwait(false))
+        await foreach (var entry in GetEligibleItemsAsync(subscription, honorHistory: false, BuildLocalEpisodeCache(subscription), cancellationToken).ConfigureAwait(false))
         {
             yield return entry;
         }
@@ -160,28 +160,39 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     }
 
     /// <summary>
+    /// Scans the subscription's target directory for episodes already on disk, or returns null when
+    /// duplicate detection is off (or explicitly bypassed, as in the dry run).
+    /// </summary>
+    /// <param name="subscription">The subscription whose target directory to scan.</param>
+    /// <returns>The scanned episodes, or null when duplicate detection does not apply.</returns>
+    private LocalEpisodeCache? BuildLocalEpisodeCache(Subscription subscription)
+    {
+        if (!subscription.Download.EnhancedDuplicateDetection || subscription.IgnoreLocalFiles)
+        {
+            return null;
+        }
+
+        var subscriptionBaseDir = _fileNameBuilderService.GetSubscriptionBaseDirectory(subscription, DownloadContext.Subscription);
+        return string.IsNullOrWhiteSpace(subscriptionBaseDir)
+            ? null
+            : _localMediaScanner.ScanDirectory(subscriptionBaseDir, subscription.Name);
+    }
+
+    /// <summary>
     /// Returns all items matching the subscription, optionally filtering out items that were
     /// already processed according to the download history.
     /// </summary>
     /// <param name="subscription">The subscription.</param>
     /// <param name="honorHistory">Whether to skip items already present in the download history.</param>
+    /// <param name="localEpisodeCache">Episodes already on disk, or null when duplicate detection does not apply.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The matching items.</returns>
     private async IAsyncEnumerable<(ResultItemDto Item, VideoInfo VideoInfo)> GetEligibleItemsAsync(
         Subscription subscription,
         bool honorHistory,
+        LocalEpisodeCache? localEpisodeCache,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        LocalEpisodeCache? localEpisodeCache = null;
-        if (subscription.Download.EnhancedDuplicateDetection && !subscription.IgnoreLocalFiles)
-        {
-            var subscriptionBaseDir = _fileNameBuilderService.GetSubscriptionBaseDirectory(subscription, DownloadContext.Subscription);
-            if (!string.IsNullOrWhiteSpace(subscriptionBaseDir))
-            {
-                localEpisodeCache = _localMediaScanner.ScanDirectory(subscriptionBaseDir, subscription.Name);
-            }
-        }
-
         await foreach (var item in QueryApiAsync(subscription, cancellationToken: cancellationToken).ConfigureAwait(false))
         {
             if (honorHistory && !subscription.IgnoreHistory && await IsInDownloadCache(item, subscription.Id).ConfigureAwait(false))
@@ -246,20 +257,25 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     {
         var jobs = new List<DownloadJob>();
 
+        // Built once and threaded through: the eligible-item filter uses it to drop episodes already
+        // on disk, and BuildDownloadJobAsync uses it to attach a new audio variant to the video that
+        // is already there instead of fetching a second copy of the same episode.
+        var localEpisodeCache = BuildLocalEpisodeCache(subscription);
+
         if (subscription.Download.DetectCrossResultAudioVariants)
         {
             // Buffer the whole eligible-item stream so sibling rows representing the same episode in a
             // different audio track (arte's channel/marker split, ZDF/ZDFneo/3sat's per-language rows)
             // can be grouped into one job instead of colliding as separate downloads to the same path.
             var eligibleItems = new List<(ResultItemDto Item, VideoInfo VideoInfo)>();
-            await foreach (var eligible in GetEligibleItemsAsync(subscription, cancellationToken).ConfigureAwait(false))
+            await foreach (var eligible in GetEligibleItemsAsync(subscription, honorHistory: true, localEpisodeCache, cancellationToken).ConfigureAwait(false))
             {
                 eligibleItems.Add(eligible);
             }
 
             foreach (var group in AudioVariantGroupingService.GroupByEpisode(eligibleItems))
             {
-                var job = await BuildDownloadJobAsync(subscription, downloadSubtitles, group.MainItem, group.MainVideoInfo, group.Secondaries, cancellationToken).ConfigureAwait(false);
+                var job = await BuildDownloadJobAsync(subscription, downloadSubtitles, group.MainItem, group.MainVideoInfo, group.Secondaries, localEpisodeCache, cancellationToken).ConfigureAwait(false);
                 if (job != null)
                 {
                     jobs.Add(job);
@@ -269,9 +285,9 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             return jobs;
         }
 
-        await foreach (var (item, tempVideoInfo) in GetEligibleItemsAsync(subscription, cancellationToken).ConfigureAwait(false))
+        await foreach (var (item, tempVideoInfo) in GetEligibleItemsAsync(subscription, honorHistory: true, localEpisodeCache, cancellationToken).ConfigureAwait(false))
         {
-            var job = await BuildDownloadJobAsync(subscription, downloadSubtitles, item, tempVideoInfo, Array.Empty<AudioVariantSecondary>(), cancellationToken).ConfigureAwait(false);
+            var job = await BuildDownloadJobAsync(subscription, downloadSubtitles, item, tempVideoInfo, Array.Empty<AudioVariantSecondary>(), localEpisodeCache, cancellationToken).ConfigureAwait(false);
             if (job != null)
             {
                 jobs.Add(job);
@@ -279,6 +295,93 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         }
 
         return jobs;
+    }
+
+    /// <summary>
+    /// Builds an audio-only job that attaches <paramref name="item"/>'s audio to an episode already
+    /// on disk, when that episode exists locally in a different language. Returns null when the
+    /// feature is off, no local video matches, or this language is already present - in which case
+    /// the caller falls through to a normal download.
+    /// </summary>
+    /// <param name="subscription">The subscription the item belongs to.</param>
+    /// <param name="item">The API result the audio would be taken from.</param>
+    /// <param name="tempVideoInfo">The parsed episode information for <paramref name="item"/>.</param>
+    /// <param name="localEpisodeCache">Episodes already on disk, or null when duplicate detection does not apply.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>An audio-only job, or null when the caller should build a normal download job.</returns>
+    /// <remarks>
+    /// The track is written *next to* the existing video as a ".mka", exactly like the secondary
+    /// tracks produced for freshly downloaded episodes. Jellyfin then presents the episode as one
+    /// item with selectable audio, and the existing video file is never opened, rewritten or moved -
+    /// which matters because it is a file already in the user's library.
+    /// </remarks>
+    private async Task<DownloadJob?> TryBuildAudioForExistingEpisodeAsync(
+        Subscription subscription,
+        ResultItemDto item,
+        VideoInfo tempVideoInfo,
+        LocalEpisodeCache? localEpisodeCache,
+        CancellationToken cancellationToken)
+    {
+        if (!subscription.Download.AddAudioToExistingEpisodes || localEpisodeCache == null)
+        {
+            return null;
+        }
+
+        // A virtual subscription streams rather than storing anything, so there is no file to attach to.
+        if (subscription.IsVirtual || subscription.Download.UseStreamingUrlFiles)
+        {
+            return null;
+        }
+
+        if (!localEpisodeCache.TryGetEpisodeVideo(tempVideoInfo, out var existingVideoPath, out var existingLanguages))
+        {
+            return null;
+        }
+
+        var language = string.IsNullOrWhiteSpace(tempVideoInfo.Language) ? "und" : tempVideoInfo.Language;
+
+        // Already there - either as the existing video's own audio or as a track added on an earlier
+        // run. Without this the same track would be re-fetched on every single pass.
+        if (existingLanguages.Contains(language, StringComparer.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var (audioUrl, audioUrlFallbacks) = await GetUrlCandidate(item, subscription, cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(audioUrl))
+        {
+            return null;
+        }
+
+        var kindTag = tempVideoInfo.HasAudiodescription ? " [AD]" : string.Empty;
+        var destination = Path.ChangeExtension(existingVideoPath, null) + kindTag + "." + language + ".mka";
+
+        _logger.LogInformation(
+            "Attaching '{Language}' audio of '{Title}' to the existing episode '{ExistingPath}' instead of downloading a second video.",
+            language,
+            item.Title,
+            existingVideoPath);
+
+        var downloadJob = new DownloadJob
+        {
+            ItemId = item.Id,
+            Title = tempVideoInfo.Title,
+            ItemInfo = tempVideoInfo,
+            MediaMetadata = MediaMetadataFactory.Create(item, audioUrl, null, tempVideoInfo),
+        };
+
+        downloadJob.DownloadItems.Add(new DownloadItem
+        {
+            SourceUrl = audioUrl,
+            FallbackSourceUrls = audioUrlFallbacks,
+            DestinationPath = destination,
+            Language = language,
+            IsAudioDescription = tempVideoInfo.HasAudiodescription,
+            CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
+            JobType = DownloadType.AudioExtraction
+        });
+
+        return downloadJob;
     }
 
     /// <summary>
@@ -292,8 +395,15 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         ResultItemDto item,
         VideoInfo tempVideoInfo,
         IReadOnlyList<AudioVariantSecondary> crossResultSecondaries,
+        LocalEpisodeCache? localEpisodeCache,
         CancellationToken cancellationToken)
     {
+        var audioOnlyJob = await TryBuildAudioForExistingEpisodeAsync(subscription, item, tempVideoInfo, localEpisodeCache, cancellationToken).ConfigureAwait(false);
+        if (audioOnlyJob != null)
+        {
+            return audioOnlyJob;
+        }
+
         var paths = _fileNameBuilderService.GenerateDownloadPaths(tempVideoInfo, subscription, DownloadContext.Subscription);
         if (!paths.IsValid)
         {
@@ -626,7 +736,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             // gets a chance to look at them - otherwise a cross-result-only track (arte/ZDF/3sat) would
             // never be seen as available and every such item would incorrectly appear filtered out.
             var eligibleItems = new List<(ResultItemDto Item, VideoInfo VideoInfo)>();
-            await foreach (var eligible in GetEligibleItemsAsync(testSub, cancellationToken).ConfigureAwait(false))
+            await foreach (var eligible in GetEligibleItemsAsync(testSub, honorHistory: true, localEpisodeCache: null, cancellationToken).ConfigureAwait(false))
             {
                 eligibleItems.Add(eligible);
             }
@@ -643,7 +753,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             yield break;
         }
 
-        await foreach (var (item, tempVideoInfo) in GetEligibleItemsAsync(testSub, cancellationToken).ConfigureAwait(false))
+        await foreach (var (item, tempVideoInfo) in GetEligibleItemsAsync(testSub, honorHistory: true, localEpisodeCache: null, cancellationToken).ConfigureAwait(false))
         {
             var preview = await BuildTestPreviewAsync(testSub, item, tempVideoInfo, Array.Empty<AudioVariantSecondary>(), cancellationToken).ConfigureAwait(false);
             if (preview != null)
