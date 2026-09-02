@@ -48,6 +48,12 @@ public class SubtitleDownloadHandler : IDownloadHandler
 
             return await _fileDownloader.DownloadFileAsync(item.SourceUrl, item.DestinationPath, progress, cancellationToken).ConfigureAwait(false);
         }
+        catch (UnauthorizedAccessException)
+        {
+            // Reported and acted on by the DownloadManager, which aborts the rest of the job:
+            // every remaining item writes into the same directory and would fail identically.
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to download subtitle for {DestinationPath}", item.DestinationPath);

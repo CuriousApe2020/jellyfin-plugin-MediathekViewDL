@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.21"
+version: "0.0.0.22"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,23 +17,15 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Neu: Option "Neue Tonspuren zu vorhandenen Folgen hinzufügen" (Download-
-  Reiter eines Abos bzw. Abo-Standardwerte). Bisher war die
-  Duplikaterkennung sprachbewusst: lag eine Folge nur auf Englisch vor,
-  galt dieselbe Folge auf Deutsch als neu und wurde als zweites,
-  nahezu identisches Video heruntergeladen - Jellyfin zeigte die Folge
-  dann doppelt statt als einen Eintrag mit auswählbaren Tonspuren. Ist
-  die Option aktiviert, wird in diesem Fall nur noch die Tonspur geladen
-  und als zusätzliche Tonspur-Datei (.mka) neben das bereits vorhandene
-  Video gelegt - genauso, wie es bei frisch heruntergeladenen Folgen
-  schon immer passiert ist. Die vorhandene Videodatei wird dabei nicht
-  geöffnet, verändert oder verschoben. Setzt "Erweiterte
-  Duplikaterkennung" voraus und ist standardmäßig deaktiviert.
-
-  Fix: beim Einlesen der Bibliothek wurde die Sprache von Tonspur-Dateien
-  nicht erkannt. Der Dateiname erreichte die Spracherkennung ohne
-  Dateiendung ("Titel.eng" statt "Titel.eng.mka"), womit die Sprache nicht
-  mehr das vorletzte Segment war und stillschweigend auf Deutsch
-  zurückfiel. Eine englische Tonspur galt dadurch als deutsche - was ohne
-  die neue Option folgenlos blieb, mit ihr aber dazu geführt hätte,
-  dieselbe Tonspur bei jedem Lauf erneut zu laden.
+  Fix: fehlende Schreibrechte im Zielverzeichnis brechen den Download jetzt
+  sofort ab, statt jede Datei einzeln scheitern zu lassen. Bisher lief ein
+  Auftrag nach dem ersten Rechtefehler weiter durch Video, Untertitel,
+  Tonspuren und NFO - jeder Teil scheiterte an derselben Ursache und
+  hinterließ einen eigenen Stacktrace im Log. Erschwerend meldete ffmpeg
+  ein nicht beschreibbares Zielverzeichnis nur als gewöhnlichen Fehlercode,
+  also ununterscheidbar von einem nicht erreichbaren Sender. Das
+  Zielverzeichnis wird nun vor dem Download einmal auf Schreibbarkeit
+  geprüft; schlägt das fehl, erscheint eine einzelne, klare Meldung
+  statt eines Fehlerbergs. Der Download wird nicht in den Verlauf
+  eingetragen und beim nächsten Abo-Lauf automatisch erneut versucht - sind
+  die Rechte bis dahin korrigiert, läuft er ohne weiteres Zutun durch.

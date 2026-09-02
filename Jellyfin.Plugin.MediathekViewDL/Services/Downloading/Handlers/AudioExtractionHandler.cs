@@ -76,6 +76,12 @@ public class AudioExtractionHandler : IDownloadHandler
             File.Move(tempPath, item.DestinationPath);
             return true;
         }
+        catch (UnauthorizedAccessException)
+        {
+            // Reported and acted on by the DownloadManager, which aborts the rest of the job:
+            // every remaining item writes into the same directory and would fail identically.
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to extract or move audio file for {DestinationPath}", item.DestinationPath);

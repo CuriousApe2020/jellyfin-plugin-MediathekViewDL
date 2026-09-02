@@ -212,6 +212,102 @@ public class DownloadManagerTests
     }
 
     [Fact]
+    public async Task ExecuteJobAsync_ShouldAbortTheWholeJob_WhenWritingIsNotPermitted()
+    {
+        // Arrange: reproduces a real server log - the library directory was not writable for the
+        // user Jellyfin runs as, and every single item of every single episode ran into it in turn,
+        // each logging its own stack trace. The video item fails here; the subtitle behind it
+        // targets the same directory and cannot possibly fare better.
+        var videoPath = Path.Combine(Path.GetTempPath(), $"video_{Guid.NewGuid():N}.mp4");
+        var subtitlePath = Path.Combine(Path.GetTempPath(), $"subs_{Guid.NewGuid():N}.ttml");
+        var nfoPath = Path.Combine(Path.GetTempPath(), $"nfo_{Guid.NewGuid():N}.nfo");
+
+        var job = CreateJob("https://ard.de/video.mp4", videoPath, DownloadType.FFmpegDownload);
+        job.DownloadItems.Add(new DownloadItem
+        {
+            SourceUrl = "https://ard.de/subs.ttml",
+            DestinationPath = subtitlePath,
+            JobType = DownloadType.SubtitleDownload
+        });
+        job.NfoMetadata = new NfoDTO { FilePath = nfoPath };
+
+        _validationServiceMock
+            .Setup(s => s.ValidateUrlAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var deniedMessage = $"Access to the path '{videoPath}' is denied.";
+        _fileDownloaderMock.As<IDownloadHandler>()
+            .Setup(h => h.ExecuteAsync(
+                It.Is<DownloadItem>(i => i.JobType == DownloadType.FFmpegDownload),
+                It.IsAny<DownloadJob>(),
+                It.IsAny<IProgress<double>>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new UnauthorizedAccessException(deniedMessage));
+
+        // Act
+        var result = await _downloadManager.ExecuteJobAsync(job, Mock.Of<IProgress<double>>(), CancellationToken.None);
+
+        // Assert: the attempt is abandoned outright rather than ground through item by item.
+        Assert.False(result.Success);
+
+        _fileDownloaderMock.As<IDownloadHandler>().Verify(
+            h => h.ExecuteAsync(
+                It.Is<DownloadItem>(i => i.JobType == DownloadType.SubtitleDownload),
+                It.IsAny<DownloadJob>(),
+                It.IsAny<IProgress<double>>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never());
+
+        // The NFO would only be a second failure for the same cause.
+        _nfoServiceMock.Verify(n => n.CreateNfo(It.IsAny<NfoDTO>()), Times.Never());
+
+        // And the reason has to reach the UI - "Download fehlgeschlagen" would send the user
+        // looking at the broadcaster instead of at their own file permissions.
+        var failure = Assert.Single(result.ItemResults);
+        Assert.False(failure.Success);
+        Assert.NotNull(failure.ErrorMessage);
+        Assert.Contains("nicht beschreibbar", failure.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains(deniedMessage, failure.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ExecuteJobAsync_ShouldKeepProcessingRemainingItems_WhenAnItemFailsForAnyOtherReason()
+    {
+        // Arrange: the counterpart to the test above - only a non-writable destination aborts the
+        // job. An ordinary failure on the video (a dead CDN URL, say) must still leave the
+        // subtitle its own attempt, exactly as before.
+        var videoPath = Path.Combine(Path.GetTempPath(), $"video_{Guid.NewGuid():N}.mp4");
+        var subtitlePath = Path.Combine(Path.GetTempPath(), $"subs_{Guid.NewGuid():N}.ttml");
+
+        var job = CreateJob("https://ard.de/video.mp4", videoPath, DownloadType.FFmpegDownload);
+        job.DownloadItems.Add(new DownloadItem
+        {
+            SourceUrl = "https://ard.de/subs.ttml",
+            DestinationPath = subtitlePath,
+            JobType = DownloadType.SubtitleDownload
+        });
+
+        _validationServiceMock
+            .Setup(s => s.ValidateUrlAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        _fileDownloaderMock.As<IDownloadHandler>()
+            .Setup(h => h.ExecuteAsync(
+                It.Is<DownloadItem>(i => i.JobType == DownloadType.FFmpegDownload),
+                It.IsAny<DownloadJob>(),
+                It.IsAny<IProgress<double>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _downloadManager.ExecuteJobAsync(job, Mock.Of<IProgress<double>>(), CancellationToken.None);
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Equal(2, result.ItemResults.Count);
+    }
+
+    [Fact]
     public async Task ExecuteJobAsync_ValidationReturnsFalse_SkipsHandlerAndReturnsFalse()
     {
         // Arrange
