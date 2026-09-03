@@ -83,15 +83,20 @@ public class LocalMediaScanner : ILocalMediaScanner
         }
     }
 
-    private LocalScanResult GetOrScan(string directoryPath, string seriesName)
+    private LocalScanResult GetOrScan(string? directoryPath, string? seriesName)
     {
-        var key = (directoryPath ?? string.Empty, seriesName ?? string.Empty);
+        // Taken as nullable and normalized once, so the key and the scan cannot end up looking at
+        // different values - the callers reach here across interface boundaries where a null still
+        // gets past the compiler.
+        var directory = directoryPath ?? string.Empty;
+        var series = seriesName ?? string.Empty;
+        var key = (directory, series);
 
         lock (_cacheLock)
         {
             if (_cache.TryGetValue(key, out var cached) && DateTime.UtcNow - cached.ScannedAt < _cacheLifetime)
             {
-                _logger.LogDebug("Reusing the scan of '{Path}' from {Age:0.0}s ago.", directoryPath, (DateTime.UtcNow - cached.ScannedAt).TotalSeconds);
+                _logger.LogDebug("Reusing the scan of '{Path}' from {Age:0.0}s ago.", directory, (DateTime.UtcNow - cached.ScannedAt).TotalSeconds);
                 return cached.Result;
             }
         }
@@ -101,7 +106,7 @@ public class LocalMediaScanner : ILocalMediaScanner
         // happened to scan first - the opposite of what this cache is for. Two callers racing on
         // the same directory both scan once and the second result wins, which costs one redundant
         // scan in a rare case instead of a stall in the common one.
-        var result = ScanDirectoryInternal(directoryPath, seriesName);
+        var result = ScanDirectoryInternal(directory, series);
 
         lock (_cacheLock)
         {
