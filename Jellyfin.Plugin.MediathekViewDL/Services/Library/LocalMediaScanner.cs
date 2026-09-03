@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -30,6 +31,24 @@ public class LocalMediaScanner : ILocalMediaScanner
     // Supported info extensions
     private readonly string[] _infoExtensions = { ".txt", ".nfo" };
 
+    // Walking a library tree is the expensive part of duplicate detection, and the same tree gets
+    // walked repeatedly: in one real run /media/Serien (21440 files) was scanned three times and
+    // /media/Filme three times, 30.6 of the 48.7 seconds spent scanning. Sonarr and Radarr avoid
+    // this by never touching the disk on this path at all - they keep the library in a database
+    // and reconcile it with an explicit rescan. That is a much larger change than this plugin
+    // needs; remembering a result for the length of a run gets most of the benefit.
+    //
+    // The entry is keyed by series name as well as directory because the name is parsing context:
+    // the same folder read on behalf of two subscriptions can yield different episode numbers.
+    private readonly Dictionary<(string Directory, string SeriesName), (DateTime ScannedAt, LocalScanResult Result)> _cache = new();
+    private readonly object _cacheLock = new();
+
+    // How long a result may be reused. A subscription run is the thing this is meant to span, and
+    // those take minutes; anything older is cheap enough to read again and not worth the risk of
+    // acting on a stale picture of the library. DownloadScheduledTask additionally clears the whole
+    // cache when a run starts, so a run never begins on top of what an earlier one saw.
+    private static readonly TimeSpan _cacheLifetime = TimeSpan.FromMinutes(5);
+
     /// <summary>
     /// Initializes a new instance of the <see cref="LocalMediaScanner"/> class.
     /// </summary>
@@ -46,13 +65,55 @@ public class LocalMediaScanner : ILocalMediaScanner
     /// <inheritdoc />
     public LocalEpisodeCache ScanDirectory(string directoryPath, string seriesName)
     {
-        return ScanDirectoryInternal(directoryPath, seriesName).EpisodeCache;
+        return GetOrScan(directoryPath, seriesName).EpisodeCache;
     }
 
     /// <inheritdoc />
     public LocalScanResult ScanSubscriptionDirectory(string directoryPath, string seriesName)
     {
-        return ScanDirectoryInternal(directoryPath, seriesName);
+        return GetOrScan(directoryPath, seriesName);
+    }
+
+    /// <inheritdoc />
+    public void InvalidateCache()
+    {
+        lock (_cacheLock)
+        {
+            _cache.Clear();
+        }
+    }
+
+    private LocalScanResult GetOrScan(string? directoryPath, string? seriesName)
+    {
+        // Taken as nullable and normalized once, so the key and the scan cannot end up looking at
+        // different values - the callers reach here across interface boundaries where a null still
+        // gets past the compiler.
+        var directory = directoryPath ?? string.Empty;
+        var series = seriesName ?? string.Empty;
+        var key = (directory, series);
+
+        lock (_cacheLock)
+        {
+            if (_cache.TryGetValue(key, out var cached) && DateTime.UtcNow - cached.ScannedAt < _cacheLifetime)
+            {
+                _logger.LogDebug("Reusing the scan of '{Path}' from {Age:0.0}s ago.", directory, (DateTime.UtcNow - cached.ScannedAt).TotalSeconds);
+                return cached.Result;
+            }
+        }
+
+        // Deliberately outside the lock: a scan can take ten seconds or more on a large library,
+        // and holding the lock across it would serialize every subscription behind whichever one
+        // happened to scan first - the opposite of what this cache is for. Two callers racing on
+        // the same directory both scan once and the second result wins, which costs one redundant
+        // scan in a rare case instead of a stall in the common one.
+        var result = ScanDirectoryInternal(directory, series);
+
+        lock (_cacheLock)
+        {
+            _cache[key] = (DateTime.UtcNow, result);
+        }
+
+        return result;
     }
 
     private LocalScanResult ScanDirectoryInternal(string directoryPath, string seriesName)

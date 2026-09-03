@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.24"
+version: "0.0.0.25"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,17 +17,26 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Fix: die erweiterte Duplikaterkennung erkannte Filme überhaupt nicht. Sie
-  kannte nur Dateien, deren Name eine Staffel-/Folgen- oder absolute Nummer
-  hergibt - bei einer echten Bibliothek waren das 7 von 952 eingelesenen
-  Dateien unter dem Film-Ordner. Für alle übrigen griff als Einziges die
-  Prüfung "Datei existiert bereits" kurz vor dem Schreiben: erst nachdem der
-  Auftrag gebaut und eingereiht war, und ohne einen Eintrag im Verlauf zu
-  hinterlassen, sodass derselbe Film bei jedem Lauf erneut geprüft wurde.
-  Zusätzlich wird jetzt der Pfad abgeglichen, in den der Download schreiben
-  würde. Das erkennt auch eine Datei, die ein *anderes* Abo abgelegt hat -
-  der Verlauf wird je Abo geführt, ein Abo sieht die Einträge der anderen
-  also nicht. Nicht erkannt wird weiterhin eine andere Sprache, und das ist
-  Absicht: der Dateiname trägt die Sprache, eine englische Fassung landet
-  also bei ihrer eigenen ".eng.mka" und erreicht weiterhin das Anhängen als
-  zusätzliche Tonspur.
+  Fix: dieselbe Datei konnte in einem Lauf mehrfach eingeplant werden. Zwei
+  Abos, die auf denselben Ordner zeigen, sahen einander nicht - der
+  Download-Verlauf wird je Abo geführt - und die Datei gab es noch nicht,
+  also reihten beide sie ein. Gestoppt hat das erst die Prüfung "Datei
+  existiert bereits" unmittelbar vor dem Schreiben. Ein gebauter Auftrag
+  meldet seine Zieldateien jetzt vor, der Rest des Laufs behandelt sie als
+  vergeben. In den Verlauf kommt das nicht: eine Vormerkung ist ein Plan,
+  und Pläne scheitern.
+
+  Fix: innerhalb eines Auftrags konnten zwei Tonspur-Downloads dieselbe
+  Datei schreiben. Zwei getrennte Stellen hängen zusätzliche Tonspuren an
+  und leiten den Namen beide nur aus der Sprache ab, zwei Treffer derselben
+  Sprache landeten also auf derselben ".mka". Der zweite lud damit erneut,
+  was der erste eben geschrieben hatte, und legte einen zweiten,
+  gleichlautenden Verlaufseintrag an.
+
+  Schneller: das Einlesen eines Zielverzeichnisses wird innerhalb eines
+  Laufs wiederverwendet. Bisher wurde derselbe Baum mehrfach durchlaufen -
+  in einem echten Lauf /media/Serien (21440 Dateien) dreimal und
+  /media/Filme dreimal, 30,6 der insgesamt 48,7 Sekunden Einlesezeit waren
+  Doppelarbeit. Zu Beginn jedes Abo-Laufs wird verworfen, was frühere Läufe
+  gesehen haben, damit ein Lauf nie auf einem veralteten Bild der
+  Bibliothek aufsetzt.
