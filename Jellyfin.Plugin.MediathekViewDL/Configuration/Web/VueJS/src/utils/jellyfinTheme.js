@@ -140,12 +140,19 @@ function readJellyfinColor(name) {
 
 /**
  * Measures the active Jellyfin theme (via its --jf-palette-* CSS custom
- * properties) and sets --mvpl-* custom properties on `root` (should be an
- * ancestor of everything this plugin renders, so the variables cascade to
- * our components without ever leaking into the rest of the Jellyfin
- * dashboard). Kept async for compatibility with existing callers that
+ * properties) and sets --mvpl-* custom properties on `root` and on
+ * document.body. Kept async for compatibility with existing callers that
  * already await/chain this - the read itself is now fully synchronous, no
  * animation frames needed.
+ *
+ * Body as well as the page, because the dialogs are rendered through
+ * <Teleport to="body"> and therefore sit *beside* the page element rather than
+ * inside it. Custom properties only cascade downwards, so a dialog never saw
+ * these and silently fell back to the hardcoded dark palette baked into every
+ * var() - which on a light Jellyfin theme is a dark dialog on a light page.
+ * Writing them one level up is enough for both. These names are all
+ * --mvpl-prefixed and nothing but this plugin's own stylesheet reads them, so
+ * there is nothing for them to collide with up there.
  */
 export async function applyJellyfinTheme(root) {
   try {
@@ -195,6 +202,7 @@ export async function applyJellyfinTheme(root) {
 
     for (const [key, value] of Object.entries(vars)) {
       root.style.setProperty(key, value)
+      document.body?.style.setProperty(key, value)
     }
   } catch (error) {
     // Never let theme detection break the settings page.

@@ -344,7 +344,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="card settings-card">
+  <div class="mvpl-card settings-card">
     <div v-if="loading" class="state-msg"><div class="spinner"></div> Einstellungen werden geladen...</div>
 
     <form v-else @submit.prevent="saveConfig">

@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.26"
+version: "0.0.0.27"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,22 +17,23 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Fix: eine Sprachmarkierung als reiner ISO-Code im Titel wurde nicht
-  erkannt. Das ZDF kennzeichnet die niederländische Originalfassung von
-  "Blind Sherlock" als "(nld)" - erkannt wurden bisher nur ausgeschriebene
-  Sprachnamen wie "(Niederländisch)" oder "(Englisch)". Die Folge behielt
-  die Markierung damit im Titel, galt als die gewöhnliche deutsche Fassung
-  und wurde ein zweites Mal als vollständiges Video geladen, statt als
-  zusätzliche Tonspur neben der deutschen zu landen: "S01E02 - Who you
-  gonna call_ (nld).mkv" neben "S01E02 - Who you gonna call_.mkv". Da sich
-  die Dateinamen unterscheiden, konnte auch die Duplikaterkennung nichts
-  ausrichten, und Jellyfin zeigte die Folge doppelt. Dreibuchstabige Codes
-  werden jetzt erkannt, und zwar erst nachdem jede Klammer auf einen
-  ausgeschriebenen Sprachnamen geprüft wurde. Zweibuchstabige bleiben
-  bewusst unberücksichtigt: "is", "it", "no" und "so" sind allesamt
-  Sprachen und würden gewöhnlichen Klammertext falsch deuten.
+  Fix: der Hintergrund des Abo-Fensters ("Neues Abo" / "Bearbeiten") war
+  durchsichtig, sodass die Liste dahinter durchschien. Ursache waren zwei
+  voneinander unabhängige Dinge. Zum einen trugen unsere Karten und Dialoge
+  die Klasse "card" - denselben Namen, den Jellyfin für seine eigenen
+  Poster-Kacheln verwendet, teils mit "!important". Damit landeten
+  Jellyfin-Regeln auf unseren Elementen und überschrieben unseren
+  Hintergrund. Alle Stellen heißen jetzt "mvpl-card". Zum anderen wurden die
+  Theme-Farben nur auf der Plugin-Seite gesetzt, die Dialoge hängen als
+  Teleport aber direkt am Body und lagen damit außerhalb - sie fielen immer
+  auf die fest eingebaute dunkle Palette zurück. Die Farben werden jetzt
+  zusätzlich am Body gesetzt, sodass die Dialoge dieselbe Hintergrundfarbe
+  tragen wie der Rest der Seite, auch in hellen Themes.
 
-  Hinweis: bereits doppelt geladene Folgen räumt das nicht auf. Die
-  "(nld)"-Dateien können gelöscht werden; beim nächsten Abo-Lauf kommt die
-  niederländische Tonspur als ".nld.mka" neben die vorhandene Folge, sofern
-  "Neue Tonspuren zu vorhandenen Folgen hinzufügen" aktiviert ist.
+  Fix: die Abo-Seite lief auf schmalen Bildschirmen (Handy) horizontal über.
+  Die Overlays waren 100% breit plus 20px Innenabstand und damit 40px breiter
+  als der Bildschirm; sie rechnen den Abstand jetzt ein. Außerdem: die
+  Tab-Leiste scrollt seitlich, statt die Seite zu dehnen, lange Abo-Namen
+  brechen um, statt die Zeile aufzuweiten, und unter 600px stehen Name und
+  Aktionsknöpfe untereinander, mit größeren Abständen zwischen den
+  Knöpfen.

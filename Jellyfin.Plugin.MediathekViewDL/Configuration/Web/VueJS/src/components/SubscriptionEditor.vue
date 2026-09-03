@@ -123,7 +123,7 @@ function updateDate(target, field, value) {
 <template>
     <!-- Teleported to body by PluginConfig, so it carries mvpl-scope itself. -->
     <div v-if="editedSub" class="editor-overlay mvpl-scope">
-        <div class="editor-modal card">
+        <div class="editor-modal mvpl-card">
             <header class="editor-header">
                 <h2>{{ editedSub.Id ? 'Abonnement bearbeiten' : 'Neues Abonnement' }}</h2>
                 <div class="header-actions">
@@ -445,6 +445,15 @@ function updateDate(target, field, value) {
 
 <style scoped>
 .editor-overlay {
+    /* Text tone alongside the background, because both now come from the same measured theme.
+       A teleported dialog sits outside .plugin-config, so without this it took its color from
+       Jellyfin's body while its background came from our variables - two independent sources that
+       can disagree, which is how "light text on a light panel" happens. */
+    color: var(--mvpl-text-primary, #e4e4e7);
+    /* border-box because this is sized 100% *and* padded: with the default content-box the
+       overlay ends up 2x the padding wider and taller than the viewport, which on a phone
+       pushes the dialog off the right edge and gives the whole page a horizontal scrollbar. */
+    box-sizing: border-box;
     position: fixed;
     top: 0;
     left: 0;
@@ -460,15 +469,19 @@ function updateDate(target, field, value) {
 
 .editor-modal {
     /* Declared directly rather than relying solely on the shared .card class (combined via
-       class="editor-modal card") - every other modal in this plugin (see
+       class="editor-modal mvpl-card") - every other modal in this plugin (see
        AdvancedDownloadDialog.vue's .modal-dialog) sets its own background explicitly, and this
        one didn't, letting the page underneath show through the dialog itself instead of just the
-       dimmed overlay around it. Same color as the rest of this page's cards (.card in style.css). */
+       dimmed overlay around it. Same color as the rest of this page's cards (.mvpl-card in style.css). */
     background: var(--mvpl-bg, #18181b);
     width: 100%;
     max-width: 800px;
     height: 80vh;
-    min-height: 500px;
+    /* Capped against the viewport, not just a fixed floor: a 500px minimum is taller than the
+       usable height of a phone in landscape once the overlay's padding is taken off, and the
+       dialog then grew past the screen with its footer buttons out of reach. */
+    min-height: min(500px, 100%);
+    max-height: 100%;
     display: flex;
     flex-direction: column;
     overflow: hidden;

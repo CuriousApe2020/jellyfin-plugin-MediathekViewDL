@@ -116,7 +116,7 @@ defineExpose({ refresh: fetchSubscriptions })
 </script>
 
 <template>
-  <div class="card">
+  <div class="mvpl-card">
     <div class="header-row">
       <h2>Abo Verwaltung</h2>
       <div class="header-actions">
@@ -168,8 +168,8 @@ defineExpose({ refresh: fetchSubscriptions })
 </template>
 
 <style scoped>
-.header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.header-actions { display: flex; gap: 10px; }
+.header-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 /* No gap: the rows sit directly on top of each other and are told apart by a separator plus
    their own padding, which reads as one list instead of a stack of floating blocks. */
 .subscriptions-list { display: grid; }
@@ -186,10 +186,31 @@ defineExpose({ refresh: fetchSubscriptions })
    3px box around the whole row (border-width defaults to medium once a style is set), which
    now that rows carry a real border would fight with the separators. */
 .subscription-item.disabled { opacity: 0.6; border-bottom-style: dashed; }
-.sub-left { display: flex; align-items: center; gap: 20px; }
-.sub-name { font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 10px; }
+/* min-width:0 on both sides: a flex item defaults to min-width:auto, which refuses to shrink
+   below its content. Without it a long subscription name pushed the row wider than the card
+   instead of wrapping, and the action buttons were squeezed out of reach on a phone. */
+.sub-left { display: flex; align-items: center; gap: 20px; min-width: 0; flex: 1; }
+.sub-info { min-width: 0; }
+.sub-name { font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 10px; overflow-wrap: anywhere; }
 .sub-meta { font-size: 0.85rem; color: var(--mvpl-text-secondary, #a1a1aa); margin-top: 4px; }
-.sub-actions { display: flex; gap: 15px; }
+/* The four buttons stay on one line and keep their size - they are the row's controls, and a
+   half-wrapped set of icons is harder to hit than a slightly narrower name column. */
+.sub-actions { display: flex; gap: 15px; flex-shrink: 0; }
+.switch { flex-shrink: 0; }
+
+/* Phone width. The row becomes two stacked blocks - name above, controls below - because side
+   by side there is not enough room left for the name to stay readable. */
+@media (max-width: 600px) {
+  .header-row { flex-direction: column; align-items: stretch; }
+  .header-actions .btn { flex: 1; }
+
+  .subscription-item { flex-direction: column; align-items: stretch; gap: 12px; padding: 15px 10px; }
+  .sub-left { gap: 12px; }
+  .sub-name { font-size: 1rem; }
+  /* Aligned under the name rather than under the toggle, and spread out so the targets are
+     comfortably far apart. */
+  .sub-actions { justify-content: flex-end; gap: 20px; }
+}
 /* Slightly larger than the shared .btn-icon default (style.css) - color and hover background
    still come from there. The grayscale filter + hardcoded white text this used to have made the
    icons unreadable on light themes (white glyphs on a light background). */
