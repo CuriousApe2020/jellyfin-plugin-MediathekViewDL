@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.22"
+version: "0.0.0.23"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,15 +17,18 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Fix: fehlende Schreibrechte im Zielverzeichnis brechen den Download jetzt
-  sofort ab, statt jede Datei einzeln scheitern zu lassen. Bisher lief ein
-  Auftrag nach dem ersten Rechtefehler weiter durch Video, Untertitel,
-  Tonspuren und NFO - jeder Teil scheiterte an derselben Ursache und
-  hinterließ einen eigenen Stacktrace im Log. Erschwerend meldete ffmpeg
-  ein nicht beschreibbares Zielverzeichnis nur als gewöhnlichen Fehlercode,
-  also ununterscheidbar von einem nicht erreichbaren Sender. Das
-  Zielverzeichnis wird nun vor dem Download einmal auf Schreibbarkeit
-  geprüft; schlägt das fehl, erscheint eine einzelne, klare Meldung
-  statt eines Fehlerbergs. Der Download wird nicht in den Verlauf
-  eingetragen und beim nächsten Abo-Lauf automatisch erneut versucht - sind
-  die Rechte bis dahin korrigiert, läuft er ohne weiteres Zutun durch.
+  Fix: nach einem Besuch der Plugin-Einstellungen erschienen auf der
+  Jellyfin-Oberfläche Rahmen und Kästen um fremde Elemente - etwa um jede
+  Kachel auf der Startseite -, die erst ein Neuladen der Seite wieder
+  entfernte. Das Stylesheet der Einstellungsseite wird in den Kopf des
+  Dokuments eingefügt und bleibt dort, weil Jellyfins Weboberfläche eine
+  Single-Page-Anwendung ist und die Seite nicht neu lädt. Klassennamen wie
+  "card", "btn" oder "field" verwendet Jellyfin aber selbst, also galten
+  unsere Regeln anschließend auch für dessen Oberfläche. Alle Regeln des
+  Plugins gelten jetzt nur noch innerhalb der eigenen Seite und der eigenen
+  Dialoge. Gleiches galt für die Animation des Ladekreisels, die eine
+  gleichnamige Animation von Jellyfin ersetzen konnte.
+
+  Neu: In der Abo-Verwaltung trennt jetzt eine Linie die einzelnen
+  Abonnements voneinander. Deaktivierte Abos bekommen eine gestrichelte
+  Trennlinie statt des bisherigen Rahmens um die ganze Zeile.

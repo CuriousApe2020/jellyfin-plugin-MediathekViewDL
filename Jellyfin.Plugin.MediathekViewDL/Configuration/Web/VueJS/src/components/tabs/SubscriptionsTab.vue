@@ -170,14 +170,22 @@ defineExpose({ refresh: fetchSubscriptions })
 <style scoped>
 .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .header-actions { display: flex; gap: 10px; }
-.subscriptions-list { display: grid; gap: 10px; }
+/* No gap: the rows sit directly on top of each other and are told apart by a separator plus
+   their own padding, which reads as one list instead of a stack of floating blocks. */
+.subscriptions-list { display: grid; }
 .subscription-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 15px;
+  border-bottom: 1px solid var(--mvpl-border, #3f3f46);
 }
-.subscription-item.disabled { opacity: 0.6; border-style: dashed; }
+/* No trailing line above the card's own bottom edge. */
+.subscription-item:last-child { border-bottom: none; }
+/* A dashed separator instead of the solid one - the previous `border-style: dashed` drew a
+   3px box around the whole row (border-width defaults to medium once a style is set), which
+   now that rows carry a real border would fight with the separators. */
+.subscription-item.disabled { opacity: 0.6; border-bottom-style: dashed; }
 .sub-left { display: flex; align-items: center; gap: 20px; }
 .sub-name { font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 10px; }
 .sub-meta { font-size: 0.85rem; color: var(--mvpl-text-secondary, #a1a1aa); margin-top: 4px; }

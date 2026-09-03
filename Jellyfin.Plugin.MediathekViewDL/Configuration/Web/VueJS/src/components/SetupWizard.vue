@@ -273,7 +273,8 @@ defineExpose({
 
 <template>
     <Teleport to="body">
-        <div v-if="open" class="wizard-overlay" data-testid="wizard-overlay">
+        <!-- Teleported out of the page element, so it carries mvpl-scope itself. -->
+        <div v-if="open" class="wizard-overlay mvpl-scope" data-testid="wizard-overlay">
             <div class="wizard-card card" data-testid="wizard-card">
                 <header class="wizard-header">
                     <div>

@@ -179,7 +179,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="plugin-config">
+  <!-- mvpl-scope confines src/style.css to this plugin's own markup; see the comment there. -->
+  <div class="plugin-config mvpl-scope">
     <header class="config-header">
       <h1 class="config-title">MediathekViewDL</h1>
       <button class="btn btn-secondary btn-sm wizard-restart-btn" @click="openWizardManually"
@@ -220,7 +221,8 @@ onMounted(() => {
 
     <!-- Shared Test Results Modal -->
     <Teleport to="body">
-      <div v-if="showTestModal" class="modal-overlay">
+      <!-- Teleported out of the page element, so it carries mvpl-scope itself. -->
+      <div v-if="showTestModal" class="modal-overlay mvpl-scope">
         <div class="modal-card test-modal card">
           <header class="modal-header">
             <h2>Abo-Test Ergebnisse</h2>
