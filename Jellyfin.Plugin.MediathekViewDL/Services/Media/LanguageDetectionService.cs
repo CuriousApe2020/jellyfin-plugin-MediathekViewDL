@@ -113,6 +113,37 @@ public class LanguageDetectionService : ILanguageDetectionService
             }
         }
 
+        // Second pass, run only after every parenthesis has been offered a real language *name*:
+        // some broadcasters put the bare ISO code there instead. ZDF marks the Dutch original
+        // version of "Blind Sherlock" as "(nld)", which matched nothing above - so the episode kept
+        // the marker in its title, counted as the ordinary German version and was fetched a second
+        // time as a full video instead of landing as an audio track next to the German one.
+        //
+        // Only the three-letter code is accepted. Two-letter codes are short enough to collide with
+        // ordinary parenthetical text - "is", "it", "no" and "so" are all languages - and nothing
+        // seen in the wild uses them. Three-letter codes are not risk-free either (Tongan is "ton",
+        // Manx is "man"), but a bare three-letter word in parentheses is rare enough, and running
+        // this only after the name pass means a real language name anywhere in the title wins.
+        foreach (Match match in matches)
+        {
+            string content = match.Groups["content"].Value.Trim();
+            if (content.Length != 3)
+            {
+                continue;
+            }
+
+            var byCode = _languageDataList.Find(ld => ld.ThreeLetterIsoName.Equals(content, StringComparison.OrdinalIgnoreCase));
+            if (byCode != null)
+            {
+                return new LanguageDetectionResult
+                {
+                    LanguageCode = byCode.ThreeLetterIsoName,
+                    MatchedIdentifier = content,
+                    CleanedTitle = GetCleandRegexMatch(title, match)
+                };
+            }
+        }
+
         // Next, check for a language extension in the filename (if its an filename).
         string langExtension = GetLanguageExtension(title);
         if (!string.IsNullOrEmpty(langExtension) && _languageDataList.Any(id => id.TwoLetterISOLanguageName.Equals(langExtension, StringComparison.OrdinalIgnoreCase) ||
