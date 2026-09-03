@@ -134,4 +134,46 @@ public class LocalEpisodeCacheTests
         Assert.True(found);
         Assert.Equal("/media/Title - 07.mkv", path);
     }
+
+    [Fact]
+    public void ContainsFile_FindsAFileTheScanSaw_EvenWithoutAnyEpisodeNumbering()
+    {
+        // Arrange: a film. Nothing in its name yields a season, episode or absolute number, so it
+        // reaches none of the numbering indexes - which is why duplicate detection used to be blind
+        // to entire film libraries.
+        var cache = new LocalEpisodeCache();
+        cache.AddFile("/media/Filme/Match Point/Match Point.mkv");
+
+        // Assert
+        Assert.Equal(0, cache.SeasonEpisodeCount);
+        Assert.Equal(0, cache.AbsoluteEpisodeCount);
+        Assert.Equal(1, cache.FileCount);
+        Assert.True(cache.ContainsFile("/media/Filme/Match Point/Match Point.mkv"));
+        Assert.False(cache.ContainsFile("/media/Filme/Match Point/Match Point.eng.mka"));
+    }
+
+    [Fact]
+    public void ContainsFile_MatchesTheSameFileWrittenADifferentWay()
+    {
+        // Arrange: the two sides reach this check differently - one path comes from enumerating a
+        // directory, the other from composing a name - so a redundant separator or a "." segment
+        // must not make one file look like two.
+        var cache = new LocalEpisodeCache();
+        cache.AddFile("/media/Filme/Match Point/Match Point.mkv");
+
+        // Assert
+        Assert.True(cache.ContainsFile("/media/Filme/./Match Point/Match Point.mkv"));
+        Assert.True(cache.ContainsFile("/media/Filme//Match Point/Match Point.mkv"));
+    }
+
+    [Fact]
+    public void ContainsFile_IgnoresNothingAndNonsense()
+    {
+        var cache = new LocalEpisodeCache();
+        cache.AddFile("/media/Filme/Match Point/Match Point.mkv");
+
+        Assert.False(cache.ContainsFile(null));
+        Assert.False(cache.ContainsFile(string.Empty));
+        Assert.False(cache.ContainsFile("   "));
+    }
 }

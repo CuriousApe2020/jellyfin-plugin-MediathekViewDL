@@ -799,6 +799,42 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     }
 
     /// <summary>
+    /// Looks for a file already on disk that is this item, first by episode numbering and then by
+    /// the exact path this item would be downloaded to.
+    /// </summary>
+    /// <remarks>
+    /// The numbering index only ever contains files whose name yields a season/episode or absolute
+    /// number, which leaves films and other unnumbered items out of duplicate detection entirely -
+    /// measured on a real library, 945 of 952 scanned files under the film root were invisible to
+    /// it. For those the only thing that stopped a re-download was the <c>File.Exists</c> check the
+    /// download manager does per item, which happens after the job has been built and queued and
+    /// leaves no history entry, so the same item was re-evaluated on every single run.
+    /// <para>
+    /// The generated path is the same name the download would write, so an existing file there is
+    /// this item - including one put there by a *different* subscription, whose history rows this
+    /// one cannot see. A different language is not caught by this and must not be: the file name
+    /// carries the language for anything but German, so an English variant resolves to its own
+    /// ".eng.mka" and still reaches the audio-attaching path in
+    /// <see cref="TryBuildAudioForExistingEpisodeAsync"/>.
+    /// </para>
+    /// </remarks>
+    /// <param name="videoInfo">The parsed info for the item, with title and language final.</param>
+    /// <param name="subscription">The subscription being processed.</param>
+    /// <param name="localEpisodeCache">The scan of the subscription's target directory.</param>
+    /// <returns>The path of the local file, or null if this item is not on disk.</returns>
+    private string? FindLocalDuplicate(VideoInfo videoInfo, Subscription subscription, LocalEpisodeCache localEpisodeCache)
+    {
+        var byNumbering = localEpisodeCache.GetExistingFilePath(videoInfo);
+        if (byNumbering != null)
+        {
+            return byNumbering;
+        }
+
+        var paths = _fileNameBuilderService.GenerateDownloadPaths(videoInfo, subscription, DownloadContext.Subscription);
+        return paths is { IsValid: true } && localEpisodeCache.ContainsFile(paths.MainFilePath) ? paths.MainFilePath : null;
+    }
+
+    /// <summary>
     /// Applies filtering rules to determine if the item should be processed.
     /// </summary>
     /// <returns>True if the item passes all filters; otherwise, false.</returns>
@@ -810,14 +846,16 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             return false;
         }
 
-        if (localEpisodeCache != null && localEpisodeCache.Contains(tempVideoInfo))
+        var localPath = localEpisodeCache == null ? null : FindLocalDuplicate(tempVideoInfo, subscription, localEpisodeCache);
+        if (localPath != null)
         {
             _logger.LogInformation(
-                "Skipping item '{Title}' (S{Season}E{Episode} / Abs: {Abs}) as it was found locally via enhanced duplicate detection.",
+                "Skipping item '{Title}' (S{Season}E{Episode} / Abs: {Abs}) as it was found locally via enhanced duplicate detection: '{LocalPath}'.",
                 item.Title,
                 tempVideoInfo.SeasonNumber,
                 tempVideoInfo.EpisodeNumber,
-                tempVideoInfo.AbsoluteEpisodeNumber);
+                tempVideoInfo.AbsoluteEpisodeNumber,
+                localPath);
 
             // Backfill history only once per item/subscription - this runs on every subscription pass
             // that still sees the item in the search results (which can be many, e.g. one per manual
@@ -829,8 +867,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             // a "just now" timestamp on every run, looking like a fresh download that never happened.
             if (!await _downloadHistoryRepository.ExistsByItemIdAndSubscriptionIdAsync(item.Id, subscription.Id).ConfigureAwait(false))
             {
-                var localPath = localEpisodeCache.GetExistingFilePath(tempVideoInfo);
-                await _downloadHistoryRepository.AddAsync(string.Empty, item.Id, subscription.Id, localPath!, item.Title, tempVideoInfo.Language).ConfigureAwait(false);
+                await _downloadHistoryRepository.AddAsync(string.Empty, item.Id, subscription.Id, localPath, item.Title, tempVideoInfo.Language).ConfigureAwait(false);
             }
 
             return false;

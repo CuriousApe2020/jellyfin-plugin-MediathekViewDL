@@ -101,6 +101,12 @@ public class LocalMediaScanner : ILocalMediaScanner
                         VideoInfo = videoInfo
                     });
 
+                    // Recorded for every media file, not just the ones the parser can pull an
+                    // episode number out of: a film's title carries no numbering, so the indexes
+                    // below never see it and duplicate detection was blind to entire film
+                    // libraries.
+                    result.EpisodeCache.AddFile(file);
+
                     if (videoInfo != null)
                     {
                         if ((videoInfo.SeasonNumber.HasValue && videoInfo.EpisodeNumber.HasValue) || videoInfo.AbsoluteEpisodeNumber.HasValue)
@@ -128,8 +134,9 @@ public class LocalMediaScanner : ILocalMediaScanner
             }
 
             _logger.LogInformation(
-                "Scan complete. Found {Total} total files, {SECount} S/E episodes and {AbsCount} absolute numbered episodes.",
+                "Scan complete. Found {Total} total files, {MediaCount} media files, {SECount} S/E episodes and {AbsCount} absolute numbered episodes.",
                 result.Files.Count,
+                result.EpisodeCache.FileCount,
                 result.EpisodeCache.SeasonEpisodeCount,
                 result.EpisodeCache.AbsoluteEpisodeCount);
         }
