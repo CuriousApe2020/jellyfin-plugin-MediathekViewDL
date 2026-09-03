@@ -542,6 +542,120 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
         }
 
         [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldSkipAFilmAlreadyOnDisk_EvenThoughItHasNoEpisodeNumbering()
+        {
+            // Arrange: a film. Its title yields no season, episode or absolute number, so it never
+            // enters the numbering indexes and duplicate detection could not see it at all - on a
+            // real library that was 945 of 952 scanned files under the film root. The file is
+            // already on disk, put there by an earlier run or by another subscription pointing at
+            // the same folder (history is per subscription, so that one's rows are invisible here).
+            var subscription = new Subscription
+            {
+                Id = Guid.NewGuid(),
+                Name = "Filme",
+                Download = new DownloadSettings { EnhancedDuplicateDetection = true }
+            };
+            var item = new ResultItem { Id = "456", Title = "Match Point", UrlVideo = "http://test.com/video.mp4" };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+            _apiClientMock.Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(new VideoInfo { Title = "Match Point", Language = "deu" });
+
+            _fileNameBuilderServiceMock.Setup(x => x.GetSubscriptionBaseDirectory(It.IsAny<Subscription>(), It.IsAny<DownloadContext>()))
+                .Returns("/media/Filme");
+            _fileNameBuilderServiceMock.Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths
+                {
+                    DirectoryPath = "/media/Filme/Match Point",
+                    MainFilePath = "/media/Filme/Match Point/Match Point.mkv",
+                    SubtitleFilePath = "/media/Filme/Match Point/Match Point.ttml",
+                    NfoFilePath = "/media/Filme/Match Point/Match Point.nfo",
+                    MainType = FileType.Video
+                });
+
+            // The scan sees the file but cannot number it - exactly the case the numbering indexes
+            // miss.
+            var localCache = new LocalEpisodeCache();
+            localCache.AddFile("/media/Filme/Match Point/Match Point.mkv");
+            _localMediaScannerMock.Setup(x => x.ScanDirectory("/media/Filme", "Filme")).Returns(localCache);
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert: no job at all. Previously one was built and queued, and only the download
+            // manager's per-item File.Exists check stopped the bytes - after the fact, and without
+            // recording anything, so the same item came back on every run.
+            Assert.Empty(jobs);
+
+            // And it is recorded, so the next run does not have to touch the disk to know.
+            _downloadHistoryRepositoryMock.Verify(
+                x => x.AddAsync(
+                    string.Empty,
+                    "456",
+                    subscription.Id,
+                    "/media/Filme/Match Point/Match Point.mkv",
+                    "Match Point",
+                    "deu"),
+                Times.Once());
+        }
+
+        [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldStillDownloadAFilm_WhenTheTargetPathIsFree()
+        {
+            // Arrange: the counterpart - the scan saw *other* files in the same folder, but not the
+            // one this item would be written to. A path check that matched too eagerly here would
+            // silently stop new films from ever being downloaded.
+            var subscription = new Subscription
+            {
+                Id = Guid.NewGuid(),
+                Name = "Filme",
+                Download = new DownloadSettings { EnhancedDuplicateDetection = true }
+            };
+            var item = new ResultItem { Id = "789", Title = "Old Henry", UrlVideo = "http://test.com/video.mp4" };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+            _apiClientMock.Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(new VideoInfo { Title = "Old Henry", Language = "deu" });
+
+            _fileNameBuilderServiceMock.Setup(x => x.GetSubscriptionBaseDirectory(It.IsAny<Subscription>(), It.IsAny<DownloadContext>()))
+                .Returns("/media/Filme");
+            _fileNameBuilderServiceMock.Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths
+                {
+                    DirectoryPath = "/media/Filme/Old Henry",
+                    MainFilePath = "/media/Filme/Old Henry/Old Henry.mkv",
+                    SubtitleFilePath = "/media/Filme/Old Henry/Old Henry.ttml",
+                    NfoFilePath = "/media/Filme/Old Henry/Old Henry.nfo",
+                    MainType = FileType.Video
+                });
+
+            var localCache = new LocalEpisodeCache();
+            localCache.AddFile("/media/Filme/Match Point/Match Point.mkv");
+            _localMediaScannerMock.Setup(x => x.ScanDirectory("/media/Filme", "Filme")).Returns(localCache);
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Single(jobs);
+            Assert.Equal("/media/Filme/Old Henry/Old Henry.mkv", jobs[0].DownloadItems.First().DestinationPath);
+        }
+
+        [Fact]
         public async Task GetJobsForSubscriptionAsync_ShouldNotReAddHistory_IfFoundLocally_AndAlreadyRecorded()
         {
             // Arrange: an item that was already backfilled into history on a previous run (e.g. an

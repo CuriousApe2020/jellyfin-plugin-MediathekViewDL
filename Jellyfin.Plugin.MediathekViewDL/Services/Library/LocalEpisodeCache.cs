@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using Jellyfin.Plugin.MediathekViewDL.Services.Media;
 
 namespace Jellyfin.Plugin.MediathekViewDL.Services.Library;
@@ -20,6 +21,12 @@ public class LocalEpisodeCache
     private readonly Dictionary<(int Season, int Episode), EpisodeVariants> _seasonEpisodeVariants = new();
     private readonly Dictionary<int, EpisodeVariants> _absoluteEpisodeVariants = new();
 
+    // Every scanned media file, by full path. The dictionaries above only ever see files whose
+    // name carries an episode number, which leaves films and other unnumbered items out entirely -
+    // in one real library 945 of 952 scanned files under the film root reached none of them. This
+    // set is what lets a caller ask "did the scan see the exact file this download would write?".
+    private readonly HashSet<string> _filePaths = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// Gets the count of unique Season/Episode pairs in the cache.
     /// </summary>
@@ -29,6 +36,34 @@ public class LocalEpisodeCache
     /// Gets the count of unique Absolute Episode numbers in the cache.
     /// </summary>
     public int AbsoluteEpisodeCount => _absoluteEpisodes.Count;
+
+    /// <summary>
+    /// Gets the count of media files seen by the scan, numbered or not.
+    /// </summary>
+    public int FileCount => _filePaths.Count;
+
+    /// <summary>
+    /// Records a media file the scan found, independently of whether its name yields an episode
+    /// number.
+    /// </summary>
+    /// <param name="filePath">The full path to the file.</param>
+    public void AddFile(string filePath)
+    {
+        if (!string.IsNullOrWhiteSpace(filePath))
+        {
+            _filePaths.Add(NormalizePath(filePath));
+        }
+    }
+
+    /// <summary>
+    /// Checks whether the scan found a file at exactly this path.
+    /// </summary>
+    /// <param name="filePath">The full path to look for.</param>
+    /// <returns>True if the scan saw that file.</returns>
+    public bool ContainsFile(string? filePath)
+    {
+        return !string.IsNullOrWhiteSpace(filePath) && _filePaths.Contains(NormalizePath(filePath));
+    }
 
     /// <summary>
     /// Adds an episode to the cache.
@@ -172,6 +207,35 @@ public class LocalEpisodeCache
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Puts a path into one comparable form. The two sides that meet here reach it differently -
+    /// one from enumerating a directory, the other from composing a name - so a stray separator or
+    /// a relative segment would otherwise make two spellings of the same file look like two files.
+    /// </summary>
+    /// <param name="filePath">The path to normalize.</param>
+    /// <returns>The normalized path, or the input unchanged if it cannot be normalized.</returns>
+    private static string NormalizePath(string filePath)
+    {
+        try
+        {
+            return Path.GetFullPath(filePath);
+        }
+        catch (ArgumentException)
+        {
+            // Malformed enough that Path cannot make sense of it. Comparing it verbatim is no
+            // worse than dropping it, and a duplicate check is not the place to fail a run.
+            return filePath;
+        }
+        catch (NotSupportedException)
+        {
+            return filePath;
+        }
+        catch (PathTooLongException)
+        {
+            return filePath;
+        }
     }
 
     private static void AddVariant<TKey>(Dictionary<TKey, EpisodeVariants> target, TKey key, string filePath, string language, bool isSidecarAudio)
