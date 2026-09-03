@@ -121,7 +121,8 @@ function updateDate(target, field, value) {
 </script>
 
 <template>
-    <div v-if="editedSub" class="editor-overlay">
+    <!-- Teleported to body by PluginConfig, so it carries mvpl-scope itself. -->
+    <div v-if="editedSub" class="editor-overlay mvpl-scope">
         <div class="editor-modal card">
             <header class="editor-header">
                 <h2>{{ editedSub.Id ? 'Abonnement bearbeiten' : 'Neues Abonnement' }}</h2>

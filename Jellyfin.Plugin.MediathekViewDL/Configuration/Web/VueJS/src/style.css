@@ -1,6 +1,21 @@
-/* Global Styles for MediathekViewDL VueJS */
+/* Global Styles for MediathekViewDL VueJS
+ *
+ * Every rule here is confined to `.mvpl-scope`. This stylesheet is injected into
+ * document.head (see the css-injected-by-js plugin in vite.config.js) and Jellyfin's web
+ * client is a single-page app: the <style> element stays in the document long after the
+ * settings page is gone. Class names like `.card`, `.btn` or `.field` are exactly the ones
+ * Jellyfin uses for its own UI, so unscoped rules here drew borders and boxes around the
+ * poster tiles and rows on the home page until the next full page load.
+ *
+ * The scope is written as `:where(.mvpl-scope)` on purpose: `:where()` contributes zero
+ * specificity, so every rule keeps exactly the weight it had before and the components'
+ * own scoped styles still override these the same way they always did.
+ *
+ * `.mvpl-scope` sits on the plugin page's root element and on the wrapper around each
+ * `<Teleport to="body">` - dialogs render outside the page element but must still be styled.
+ */
 
-.btn {
+:where(.mvpl-scope) .btn {
     cursor: pointer;
     border: none;
     border-radius: 4px;
@@ -15,54 +30,54 @@
     font-family: inherit;
 }
 
-.btn:disabled {
+:where(.mvpl-scope) .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
 
-.btn-primary {
+:where(.mvpl-scope) .btn-primary {
     background: var(--mvpl-accent, #00a4dc);
     color: var(--mvpl-on-accent, white);
 }
 
-.btn-primary:hover:not(:disabled) {
+:where(.mvpl-scope) .btn-primary:hover:not(:disabled) {
     background: var(--mvpl-accent-hover, #00729a);
 }
 
-.btn-secondary {
+:where(.mvpl-scope) .btn-secondary {
     background: var(--mvpl-border, #3f3f46);
     color: var(--mvpl-on-border, white);
 }
 
-.btn-secondary:hover:not(:disabled) {
+:where(.mvpl-scope) .btn-secondary:hover:not(:disabled) {
     background: var(--mvpl-border-hover, #52525b);
 }
 
-.btn-save {
+:where(.mvpl-scope) .btn-save {
     background: var(--mvpl-accent, #00a4dc);
     color: var(--mvpl-on-accent, white);
     padding: 10px 30px;
 }
 
-.btn-save:hover:not(:disabled) {
+:where(.mvpl-scope) .btn-save:hover:not(:disabled) {
     background: var(--mvpl-accent-hover, #00729a);
 }
 
-.btn-danger {
+:where(.mvpl-scope) .btn-danger {
     background: #ef4444;
     color: white;
 }
 
-.btn-danger:hover:not(:disabled) {
+:where(.mvpl-scope) .btn-danger:hover:not(:disabled) {
     background: #dc2626;
 }
 
-.btn-sm {
+:where(.mvpl-scope) .btn-sm {
     padding: 6px 12px;
     font-size: 0.85rem;
 }
 
-.btn-icon {
+:where(.mvpl-scope) .btn-icon {
     background: none;
     border: none;
     color: var(--mvpl-text-secondary, #a1a1aa);
@@ -76,29 +91,31 @@
     justify-content: center;
 }
 
-.btn-icon:hover:not(:disabled) {
+:where(.mvpl-scope) .btn-icon:hover:not(:disabled) {
     background: var(--mvpl-border, #3f3f46);
     color: var(--mvpl-on-border, white);
 }
 
-.btn-icon-only {
+:where(.mvpl-scope) .btn-icon-only {
     padding: 10px;
     font-size: 1.2rem;
 }
 
 /* Common form styles */
-.field {
+:where(.mvpl-scope) .field {
     margin-bottom: 15px;
 }
 
-.field label, .field-label {
+:where(.mvpl-scope) .field label,
+:where(.mvpl-scope) .field-label {
     display: block;
     margin-bottom: 5px;
     color: var(--mvpl-text-secondary, #a1a1aa);
     font-size: 0.9rem;
 }
 
-.field-input, .field-select {
+:where(.mvpl-scope) .field-input,
+:where(.mvpl-scope) .field-select {
     width: 100%;
     background: var(--mvpl-surface, #27272a);
     border: 1px solid var(--mvpl-border, #3f3f46);
@@ -111,16 +128,17 @@
     font-family: inherit;
 }
 
-.field-input:focus, .field-select:focus {
+:where(.mvpl-scope) .field-input:focus,
+:where(.mvpl-scope) .field-select:focus {
     border-color: var(--mvpl-accent, #00a4dc);
     outline: none;
 }
 
-.checkbox-field {
+:where(.mvpl-scope) .checkbox-field {
     margin-bottom: 15px;
 }
 
-.checkbox-field label {
+:where(.mvpl-scope) .checkbox-field label {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -128,31 +146,33 @@
     font-weight: 600;
 }
 
-.field-desc {
+:where(.mvpl-scope) .field-desc {
     font-size: 0.75rem;
     color: var(--mvpl-text-muted, #71717a);
     margin-top: 4px;
     line-height: 1.4;
 }
 
-.card {
+:where(.mvpl-scope) .card {
     background: var(--mvpl-bg, #18181b);
     border: 1px solid var(--mvpl-border, #3f3f46);
     border-radius: 8px;
     padding: 20px;
 }
 
-.spinner {
+:where(.mvpl-scope) .spinner {
     border: 3px solid rgba(255, 255, 255, 0.1);
     border-radius: 50%;
     border-top: 3px solid var(--mvpl-accent, #00a4dc);
     width: 24px;
     height: 24px;
-    animation: spin 1s linear infinite;
+    /* Prefixed name: @keyframes are global no matter where the rule sits, so a bare "spin"
+       would silently replace an identically named animation in Jellyfin's own stylesheet. */
+    animation: mvpl-spin 1s linear infinite;
     margin: 0 auto 10px;
 }
 
-@keyframes spin {
+@keyframes mvpl-spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
