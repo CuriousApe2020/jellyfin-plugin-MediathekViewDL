@@ -86,7 +86,7 @@ public class LanguageDetectionServiceTests
     [InlineData("Ein Film (de)", "deu", "Ein Film (de)")]
 
     // Three characters but not a code - digits and the OV markers must keep passing untouched.
-    [InlineData("Gnadenbrot (253) (Audiodeskription)", "deu", "Gnadenbrot (253) (Audiodeskription)")]
+    // ("Gnadenbrot (253) (Audiodeskription)" covers the digit case further up.)
     [InlineData("Another Movie (OmU) (157)", "und", "Another Movie (157)")]
 
     public void DetectLanguage_ShouldDetectAndClean(string inputTitle, string expectedLanguage, string expectedCleanedTitle)
