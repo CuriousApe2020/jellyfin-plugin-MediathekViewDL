@@ -176,4 +176,30 @@ public class LocalEpisodeCacheTests
         Assert.False(cache.ContainsFile(string.Empty));
         Assert.False(cache.ContainsFile("   "));
     }
+
+    [Fact]
+    public void ClaimFile_CountsAsTaken_ButIsKeptApartFromWhatIsActuallyOnDisk()
+    {
+        // Arrange: a job has been built for this path but has not run yet.
+        var cache = new LocalEpisodeCache();
+        cache.ClaimFile("/media/Filme/Match Point/Match Point.mkv");
+
+        // Assert: taken, but not "there". The caller writes a download-history row only for the
+        // latter - a claim is a plan, and recording a plan as a finished download would tell every
+        // later run that a file exists which nobody ever wrote.
+        Assert.True(cache.IsClaimed("/media/Filme/Match Point/Match Point.mkv"));
+        Assert.False(cache.ContainsFile("/media/Filme/Match Point/Match Point.mkv"));
+        Assert.Equal(0, cache.FileCount);
+    }
+
+    [Fact]
+    public void ClaimFile_NormalizesTheSameWayAddFileDoes()
+    {
+        var cache = new LocalEpisodeCache();
+        cache.ClaimFile("/media/Filme/Match Point/Match Point.mkv");
+
+        Assert.True(cache.IsClaimed("/media/Filme/./Match Point/Match Point.mkv"));
+        Assert.False(cache.IsClaimed("/media/Filme/Old Henry/Old Henry.mkv"));
+        Assert.False(cache.IsClaimed(null));
+    }
 }

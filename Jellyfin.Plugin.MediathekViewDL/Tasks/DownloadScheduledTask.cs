@@ -7,6 +7,7 @@ using Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration;
 using Jellyfin.Plugin.MediathekViewDL.Data;
 using Jellyfin.Plugin.MediathekViewDL.Services;
 using Jellyfin.Plugin.MediathekViewDL.Services.Downloading.Queue;
+using Jellyfin.Plugin.MediathekViewDL.Services.Library;
 using Jellyfin.Plugin.MediathekViewDL.Services.Subscriptions;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Model.Tasks;
@@ -22,6 +23,7 @@ public class DownloadScheduledTask : IScheduledTask
     private readonly ILogger<DownloadScheduledTask> _logger;
     private readonly ISubscriptionProcessor _subscriptionProcessor;
     private readonly IConfigurationProvider _configurationProvider;
+    private readonly ILocalMediaScanner _localMediaScanner;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DownloadScheduledTask"/> class.
@@ -29,14 +31,17 @@ public class DownloadScheduledTask : IScheduledTask
     /// <param name="logger">The logger.</param>
     /// <param name="subscriptionProcessor">The subscription processor.</param>
     /// <param name="configurationProvider">The configuration provider.</param>
+    /// <param name="localMediaScanner">The local media scanner, whose remembered scans this task resets at the start of every run.</param>
     public DownloadScheduledTask(
         ILogger<DownloadScheduledTask> logger,
         ISubscriptionProcessor subscriptionProcessor,
-        IConfigurationProvider configurationProvider)
+        IConfigurationProvider configurationProvider,
+        ILocalMediaScanner localMediaScanner)
     {
         _logger = logger;
         _subscriptionProcessor = subscriptionProcessor;
         _configurationProvider = configurationProvider;
+        _localMediaScanner = localMediaScanner;
     }
 
     /// <inheritdoc />
@@ -69,6 +74,11 @@ public class DownloadScheduledTask : IScheduledTask
 
         _logger.LogInformation("Starting Mediathek subscription download task.");
         progress.Report(0);
+
+        // Subscriptions in this run share what the scanner reads, which is what keeps one run from
+        // walking the same library tree once per subscription. That sharing must not reach across
+        // runs: between two runs the library can have changed in ways nothing here would notice.
+        _localMediaScanner.InvalidateCache();
 
         var config = _configurationProvider.ConfigurationOrNull;
         if (config == null || config.Subscriptions.Count == 0)

@@ -20,4 +20,14 @@ public interface ILocalMediaScanner
     /// <param name="seriesName">The name of the series (used for parsing context).</param>
     /// <returns>A <see cref="LocalScanResult"/> containing all found files and the episode cache.</returns>
     LocalScanResult ScanSubscriptionDirectory(string directoryPath, string seriesName);
+
+    /// <summary>
+    /// Drops everything remembered from earlier scans, so the next one reads the disk again.
+    /// </summary>
+    /// <remarks>
+    /// Called at the start of a subscription run. Results are otherwise reused for a short while
+    /// (see the implementation), which is what keeps one run from walking the same library tree
+    /// over and over - but a run must never start on top of what an earlier one saw.
+    /// </remarks>
+    void InvalidateCache();
 }

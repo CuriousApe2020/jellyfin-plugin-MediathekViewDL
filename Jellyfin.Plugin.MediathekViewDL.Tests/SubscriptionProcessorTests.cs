@@ -607,6 +607,134 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
         }
 
         [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldNotQueueTheSameFileTwice_WhenTwoSubscriptionsShareATargetFolder()
+        {
+            // Arrange: two subscriptions pointing at the same folder, both matching the same film -
+            // in a real log three subscriptions pointed at /media/Filme and "Match Point" was queued
+            // twice, eight minutes apart. Neither can see the other's history rows (those are kept
+            // per subscription) and the file does not exist yet, so nothing used to stop the second
+            // one. The scanner hands both runs the same picture of the folder, which is where the
+            // first job's claim on the path becomes visible to the second.
+            var first = new Subscription
+            {
+                Id = Guid.NewGuid(),
+                Name = "Filme",
+                Download = new DownloadSettings { EnhancedDuplicateDetection = true }
+            };
+            var second = new Subscription
+            {
+                Id = Guid.NewGuid(),
+                Name = "Filme",
+                Download = new DownloadSettings { EnhancedDuplicateDetection = true }
+            };
+            var item = new ResultItem { Id = "456", Title = "Match Point", UrlVideo = "http://test.com/video.mp4" };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+            _apiClientMock.Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(new VideoInfo { Title = "Match Point", Language = "deu" });
+
+            _fileNameBuilderServiceMock.Setup(x => x.GetSubscriptionBaseDirectory(It.IsAny<Subscription>(), It.IsAny<DownloadContext>()))
+                .Returns("/media/Filme");
+            _fileNameBuilderServiceMock.Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths
+                {
+                    DirectoryPath = "/media/Filme/Match Point",
+                    MainFilePath = "/media/Filme/Match Point/Match Point.mkv",
+                    SubtitleFilePath = "/media/Filme/Match Point/Match Point.ttml",
+                    NfoFilePath = "/media/Filme/Match Point/Match Point.nfo",
+                    MainType = FileType.Video
+                });
+
+            // One instance for both calls - this is what the scanner's own cache does for two
+            // subscriptions reading the same folder in one run.
+            var sharedCache = new LocalEpisodeCache();
+            _localMediaScannerMock.Setup(x => x.ScanDirectory("/media/Filme", "Filme")).Returns(sharedCache);
+
+            // Act
+            var firstJobs = await _processor.GetJobsForSubscriptionAsync(first, false, CancellationToken.None);
+            var secondJobs = await _processor.GetJobsForSubscriptionAsync(second, false, CancellationToken.None);
+
+            // Assert
+            Assert.Single(firstJobs);
+            Assert.Empty(secondJobs);
+
+            // And nothing is written to history for the second one: the file is not there yet, it is
+            // only planned. Recording a plan as a finished download would tell every later run that
+            // a file exists which nobody ever wrote, should the first job fail.
+            _downloadHistoryRepositoryMock.Verify(
+                x => x.AddAsync(It.IsAny<string>(), It.IsAny<string>(), second.Id, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
+                Times.Never());
+        }
+
+        [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldNotAddTwoItemsWritingTheSameFile()
+        {
+            // Arrange: an original-version track and a clear-speech track, both German. Neither
+            // carries a name tag - only audio description does - so both resolve to the very same
+            // ".deu.mka". In a real log this happened to every film with an English track: two
+            // identical AudioExtraction items, the second re-fetching what the first just wrote and
+            // adding a second, identical history row.
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Download = new DownloadSettings
+                {
+                    DetectUndetectedSecondaryAudio = true,
+                    DownloadOriginalVersionAudio = true,
+                    DownloadClearSpeechAudio = true,
+                    DownloadAudioDescriptionAudio = false,
+                }
+            };
+            var item = new ResultItem
+            {
+                Id = "123",
+                Title = "TestTitle",
+                UrlVideoHd = "http://test.com/video_sendeton_1080p.mp4",
+                UrlWebsite = "https://www.ardmediathek.de/video/Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw"
+            };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+            _apiClientMock.Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            _videoParserMock.Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(new VideoInfo { Title = "TestTitle", Language = "deu" });
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mkv" });
+
+            // A German original version - so it collides with the clear-speech track instead of
+            // landing on its own ".eng.mka".
+            _originalVersionLanguageResolverMock
+                .Setup(x => x.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, It.IsAny<CancellationToken>()))
+                .ReturnsAsync("deu");
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert: the main video plus exactly one track, not two writing the same file.
+            Assert.Single(jobs);
+            var items = jobs[0].DownloadItems.ToList();
+            Assert.Equal(2, items.Count);
+            Assert.Equal(
+                items.Select(i => i.DestinationPath).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+                items.Count);
+            Assert.Single(items, i => i.DestinationPath == "/tmp/video.deu.mka");
+        }
+
+        [Fact]
         public async Task GetJobsForSubscriptionAsync_ShouldStillDownloadAFilm_WhenTheTargetPathIsFree()
         {
             // Arrange: the counterpart - the scan saw *other* files in the same folder, but not the

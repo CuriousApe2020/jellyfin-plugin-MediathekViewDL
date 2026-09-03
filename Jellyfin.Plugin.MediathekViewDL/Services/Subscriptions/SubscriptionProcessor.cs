@@ -278,6 +278,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                 var job = await BuildDownloadJobAsync(subscription, downloadSubtitles, group.MainItem, group.MainVideoInfo, group.Secondaries, localEpisodeCache, cancellationToken).ConfigureAwait(false);
                 if (job != null)
                 {
+                    ClaimDestinations(job, localEpisodeCache);
                     jobs.Add(job);
                 }
             }
@@ -290,11 +291,70 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             var job = await BuildDownloadJobAsync(subscription, downloadSubtitles, item, tempVideoInfo, Array.Empty<AudioVariantSecondary>(), localEpisodeCache, cancellationToken).ConfigureAwait(false);
             if (job != null)
             {
+                ClaimDestinations(job, localEpisodeCache);
                 jobs.Add(job);
             }
         }
 
         return jobs;
+    }
+
+    /// <summary>
+    /// Adds a download item to <paramref name="job"/> unless the job already writes that file.
+    /// </summary>
+    /// <param name="job">The job to add to.</param>
+    /// <param name="downloadItem">The item to add.</param>
+    /// <returns>True if the item was added.</returns>
+    private bool TryAddDownloadItem(DownloadJob job, DownloadItem downloadItem)
+    {
+        var duplicate = job.DownloadItems.Any(existing =>
+            string.Equals(existing.DestinationPath, downloadItem.DestinationPath, StringComparison.OrdinalIgnoreCase));
+
+        if (duplicate)
+        {
+            // Seen in a real log: every film with an English track got two identical
+            // AudioExtraction items writing the same ".eng.mka". Two independent paths append
+            // secondary tracks - the per-result candidate scan and the cross-result grouping - and
+            // both derive the name from the language alone, so two rows resolving to the same
+            // language collide. The second one is pure waste: it re-fetches a track the first one
+            // already wrote and adds a second, identical history row.
+            _logger.LogDebug(
+                "Skipping a second download item for '{Path}' in job '{Title}' - that destination is already covered by this job.",
+                downloadItem.DestinationPath,
+                job.Title);
+            return false;
+        }
+
+        job.DownloadItems.Add(downloadItem);
+        return true;
+    }
+
+    /// <summary>
+    /// Marks the files <paramref name="job"/> is going to write as taken, so nothing else in this
+    /// run targets them again.
+    /// </summary>
+    /// <remarks>
+    /// The scan is a picture of the library as it was before the run started, and downloads land
+    /// minutes later, asynchronously. Without this, two subscriptions matching the same item both
+    /// queue it - neither can see the other's history rows, which are kept per subscription - and
+    /// only the download manager's File.Exists check, by then far too late, stops the second one
+    /// from doing the work twice. Sonarr solves the same problem with a queue specification that
+    /// rejects a release already being fetched; claiming the path is the same idea in the shape
+    /// this plugin already has.
+    /// </remarks>
+    /// <param name="job">The job whose destinations to claim.</param>
+    /// <param name="localEpisodeCache">The shared picture of the target directory, or null when duplicate detection does not apply.</param>
+    private static void ClaimDestinations(DownloadJob job, LocalEpisodeCache? localEpisodeCache)
+    {
+        if (localEpisodeCache == null)
+        {
+            return;
+        }
+
+        foreach (var downloadItem in job.DownloadItems)
+        {
+            localEpisodeCache.ClaimFile(downloadItem.DestinationPath);
+        }
     }
 
     /// <summary>
@@ -454,7 +514,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                         var kindTag = candidate.Kind == SecondaryAudioKind.AudioDescription ? " [AD]" : string.Empty;
                         var standaloneDestination = Path.ChangeExtension(paths.MainFilePath, null) + kindTag + "." + candidateLang + ".mka";
 
-                        downloadJob.DownloadItems.Add(new DownloadItem
+                        _ = TryAddDownloadItem(downloadJob, new DownloadItem
                         {
                             SourceUrl = candidate.Url,
                             DestinationPath = standaloneDestination,
@@ -704,7 +764,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             var kindTag = secondary.Kind == SecondaryAudioKind.AudioDescription ? " [AD]" : string.Empty;
             var standaloneDestination = Path.ChangeExtension(mainFilePath, null) + kindTag + "." + lang + ".mka";
 
-            downloadJob.DownloadItems.Add(new DownloadItem
+            _ = TryAddDownloadItem(downloadJob, new DownloadItem
             {
                 SourceUrl = secondaryUrl,
                 FallbackSourceUrls = secondaryUrlFallbacks,
@@ -821,17 +881,31 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     /// <param name="videoInfo">The parsed info for the item, with title and language final.</param>
     /// <param name="subscription">The subscription being processed.</param>
     /// <param name="localEpisodeCache">The scan of the subscription's target directory.</param>
-    /// <returns>The path of the local file, or null if this item is not on disk.</returns>
-    private string? FindLocalDuplicate(VideoInfo videoInfo, Subscription subscription, LocalEpisodeCache localEpisodeCache)
+    /// <returns>
+    /// The matching path and whether it is a file that exists (as opposed to one this run has only
+    /// decided to write), or null if nothing matches. The distinction matters to the caller: only
+    /// a file that is really there may be recorded in the download history.
+    /// </returns>
+    private (string Path, bool OnDisk)? FindLocalDuplicate(VideoInfo videoInfo, Subscription subscription, LocalEpisodeCache localEpisodeCache)
     {
         var byNumbering = localEpisodeCache.GetExistingFilePath(videoInfo);
         if (byNumbering != null)
         {
-            return byNumbering;
+            return (byNumbering, true);
         }
 
         var paths = _fileNameBuilderService.GenerateDownloadPaths(videoInfo, subscription, DownloadContext.Subscription);
-        return paths is { IsValid: true } && localEpisodeCache.ContainsFile(paths.MainFilePath) ? paths.MainFilePath : null;
+        if (paths is not { IsValid: true })
+        {
+            return null;
+        }
+
+        if (localEpisodeCache.ContainsFile(paths.MainFilePath))
+        {
+            return (paths.MainFilePath, true);
+        }
+
+        return localEpisodeCache.IsClaimed(paths.MainFilePath) ? (paths.MainFilePath, false) : null;
     }
 
     /// <summary>
@@ -846,9 +920,23 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             return false;
         }
 
-        var localPath = localEpisodeCache == null ? null : FindLocalDuplicate(tempVideoInfo, subscription, localEpisodeCache);
-        if (localPath != null)
+        var localMatch = localEpisodeCache == null ? null : FindLocalDuplicate(tempVideoInfo, subscription, localEpisodeCache);
+        if (localMatch is { OnDisk: false } claimed)
         {
+            // Something earlier in this run is already going to write that file - most often the
+            // same item matched by a second subscription pointing at the same folder. Nothing goes
+            // into the download history here: the file does not exist yet, and a plan that fails
+            // must not leave behind a record saying it succeeded.
+            _logger.LogInformation(
+                "Skipping item '{Title}' as another download in this run already targets '{LocalPath}'.",
+                item.Title,
+                claimed.Path);
+            return false;
+        }
+
+        if (localMatch is { OnDisk: true } onDisk)
+        {
+            var localPath = onDisk.Path;
             _logger.LogInformation(
                 "Skipping item '{Title}' (S{Season}E{Episode} / Abs: {Abs}) as it was found locally via enhanced duplicate detection: '{LocalPath}'.",
                 item.Title,

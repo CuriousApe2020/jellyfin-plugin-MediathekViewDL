@@ -25,7 +25,19 @@ public class LocalEpisodeCache
     // name carries an episode number, which leaves films and other unnumbered items out entirely -
     // in one real library 945 of 952 scanned files under the film root reached none of them. This
     // set is what lets a caller ask "did the scan see the exact file this download would write?".
+    //
+    // Unlike the dictionaries this keeps growing after the scan: a job that has been built claims
+    // the paths it is going to write, so the rest of the run treats them as taken. That is why it
+    // is the one part of this class that needs a lock - the scan itself finishes before anyone
+    // reads the instance, but claims arrive while other subscriptions are already reading it.
     private readonly HashSet<string> _filePaths = new(StringComparer.OrdinalIgnoreCase);
+
+    // Files this run has decided to write but has not written yet. Kept apart from the scanned
+    // ones on purpose: both mean "do not download this again", but only a file that is actually
+    // there may be recorded in the download history. A claim is a plan, and plans fail - writing
+    // it to history would tell every later run that a file exists which nobody ever wrote.
+    private readonly HashSet<string> _claimedPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _filePathsLock = new();
 
     /// <summary>
     /// Gets the count of unique Season/Episode pairs in the cache.
@@ -40,7 +52,16 @@ public class LocalEpisodeCache
     /// <summary>
     /// Gets the count of media files seen by the scan, numbered or not.
     /// </summary>
-    public int FileCount => _filePaths.Count;
+    public int FileCount
+    {
+        get
+        {
+            lock (_filePathsLock)
+            {
+                return _filePaths.Count;
+            }
+        }
+    }
 
     /// <summary>
     /// Records a media file the scan found, independently of whether its name yields an episode
@@ -49,9 +70,33 @@ public class LocalEpisodeCache
     /// <param name="filePath">The full path to the file.</param>
     public void AddFile(string filePath)
     {
-        if (!string.IsNullOrWhiteSpace(filePath))
+        if (string.IsNullOrWhiteSpace(filePath))
         {
-            _filePaths.Add(NormalizePath(filePath));
+            return;
+        }
+
+        var normalized = NormalizePath(filePath);
+        lock (_filePathsLock)
+        {
+            _filePaths.Add(normalized);
+        }
+    }
+
+    /// <summary>
+    /// Marks a file this run intends to write, so nothing else in the run targets it again.
+    /// </summary>
+    /// <param name="filePath">The full path that will be written.</param>
+    public void ClaimFile(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return;
+        }
+
+        var normalized = NormalizePath(filePath);
+        lock (_filePathsLock)
+        {
+            _claimedPaths.Add(normalized);
         }
     }
 
@@ -62,7 +107,35 @@ public class LocalEpisodeCache
     /// <returns>True if the scan saw that file.</returns>
     public bool ContainsFile(string? filePath)
     {
-        return !string.IsNullOrWhiteSpace(filePath) && _filePaths.Contains(NormalizePath(filePath));
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return false;
+        }
+
+        var normalized = NormalizePath(filePath);
+        lock (_filePathsLock)
+        {
+            return _filePaths.Contains(normalized);
+        }
+    }
+
+    /// <summary>
+    /// Checks whether something else in this run has already decided to write this path.
+    /// </summary>
+    /// <param name="filePath">The full path to look for.</param>
+    /// <returns>True if the path is spoken for.</returns>
+    public bool IsClaimed(string? filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return false;
+        }
+
+        var normalized = NormalizePath(filePath);
+        lock (_filePathsLock)
+        {
+            return _claimedPaths.Contains(normalized);
+        }
     }
 
     /// <summary>
