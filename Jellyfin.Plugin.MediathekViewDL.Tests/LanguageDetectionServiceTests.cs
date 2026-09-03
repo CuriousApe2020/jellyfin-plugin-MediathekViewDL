@@ -68,6 +68,27 @@ public class LanguageDetectionServiceTests
     [InlineData("Film Title (OV)", "und", "Film Title")]
     [InlineData("Another Movie (OmU)", "und", "Another Movie")]
 
+    // Bare ISO codes as the marker. ZDF tags the Dutch original version of "Blind Sherlock" this
+    // way; unrecognized, the marker stayed in the title, the episode counted as the German version
+    // and a second full video landed next to the first one instead of an audio track.
+    [InlineData("Who you gonna call? (S01/E02) (nld)", "nld", "Who you gonna call? (S01/E02)")]
+    [InlineData("Countdown (S01/E04) (nld)", "nld", "Countdown (S01/E04)")]
+    [InlineData("Miese Ratte (S01/E05) (NLD)", "nld", "Miese Ratte (S01/E05)")]
+    [InlineData("Some Title (eng)", "eng", "Some Title")]
+
+    // A real language name still wins over a code found earlier in the title, because the code pass
+    // only runs once every parenthesis has been offered a name.
+    [InlineData("Ein Abend (ton) (Niederländisch)", "nld", "Ein Abend (ton)")]
+
+    // Two-letter codes stay unrecognized on purpose: "is", "it", "no" and "so" are all languages,
+    // and treating them as such would misread ordinary parenthetical text.
+    [InlineData("Ein Film (nl)", "deu", "Ein Film (nl)")]
+    [InlineData("Ein Film (de)", "deu", "Ein Film (de)")]
+
+    // Three characters but not a code - digits and the OV markers must keep passing untouched.
+    // ("Gnadenbrot (253) (Audiodeskription)" covers the digit case further up.)
+    [InlineData("Another Movie (OmU) (157)", "und", "Another Movie (157)")]
+
     public void DetectLanguage_ShouldDetectAndClean(string inputTitle, string expectedLanguage, string expectedCleanedTitle)
     {
         // Act

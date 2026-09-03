@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.25"
+version: "0.0.0.26"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,26 +17,22 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Fix: dieselbe Datei konnte in einem Lauf mehrfach eingeplant werden. Zwei
-  Abos, die auf denselben Ordner zeigen, sahen einander nicht - der
-  Download-Verlauf wird je Abo geführt - und die Datei gab es noch nicht,
-  also reihten beide sie ein. Gestoppt hat das erst die Prüfung "Datei
-  existiert bereits" unmittelbar vor dem Schreiben. Ein gebauter Auftrag
-  meldet seine Zieldateien jetzt vor, der Rest des Laufs behandelt sie als
-  vergeben. In den Verlauf kommt das nicht: eine Vormerkung ist ein Plan,
-  und Pläne scheitern.
+  Fix: eine Sprachmarkierung als reiner ISO-Code im Titel wurde nicht
+  erkannt. Das ZDF kennzeichnet die niederländische Originalfassung von
+  "Blind Sherlock" als "(nld)" - erkannt wurden bisher nur ausgeschriebene
+  Sprachnamen wie "(Niederländisch)" oder "(Englisch)". Die Folge behielt
+  die Markierung damit im Titel, galt als die gewöhnliche deutsche Fassung
+  und wurde ein zweites Mal als vollständiges Video geladen, statt als
+  zusätzliche Tonspur neben der deutschen zu landen: "S01E02 - Who you
+  gonna call_ (nld).mkv" neben "S01E02 - Who you gonna call_.mkv". Da sich
+  die Dateinamen unterscheiden, konnte auch die Duplikaterkennung nichts
+  ausrichten, und Jellyfin zeigte die Folge doppelt. Dreibuchstabige Codes
+  werden jetzt erkannt, und zwar erst nachdem jede Klammer auf einen
+  ausgeschriebenen Sprachnamen geprüft wurde. Zweibuchstabige bleiben
+  bewusst unberücksichtigt: "is", "it", "no" und "so" sind allesamt
+  Sprachen und würden gewöhnlichen Klammertext falsch deuten.
 
-  Fix: innerhalb eines Auftrags konnten zwei Tonspur-Downloads dieselbe
-  Datei schreiben. Zwei getrennte Stellen hängen zusätzliche Tonspuren an
-  und leiten den Namen beide nur aus der Sprache ab, zwei Treffer derselben
-  Sprache landeten also auf derselben ".mka". Der zweite lud damit erneut,
-  was der erste eben geschrieben hatte, und legte einen zweiten,
-  gleichlautenden Verlaufseintrag an.
-
-  Schneller: das Einlesen eines Zielverzeichnisses wird innerhalb eines
-  Laufs wiederverwendet. Bisher wurde derselbe Baum mehrfach durchlaufen -
-  in einem echten Lauf /media/Serien (21440 Dateien) dreimal und
-  /media/Filme dreimal, 30,6 der insgesamt 48,7 Sekunden Einlesezeit waren
-  Doppelarbeit. Zu Beginn jedes Abo-Laufs wird verworfen, was frühere Läufe
-  gesehen haben, damit ein Lauf nie auf einem veralteten Bild der
-  Bibliothek aufsetzt.
+  Hinweis: bereits doppelt geladene Folgen räumt das nicht auf. Die
+  "(nld)"-Dateien können gelöscht werden; beim nächsten Abo-Lauf kommt die
+  niederländische Tonspur als ".nld.mka" neben die vorhandene Folge, sofern
+  "Neue Tonspuren zu vorhandenen Folgen hinzufügen" aktiviert ist.
