@@ -294,7 +294,7 @@ function closeAdvancedDownloadDialog() {
 </script>
 
 <template>
-    <div class="card">
+    <div class="mvpl-card">
         <h2>Suche</h2>
         <form @submit.prevent="performSearch" class="search-form">
             <div class="search-grid">

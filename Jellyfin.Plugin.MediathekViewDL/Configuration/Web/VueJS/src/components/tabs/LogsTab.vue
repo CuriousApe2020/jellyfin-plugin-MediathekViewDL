@@ -208,7 +208,7 @@ onUnmounted(() => {
 
 <template>
   <div class="logs-tab">
-    <div class="card">
+    <div class="mvpl-card">
       <div class="header-row">
         <h2>Server Logs</h2>
         <div class="header-actions">

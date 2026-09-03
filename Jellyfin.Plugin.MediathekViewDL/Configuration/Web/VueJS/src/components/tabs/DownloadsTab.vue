@@ -162,7 +162,7 @@ onUnmounted(() => {
 <template>
   <div class="downloads-tab">
     <!-- Active Downloads -->
-    <section class="card active-downloads-section">
+    <section class="mvpl-card active-downloads-section">
       <div class="header-row">
         <h2>Aktive Downloads</h2>
         <div class="header-actions">
@@ -248,7 +248,7 @@ onUnmounted(() => {
     </section>
 
     <!-- History -->
-    <section class="card history-section">
+    <section class="mvpl-card history-section">
       <h2>Download Verlauf</h2>
       <div v-if="loading" class="state-msg">
         <div class="spinner"></div>

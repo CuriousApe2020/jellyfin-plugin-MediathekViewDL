@@ -223,7 +223,7 @@ onMounted(() => {
     <Teleport to="body">
       <!-- Teleported out of the page element, so it carries mvpl-scope itself. -->
       <div v-if="showTestModal" class="modal-overlay mvpl-scope">
-        <div class="modal-card test-modal card">
+        <div class="modal-card test-modal mvpl-card">
           <header class="modal-header">
             <h2>Abo-Test Ergebnisse</h2>
             <button @click="showTestModal = false" class="btn-icon">✕</button>
@@ -267,12 +267,33 @@ onMounted(() => {
 .wizard-restart-btn {
   white-space: nowrap;
 }
-.tab-row { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--mvpl-border, #333); padding-bottom: 10px; }
-.tab-btn { background: none; border: none; color: var(--mvpl-text-secondary, #a1a1aa); cursor: pointer; padding: 10px; font-weight: 600; }
+/* The five tabs need about 400px and a phone gives ~350: they used to spill past the right edge
+   and take the whole page's horizontal scrollbar with them. Scrolling the row itself keeps every
+   tab reachable and leaves the page still. */
+.tab-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--mvpl-border, #333);
+  padding-bottom: 10px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+/* Without this a flex item shrinks below its text and the labels break mid-word. */
+.tab-btn { background: none; border: none; color: var(--mvpl-text-secondary, #a1a1aa); cursor: pointer; padding: 10px; font-weight: 600; flex-shrink: 0; white-space: nowrap; }
 .tab-btn.active { color: var(--mvpl-accent, #00a4dc); border-bottom: 2px solid var(--mvpl-accent, #00a4dc); }
 
 /* Shared Modal Styles */
 .modal-overlay {
+  /* Text tone alongside the background, because both now come from the same measured theme.
+     A teleported dialog sits outside .plugin-config, so without this it took its color from
+     Jellyfin's body while its background came from our variables - two independent sources that
+     can disagree, which is how "light text on a light panel" happens. */
+  color: var(--mvpl-text-primary, #e4e4e7);
+  /* border-box because this is sized 100% *and* padded: with the default content-box the
+     overlay ends up 2x the padding wider and taller than the viewport, which on a phone
+     pushes the dialog off the right edge and gives the whole page a horizontal scrollbar. */
+  box-sizing: border-box;
   position: fixed;
   top: 0;
   left: 0;

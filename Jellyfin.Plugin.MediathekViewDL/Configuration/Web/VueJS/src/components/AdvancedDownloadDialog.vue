@@ -175,6 +175,10 @@ function closeDialog() {
 
 <style scoped>
 .modal-overlay {
+    /* border-box because this is sized 100% *and* padded: with the default content-box the
+       overlay ends up 2x the padding wider and taller than the viewport, which on a phone
+       pushes the dialog off the right edge and gives the whole page a horizontal scrollbar. */
+    box-sizing: border-box;
     position: fixed;
     top: 0;
     left: 0;

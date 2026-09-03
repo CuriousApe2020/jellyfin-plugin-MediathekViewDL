@@ -275,7 +275,7 @@ defineExpose({
     <Teleport to="body">
         <!-- Teleported out of the page element, so it carries mvpl-scope itself. -->
         <div v-if="open" class="wizard-overlay mvpl-scope" data-testid="wizard-overlay">
-            <div class="wizard-card card" data-testid="wizard-card">
+            <div class="wizard-card mvpl-card" data-testid="wizard-card">
                 <header class="wizard-header">
                     <div>
                         <h2>Einrichtungs-Assistent</h2>
@@ -527,6 +527,15 @@ defineExpose({
 
 <style scoped>
 .wizard-overlay {
+    /* Text tone alongside the background, because both now come from the same measured theme.
+       A teleported dialog sits outside .plugin-config, so without this it took its color from
+       Jellyfin's body while its background came from our variables - two independent sources that
+       can disagree, which is how "light text on a light panel" happens. */
+    color: var(--mvpl-text-primary, #e4e4e7);
+    /* border-box because this is sized 100% *and* padded: with the default content-box the
+       overlay ends up 2x the padding wider and taller than the viewport, which on a phone
+       pushes the dialog off the right edge and gives the whole page a horizontal scrollbar. */
+    box-sizing: border-box;
     position: fixed;
     top: 0;
     left: 0;
@@ -542,7 +551,7 @@ defineExpose({
 
 .wizard-card {
     /* Declared directly, same reasoning as SubscriptionEditor.vue's .editor-modal: relying only on
-       the shared .card class (combined via class="wizard-card card") let the page underneath show
+       the shared .card class (combined via class="wizard-card mvpl-card") let the page underneath show
        through the dialog itself. Same color as the rest of this page's cards (.card in style.css). */
     background: var(--mvpl-bg, #18181b);
     width: 100%;
