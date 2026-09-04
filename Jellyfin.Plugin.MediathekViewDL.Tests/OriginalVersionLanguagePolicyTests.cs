@@ -54,12 +54,31 @@ public class OriginalVersionLanguagePolicyTests
     }
 
     [Fact]
-    public void Decide_ShouldNeverSkip_WhenALanguageIsKnown()
+    public void Decide_ShouldNeverSkip_WhenTheBroadcasterNamesTheLanguage()
     {
-        var decision = OriginalVersionLanguagePolicy.Decide(null, "eng", UndefinedOriginalVersionHandling.SkipTrack);
+        var decision = OriginalVersionLanguagePolicy.Decide("eng", null, UndefinedOriginalVersionHandling.SkipTrack);
 
         Assert.False(decision.IsSkipped);
         Assert.Equal("eng", decision.LanguageCode);
+    }
+
+    [Fact]
+    public void Decide_ShouldIgnoreTheFallback_WhenSkippingWasAskedFor()
+    {
+        // The fallback code belongs to "use this language" - the other two modes must not borrow it.
+        var decision = OriginalVersionLanguagePolicy.Decide(null, "eng", UndefinedOriginalVersionHandling.SkipTrack);
+
+        Assert.True(decision.IsSkipped);
+        Assert.Null(decision.LanguageCode);
+    }
+
+    [Fact]
+    public void Decide_ShouldIgnoreTheFallback_WhenUndeterminedWasAskedFor()
+    {
+        var decision = OriginalVersionLanguagePolicy.Decide(null, "eng", UndefinedOriginalVersionHandling.StoreAsUndetermined);
+
+        Assert.False(decision.IsSkipped);
+        Assert.Equal("und", decision.LanguageCode);
     }
 
     [Theory]

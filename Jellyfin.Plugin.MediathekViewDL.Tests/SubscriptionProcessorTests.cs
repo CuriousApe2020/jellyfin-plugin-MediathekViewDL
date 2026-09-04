@@ -552,7 +552,10 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
                 Download = new DownloadSettings
                 {
                     DetectUndetectedSecondaryAudio = true,
-                }
+                },
+
+                // The fallback is asked for, but the code itself is left empty on the subscription.
+                Metadata = new MetadataSettings { UndefinedOriginalVersionHandling = UndefinedOriginalVersionHandling.UseFallbackLanguage }
             };
             var item = new ResultItem
             {
