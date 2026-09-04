@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import ApiService from "../../utils/ApiService.js";
 
 const Dashboard = window.Dashboard ?? null
@@ -50,10 +50,6 @@ const defDownloadFullVideoSecondaryAudio = ref(false)
 const defDetectUndetectedSecondaryAudio = ref(false)
 const defDetectCrossResultAudioVariants = ref(false)
 const defAddAudioToExistingEpisodes = ref(false)
-const defDownloadOriginalVersionAudio = ref(true)
-const defDownloadAudioDescriptionAudio = ref(false)
-const defDownloadClearSpeechAudio = ref(false)
-const defResolveOriginalVersionLanguage = ref(true)
 const defCleanAudioTrackLabels = ref(false)
 const defAlwaysCreateSubfolder = ref(false)
 const defEnhancedDuplicateDetection = ref(false)
@@ -81,10 +77,13 @@ const defAppendTimeToTitle = ref(false)
 
 // Subscription Defaults - Accessibility
 const defAllowAudioDesc = ref(false)
-const defDownloadClearSpeech = ref(true)
-const defDetectUndetectedAccessibilityAudio = ref(false)
-const defDetectCrossResultAccessibilityVariants = ref(false)
-const defAddAccessibilityAudioToExistingEpisodes = ref(false)
+const defDownloadClearSpeech = ref(false)
+const defDetectUndetectedAudioDescription = ref(false)
+const defDetectCrossResultAudioDescription = ref(false)
+const defAddAudioDescriptionToExistingEpisodes = ref(false)
+const defDetectUndetectedClearSpeech = ref(false)
+const defDetectCrossResultClearSpeech = ref(false)
+const defAddClearSpeechToExistingEpisodes = ref(false)
 const defAllowSignLanguage = ref(false)
 const defRequiredAudioLanguage = ref('')
 
@@ -114,7 +113,26 @@ const duplicateDetectionMessage = 'Ohne "Erweiterte Duplikaterkennung" sieht das
 // Attaching a track to an episode that is already on disk needs the library scan; without it the
 // plugin cannot know the episode is there and would fetch a second video instead.
 const duplicateDetectionConflict = computed(() =>
-  (defAddAudioToExistingEpisodes.value || defAddAccessibilityAudioToExistingEpisodes.value) && !defEnhancedDuplicateDetection.value)
+  (defAddAudioToExistingEpisodes.value
+    || defAddAudioDescriptionToExistingEpisodes.value
+    || defAddClearSpeechToExistingEpisodes.value)
+  && !defEnhancedDuplicateDetection.value)
+
+// The red note sits next to the option that caused it, which is easy to miss on a page this long -
+// so the moment the two settings start contradicting each other, say so in front of everything else.
+const showDuplicateWarning = ref(false)
+watch(duplicateDetectionConflict, (isConflicting, wasConflicting) => {
+  if (isConflicting && !wasConflicting) {
+    showDuplicateWarning.value = true
+  } else if (!isConflicting) {
+    showDuplicateWarning.value = false
+  }
+})
+
+function enableDuplicateDetection() {
+  defEnhancedDuplicateDetection.value = true
+  showDuplicateWarning.value = false
+}
 
 // Computed
 const searchTotalItems = computed(() => {
@@ -180,10 +198,6 @@ async function loadConfig() {
     defDetectUndetectedSecondaryAudio.value = defDl.DetectUndetectedSecondaryAudio ?? false
     defDetectCrossResultAudioVariants.value = defDl.DetectCrossResultAudioVariants ?? false
     defAddAudioToExistingEpisodes.value = defDl.AddAudioToExistingEpisodes ?? false
-    defDownloadOriginalVersionAudio.value = defDl.DownloadOriginalVersionAudio ?? true
-    defDownloadAudioDescriptionAudio.value = defDl.DownloadAudioDescriptionAudio ?? false
-    defDownloadClearSpeechAudio.value = defDl.DownloadClearSpeechAudio ?? false
-    defResolveOriginalVersionLanguage.value = defDl.ResolveOriginalVersionLanguage !== undefined ? defDl.ResolveOriginalVersionLanguage : true
     defCleanAudioTrackLabels.value = defDl.CleanAudioTrackLabels ?? false
     defAlwaysCreateSubfolder.value = defDl.AlwaysCreateSubfolder ?? false
     defEnhancedDuplicateDetection.value = defDl.EnhancedDuplicateDetection ?? false
@@ -208,10 +222,13 @@ async function loadConfig() {
     defAppendTimeToTitle.value = defMeta.AppendTimeToTitle ?? false
 
     defAllowAudioDesc.value = defAccess.AllowAudioDescription ?? false
-    defDownloadClearSpeech.value = defAccess.DownloadClearSpeech ?? true
-    defDetectUndetectedAccessibilityAudio.value = defAccess.DetectUndetectedAccessibilityAudio ?? false
-    defDetectCrossResultAccessibilityVariants.value = defAccess.DetectCrossResultAccessibilityVariants ?? false
-    defAddAccessibilityAudioToExistingEpisodes.value = defAccess.AddAccessibilityAudioToExistingEpisodes ?? false
+    defDownloadClearSpeech.value = defAccess.DownloadClearSpeech ?? false
+    defDetectUndetectedAudioDescription.value = defAccess.DetectUndetectedAudioDescription ?? false
+    defDetectCrossResultAudioDescription.value = defAccess.DetectCrossResultAudioDescription ?? false
+    defAddAudioDescriptionToExistingEpisodes.value = defAccess.AddAudioDescriptionToExistingEpisodes ?? false
+    defDetectUndetectedClearSpeech.value = defAccess.DetectUndetectedClearSpeech ?? false
+    defDetectCrossResultClearSpeech.value = defAccess.DetectCrossResultClearSpeech ?? false
+    defAddClearSpeechToExistingEpisodes.value = defAccess.AddClearSpeechToExistingEpisodes ?? false
     defAllowSignLanguage.value = defAccess.AllowSignLanguage ?? false
     defRequiredAudioLanguage.value = defAccess.RequiredAudioLanguage ?? ''
 
@@ -276,10 +293,6 @@ async function saveConfig() {
         DetectUndetectedSecondaryAudio: defDetectUndetectedSecondaryAudio.value,
         DetectCrossResultAudioVariants: defDetectCrossResultAudioVariants.value,
         AddAudioToExistingEpisodes: defAddAudioToExistingEpisodes.value,
-        DownloadOriginalVersionAudio: defDownloadOriginalVersionAudio.value,
-        DownloadAudioDescriptionAudio: defDownloadAudioDescriptionAudio.value,
-        DownloadClearSpeechAudio: defDownloadClearSpeechAudio.value,
-        ResolveOriginalVersionLanguage: defResolveOriginalVersionLanguage.value,
         CleanAudioTrackLabels: defCleanAudioTrackLabels.value,
         AlwaysCreateSubfolder: defAlwaysCreateSubfolder.value,
         EnhancedDuplicateDetection: defEnhancedDuplicateDetection.value,
@@ -308,9 +321,12 @@ async function saveConfig() {
       AccessibilitySettings: {
         AllowAudioDescription: defAllowAudioDesc.value,
         DownloadClearSpeech: defDownloadClearSpeech.value,
-        DetectUndetectedAccessibilityAudio: defDetectUndetectedAccessibilityAudio.value,
-        DetectCrossResultAccessibilityVariants: defDetectCrossResultAccessibilityVariants.value,
-        AddAccessibilityAudioToExistingEpisodes: defAddAccessibilityAudioToExistingEpisodes.value,
+        DetectUndetectedAudioDescription: defDetectUndetectedAudioDescription.value,
+        DetectCrossResultAudioDescription: defDetectCrossResultAudioDescription.value,
+        AddAudioDescriptionToExistingEpisodes: defAddAudioDescriptionToExistingEpisodes.value,
+        DetectUndetectedClearSpeech: defDetectUndetectedClearSpeech.value,
+        DetectCrossResultClearSpeech: defDetectCrossResultClearSpeech.value,
+        AddClearSpeechToExistingEpisodes: defAddClearSpeechToExistingEpisodes.value,
         AllowSignLanguage: defAllowSignLanguage.value,
         RequiredAudioLanguage: defRequiredAudioLanguage.value
       }
@@ -584,11 +600,11 @@ onMounted(() => {
             </div>
             <div class="sub-options">
               <div class="checkbox-field">
-                <label><input v-model="defDetectUndetectedSecondaryAudio" type="checkbox"> Fehlende Tonspuren erkennen und gegebenenfalls herunterladen</label>
+                <label><input v-model="defDetectUndetectedSecondaryAudio" type="checkbox"> Fehlende Tonspuren finden</label>
                 <p class="field-desc">Manche ARD-Titel zeigen in MediathekView nur einen Eintrag, obwohl im Player mehrere Sprachfassungen wählbar sind. Wenn aktiviert, werden solche Fassungen anhand des URL-Musters erkannt und als eigene Tonspur-Datei neben dem Hauptvideo gespeichert.</p>
               </div>
               <div class="checkbox-field">
-                <label><input v-model="defDetectCrossResultAudioVariants" type="checkbox"> Verwandte Suchtreffer als zusätzliche Tonspuren zusammenführen</label>
+                <label><input v-model="defDetectCrossResultAudioVariants" type="checkbox"> Verwandte Suchtreffer mit zusätzliche Tonspuren finden</label>
                 <p class="field-desc">Manche Sender (arte, ZDF/ZDFneo/3sat) führen dieselbe Sendung als mehrere eigenständige Suchtreffer in unterschiedlichen Sprachen. Wenn aktiviert, werden solche Treffer als zusätzliche Tonspur gespeichert statt als zweites Video.</p>
               </div>
               <div class="checkbox-field">
@@ -711,22 +727,36 @@ onMounted(() => {
             <label><input v-model="defAllowAudioDesc" type="checkbox"> Audiodeskription herunterladen</label>
             <p class="field-desc">Fassungen mit gesprochener Bildbeschreibung. Ist die Option aus, werden solche Fassungen übersprungen.</p>
           </div>
+          <div v-if="defAllowAudioDesc" class="sub-options">
+            <div class="checkbox-field">
+              <label><input v-model="defDetectUndetectedAudioDescription" type="checkbox"> Fehlende Tonspuren finden</label>
+              <p class="field-desc">Erkennt Audiodeskription am URL-Muster, auch wenn MediathekView dafür keinen eigenen Eintrag führt.</p>
+            </div>
+            <div class="checkbox-field">
+              <label><input v-model="defDetectCrossResultAudioDescription" type="checkbox"> Verwandte Suchtreffer mit zusätzliche Tonspuren finden</label>
+              <p class="field-desc">Führt eigenständige Suchtreffer derselben Folge mit Audiodeskription als zusätzliche Tonspur zusammen.</p>
+            </div>
+            <div class="checkbox-field">
+              <label><input v-model="defAddAudioDescriptionToExistingEpisodes" type="checkbox"> Tonspuren nachträglich zu vorhandenen Folgen hinzufügen</label>
+              <p class="field-desc">Taucht die Fassung erst auf, wenn die Folge schon auf der Platte liegt, wird nur ihre Tonspur geladen und daneben gelegt. <strong>Setzt "Erweiterte Duplikaterkennung" voraus.</strong></p>
+              <p v-if="duplicateDetectionConflict" class="field-error">{{ duplicateDetectionMessage }}</p>
+            </div>
+          </div>
           <div class="checkbox-field">
             <label><input v-model="defDownloadClearSpeech" type="checkbox"> Klare Sprache herunterladen</label>
             <p class="field-desc">Fassungen mit sprachoptimiertem Ton ("klare Sprache"). Ist die Option aus, werden solche Fassungen übersprungen.</p>
           </div>
-          <div v-if="defAllowAudioDesc || defDownloadClearSpeech" class="sub-options">
-            <p class="field-desc">Gilt für beide Optionen oben:</p>
+          <div v-if="defDownloadClearSpeech" class="sub-options">
             <div class="checkbox-field">
-              <label><input v-model="defDetectUndetectedAccessibilityAudio" type="checkbox"> Fehlende Tonspuren erkennen und gegebenenfalls herunterladen</label>
-              <p class="field-desc">Erkennt Audiodeskription und klare Sprache am URL-Muster, auch wenn MediathekView dafür keinen eigenen Eintrag führt.</p>
+              <label><input v-model="defDetectUndetectedClearSpeech" type="checkbox"> Fehlende Tonspuren finden</label>
+              <p class="field-desc">Erkennt klare Sprache am URL-Muster, auch wenn MediathekView dafür keinen eigenen Eintrag führt.</p>
             </div>
             <div class="checkbox-field">
-              <label><input v-model="defDetectCrossResultAccessibilityVariants" type="checkbox"> Verwandte Suchtreffer als zusätzliche Tonspuren zusammenführen</label>
-              <p class="field-desc">Führt eigenständige Suchtreffer derselben Folge mit Audiodeskription oder klarer Sprache als zusätzliche Tonspur zusammen.</p>
+              <label><input v-model="defDetectCrossResultClearSpeech" type="checkbox"> Verwandte Suchtreffer mit zusätzliche Tonspuren finden</label>
+              <p class="field-desc">Führt eigenständige Suchtreffer derselben Folge mit klarer Sprache als zusätzliche Tonspur zusammen.</p>
             </div>
             <div class="checkbox-field">
-              <label><input v-model="defAddAccessibilityAudioToExistingEpisodes" type="checkbox"> Tonspuren nachträglich zu vorhandenen Folgen hinzufügen</label>
+              <label><input v-model="defAddClearSpeechToExistingEpisodes" type="checkbox"> Tonspuren nachträglich zu vorhandenen Folgen hinzufügen</label>
               <p class="field-desc">Taucht die Fassung erst auf, wenn die Folge schon auf der Platte liegt, wird nur ihre Tonspur geladen und daneben gelegt. <strong>Setzt "Erweiterte Duplikaterkennung" voraus.</strong></p>
               <p v-if="duplicateDetectionConflict" class="field-error">{{ duplicateDetectionMessage }}</p>
             </div>
@@ -787,12 +817,71 @@ onMounted(() => {
       </div>
 
     </form>
+
+    <div v-if="showDuplicateWarning" class="warning-overlay" @click.self="showDuplicateWarning = false">
+      <div class="warning-dialog" role="alertdialog" aria-modal="true" aria-labelledby="mvpl-def-dup-warning-title">
+        <h3 id="mvpl-def-dup-warning-title">⚠️ Erweiterte Duplikaterkennung fehlt</h3>
+        <p>{{ duplicateDetectionMessage }}</p>
+        <p class="warning-hint">Bis dahin lassen sich die Einstellungen nicht speichern.</p>
+        <div class="warning-actions">
+          <button type="button" class="btn btn-secondary" @click="showDuplicateWarning = false">Später</button>
+          <button type="button" class="btn btn-save" @click="enableDuplicateDetection">Duplikaterkennung einschalten</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .settings-card {
   padding: 0;
+}
+
+.warning-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+  z-index: 9999;
+}
+
+.warning-dialog {
+  background: var(--mvpl-surface, #27272a);
+  color: var(--mvpl-text-primary, #e4e4e7);
+  border: 1px solid var(--mvpl-danger, #f87171);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  padding: 20px;
+  max-width: 480px;
+  width: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.warning-dialog h3 {
+  margin: 0 0 12px;
+  font-size: 1.05em;
+}
+
+.warning-dialog p {
+  margin: 0 0 10px;
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+
+.warning-hint {
+  color: var(--mvpl-text-secondary, #a1a1aa);
+}
+
+.warning-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
 }
 
 .settings-section {

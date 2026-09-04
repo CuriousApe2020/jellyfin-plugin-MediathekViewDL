@@ -294,7 +294,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         // carrying the placeholder forever.
         await BackfillUndefinedAudioLanguagesAsync(subscription, cancellationToken).ConfigureAwait(false);
 
-        if (subscription.Download.DetectCrossResultAudioVariants || subscription.Accessibility.DetectCrossResultAccessibilityVariants)
+        if (SecondaryAudioUrlHelper.AnyCrossResultDetectionEnabled(subscription.Download, subscription.Accessibility))
         {
             // Buffer the whole eligible-item stream so sibling rows representing the same episode in a
             // different audio track (arte's channel/marker split, ZDF/ZDFneo/3sat's per-language rows)
@@ -423,12 +423,21 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         LocalEpisodeCache? localEpisodeCache,
         CancellationToken cancellationToken)
     {
-        // Accessibility tracks and language versions are attached on their own switches - a
-        // subscription can collect one without the other.
-        var isAccessibilityTrack = tempVideoInfo.HasAudiodescription || tempVideoInfo.HasClearLanguage;
-        var attachingEnabled = isAccessibilityTrack
-            ? subscription.Accessibility.AddAccessibilityAudioToExistingEpisodes
-            : subscription.Download.AddAudioToExistingEpisodes;
+        // Every kind is attached on its own switch - a subscription can collect one without the
+        // others.
+        var kind = tempVideoInfo switch
+        {
+            { HasAudiodescription: true } => SecondaryAudioKind.AudioDescription,
+            { HasClearLanguage: true } => SecondaryAudioKind.ClearSpeech,
+            _ => SecondaryAudioKind.OriginalVersion,
+        };
+
+        var attachingEnabled = kind switch
+        {
+            SecondaryAudioKind.AudioDescription => subscription.Accessibility.AddAudioDescriptionToExistingEpisodes,
+            SecondaryAudioKind.ClearSpeech => subscription.Accessibility.AddClearSpeechToExistingEpisodes,
+            _ => subscription.Download.AddAudioToExistingEpisodes,
+        };
 
         if (!attachingEnabled || localEpisodeCache == null)
         {
@@ -450,7 +459,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
 
         // An original-version row whose language nothing named: the subscription's setting decides
         // whether it is stored as "und", tagged with the configured language, or left out.
-        if (!isAccessibilityTrack && OriginalVersionLanguagePolicy.IsUndefined(language))
+        if (kind == SecondaryAudioKind.OriginalVersion && OriginalVersionLanguagePolicy.IsUndefined(language))
         {
             var undefinedDecision = OriginalVersionLanguagePolicy.Decide(
                 null,
@@ -466,7 +475,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             language = undefinedDecision.LanguageCode!;
         }
 
-        if (!IsAudioLanguageKept(subscription, isAccessibilityTrack ? SecondaryAudioKind.AudioDescription : SecondaryAudioKind.OriginalVersion, language))
+        if (!IsAudioLanguageKept(subscription, kind, language))
         {
             _logger.LogInformation(
                 "Skipping the '{Language}' audio track of '{Title}': the subscription only stores selected languages.",
@@ -1091,7 +1100,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         // We ensure IgnoreLocalFiles is set for this call.
         var testSub = subscription with { IgnoreLocalFiles = true };
 
-        if (testSub.Download.DetectCrossResultAudioVariants || testSub.Accessibility.DetectCrossResultAccessibilityVariants)
+        if (SecondaryAudioUrlHelper.AnyCrossResultDetectionEnabled(testSub.Download, testSub.Accessibility))
         {
             // Mirror GetJobsForSubscriptionAsync's grouping: buffer the whole eligible-item stream so
             // sibling rows representing the same episode in a different audio track are grouped the

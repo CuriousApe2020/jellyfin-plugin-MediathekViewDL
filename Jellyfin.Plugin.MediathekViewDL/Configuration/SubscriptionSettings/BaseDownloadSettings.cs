@@ -43,7 +43,8 @@ public record BaseDownloadSettings
     /// search index doesn't surface as a separate result - derived directly from the main video's URL.
     /// Downloaded as separate files next to the main video, the same way a secondary-language item found
     /// via the API is handled. Audio description and "klare Sprache" have their own, separate switch in
-    /// <see cref="AccessibilitySettings.DetectUndetectedAccessibilityAudio"/>.
+    /// <see cref="AccessibilitySettings.DetectUndetectedAudioDescription"/> and
+    /// <see cref="AccessibilitySettings.DetectUndetectedClearSpeech"/>.
     /// </summary>
     public bool DetectUndetectedSecondaryAudio { get; init; }
 
@@ -57,7 +58,8 @@ public record BaseDownloadSettings
     /// "(Englisch)"). Independent from <see cref="DetectUndetectedSecondaryAudio"/>, which derives
     /// variants from a single URL's own tokens (ARD) rather than from other search results - the two can
     /// be enabled together. Audio description and "klare Sprache" have their own, separate switch in
-    /// <see cref="AccessibilitySettings.DetectCrossResultAccessibilityVariants"/>.
+    /// <see cref="AccessibilitySettings.DetectCrossResultAudioDescription"/> and
+    /// <see cref="AccessibilitySettings.DetectCrossResultClearSpeech"/>.
     /// </summary>
     public bool DetectCrossResultAudioVariants { get; init; }
 

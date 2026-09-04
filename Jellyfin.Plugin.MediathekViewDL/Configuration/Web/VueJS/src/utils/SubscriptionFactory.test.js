@@ -142,6 +142,34 @@ describe('SubscriptionFactory', () => {
             expect(subscription.Accessibility.RequiredAudioLanguage).toBe('eng')
         })
 
+        it('ShouldKeepTheTwoAccessibilityKindsApart_WhenOnlyOneIsConfigured', () => {
+            // Arrange: audio description looks for its own tracks, "klare Sprache" does not.
+            const defaults = {
+                AccessibilitySettings: {
+                    AllowAudioDescription: true,
+                    DetectUndetectedAudioDescription: true,
+                    DetectCrossResultAudioDescription: true,
+                    AddAudioDescriptionToExistingEpisodes: true
+                }
+            }
+            // Act
+            const subscription = SubscriptionFactory.createDefault(defaults)
+            // Assert
+            expect(subscription.Accessibility.DetectUndetectedAudioDescription).toBe(true)
+            expect(subscription.Accessibility.DetectCrossResultAudioDescription).toBe(true)
+            expect(subscription.Accessibility.AddAudioDescriptionToExistingEpisodes).toBe(true)
+            expect(subscription.Accessibility.DetectUndetectedClearSpeech).toBe(false)
+            expect(subscription.Accessibility.DetectCrossResultClearSpeech).toBe(false)
+            expect(subscription.Accessibility.AddClearSpeechToExistingEpisodes).toBe(false)
+        })
+
+        it('ShouldDefaultClearSpeechToOff_WhenNotProvided', () => {
+            // Act
+            const subscription = SubscriptionFactory.createDefault()
+            // Assert
+            expect(subscription.Accessibility.DownloadClearSpeech).toBe(false)
+        })
+
         it('ShouldDefaultRequiredAudioLanguageToEmptyString_WhenNotProvided', () => {
             // Act
             const subscription = SubscriptionFactory.createDefault()

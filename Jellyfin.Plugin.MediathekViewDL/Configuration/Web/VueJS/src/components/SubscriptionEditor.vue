@@ -32,12 +32,37 @@ function toEnumValue(value, names, fallback) {
 
 // Attaching a track to an episode that is already on disk needs the library scan; without it the
 // plugin cannot know the episode is there and would fetch a second video instead.
+const duplicateDetectionMessage = 'Ohne "Erweiterte Duplikaterkennung" sieht das Plugin nicht, welche Folgen bereits auf der Platte liegen. '
+    + 'Tonspuren, die erst in einem späteren Lauf auftauchen, landen dann als zweites vollständiges Video statt als Tonspur '
+    + 'neben der vorhandenen Folge. Bitte die Duplikaterkennung einschalten oder das nachträgliche Hinzufügen abwählen.'
 const duplicateDetectionConflict = computed(() => {
     const download = editedSub.value?.Download ?? {}
     const accessibility = editedSub.value?.Accessibility ?? {}
-    const wantsAttaching = download.AddAudioToExistingEpisodes || accessibility.AddAccessibilityAudioToExistingEpisodes
+    const wantsAttaching = download.AddAudioToExistingEpisodes
+        || accessibility.AddAudioDescriptionToExistingEpisodes
+        || accessibility.AddClearSpeechToExistingEpisodes
     return Boolean(wantsAttaching) && !download.EnhancedDuplicateDetection
 })
+
+// The red note sits next to the option that caused it, which is easy to miss when the conflict is
+// created from the other tab - so the moment the two settings start contradicting each other, say so
+// in front of everything else.
+const showDuplicateWarning = ref(false)
+watch(duplicateDetectionConflict, (isConflicting, wasConflicting) => {
+    if (isConflicting && !wasConflicting) {
+        showDuplicateWarning.value = true
+    } else if (!isConflicting) {
+        showDuplicateWarning.value = false
+    }
+})
+
+function enableDuplicateDetection() {
+    if (editedSub.value?.Download) {
+        editedSub.value.Download.EnhancedDuplicateDetection = true
+    }
+
+    showDuplicateWarning.value = false
+}
 const availableChannels = ref([])
 const availableTopics = ref([])
 
@@ -72,7 +97,7 @@ watch(() => props.subscription, (newVal) => {
         copy.Download.AudioLanguageMode = toEnumValue(copy.Download.AudioLanguageMode, AUDIO_LANGUAGE_MODE, 0)
         copy.Metadata.UndefinedOriginalVersionHandling = toEnumValue(copy.Metadata.UndefinedOriginalVersionHandling, UNDEFINED_OV_HANDLING, 1)
         copy.Metadata.BackfillAudioLanguages = copy.Metadata.BackfillAudioLanguages ?? true
-        copy.Accessibility.DownloadClearSpeech = copy.Accessibility.DownloadClearSpeech ?? true
+        copy.Accessibility.DownloadClearSpeech = copy.Accessibility.DownloadClearSpeech ?? false
         editedSub.value = copy
         // Reset active tab when a new subscription is opened
         activeTab.value = 'basic'
@@ -238,12 +263,6 @@ function updateDate(target, field, value) {
                     </datalist>
                     <button @click="addQuery" class="btn btn-secondary">Anfrage hinzufügen</button>
 
-                    <div class="field">
-                        <label>Nur wenn diese Tonspur verfügbar ist (ISO Code, z.B. 'eng', bei mehreren mit Komma getrennt)</label>
-                        <input v-model="editedSub.Accessibility.RequiredAudioLanguage" type="text" class="field-input" placeholder="leer = kein Filter, z.B. eng oder eng, fra">
-                        <p class="field-desc">Wenn gesetzt, werden nur Titel heruntergeladen, die eine Tonspur in einer dieser Sprachen haben — egal ob MediathekView sie als eigenen Suchtreffer findet oder ob sie erst über die Sprachfassungs-Erkennung im Reiter "Download" gefunden wird. Titel ohne passende Tonspur werden komplett übersprungen, also auch ohne Hauptspur.</p>
-                    </div>
-
                     <hr>
                     <div class="grid-2">
                         <div class="field">
@@ -255,6 +274,15 @@ function updateDate(target, field, value) {
                             <input v-model="editedSub.Search.MaxDurationMinutes" type="number" class="field-input">
                         </div>
                     </div>
+
+                    <hr>
+                    <div class="field">
+                        <label>Nur wenn diese Tonspur verfügbar ist (ISO Code, z.B. 'eng', bei mehreren mit Komma getrennt)</label>
+                        <input v-model="editedSub.Accessibility.RequiredAudioLanguage" type="text" class="field-input" placeholder="leer = kein Filter, z.B. eng oder eng, fra">
+                        <p class="field-desc">Wenn gesetzt, werden nur Titel heruntergeladen, die eine Tonspur in einer dieser Sprachen haben — egal ob MediathekView sie als eigenen Suchtreffer findet oder ob sie erst über die Sprachfassungs-Erkennung im Reiter "Download" gefunden wird. Titel ohne passende Tonspur werden komplett übersprungen, also auch ohne Hauptspur.</p>
+                    </div>
+
+                    <hr>
                     <div class="grid-2">
                         <div class="field">
                             <label>Min. Sendedatum</label>
@@ -307,13 +335,13 @@ function updateDate(target, field, value) {
                         <div class="sub-options">
                             <div class="checkbox-field">
                                 <label>
-                                    <input v-model="editedSub.Download.DetectUndetectedSecondaryAudio" type="checkbox"> Fehlende Tonspuren erkennen und gegebenenfalls herunterladen
+                                    <input v-model="editedSub.Download.DetectUndetectedSecondaryAudio" type="checkbox"> Fehlende Tonspuren finden
                                 </label>
                                 <p class="field-desc">Manche ARD-Titel zeigen in MediathekView nur einen Eintrag, obwohl im Player mehrere Sprachfassungen wählbar sind. Wenn aktiviert, werden solche Fassungen anhand des URL-Musters erkannt und als eigene Tonspur-Datei neben dem Hauptvideo gespeichert.</p>
                             </div>
                             <div class="checkbox-field">
                                 <label>
-                                    <input v-model="editedSub.Download.DetectCrossResultAudioVariants" type="checkbox"> Verwandte Suchtreffer als zusätzliche Tonspuren zusammenführen
+                                    <input v-model="editedSub.Download.DetectCrossResultAudioVariants" type="checkbox"> Verwandte Suchtreffer mit zusätzliche Tonspuren finden
                                 </label>
                                 <p class="field-desc">Manche Sender (arte, ZDF/ZDFneo/3sat) führen dieselbe Sendung als mehrere eigenständige Suchtreffer in unterschiedlichen Sprachen. Wenn aktiviert, werden solche Treffer erkannt und als zusätzliche Tonspur gespeichert, statt als zweites, fast identisches Video.</p>
                             </div>
@@ -322,7 +350,7 @@ function updateDate(target, field, value) {
                                     <input v-model="editedSub.Download.AddAudioToExistingEpisodes" type="checkbox"> Sprachfassungen nachträglich zu vorhandenen Folgen hinzufügen
                                 </label>
                                 <p class="field-desc">Taucht eine Sprachfassung erst auf, wenn die Folge schon auf der Platte liegt, wird nur deren Tonspur geladen und daneben gelegt. Ohne diese Option entsteht ein zweites Video. <strong>Setzt "Erweiterte Duplikaterkennung" voraus</strong> - nur sie liest die Bibliothek überhaupt ein.</p>
-                                <p v-if="duplicateDetectionConflict" class="field-error">Ohne "Erweiterte Duplikaterkennung" sieht das Plugin nicht, welche Folgen bereits auf der Platte liegen. Tonspuren, die erst in einem späteren Lauf auftauchen, landen dann als zweites vollständiges Video statt als Tonspur neben der vorhandenen Folge. Bitte die Duplikaterkennung einschalten oder das nachträgliche Hinzufügen abwählen.</p>
+                                <p v-if="duplicateDetectionConflict" class="field-error">{{ duplicateDetectionMessage }}</p>
                             </div>
                             <div class="checkbox-field">
                                 <label>
@@ -382,7 +410,7 @@ function updateDate(target, field, value) {
                             <input v-model="editedSub.Download.EnhancedDuplicateDetection" type="checkbox"> Erweiterte Duplikaterkennung
                         </label>
                         <p class="field-desc">Scannt das Zielverzeichnis nach vorhandenen Dateien mit passenden SxxExx-Mustern (oder absoluter Nummerierung), um doppelte Downloads zu vermeiden (auch bei abweichenden Dateinamen).</p>
-                        <p v-if="duplicateDetectionConflict" class="field-error">Ohne "Erweiterte Duplikaterkennung" sieht das Plugin nicht, welche Folgen bereits auf der Platte liegen. Tonspuren, die erst in einem späteren Lauf auftauchen, landen dann als zweites vollständiges Video statt als Tonspur neben der vorhandenen Folge. Bitte die Duplikaterkennung einschalten oder das nachträgliche Hinzufügen abwählen.</p>
+                        <p v-if="duplicateDetectionConflict" class="field-error">{{ duplicateDetectionMessage }}</p>
                     </div>
                     <div class="checkbox-field">
                         <label>
@@ -488,32 +516,52 @@ function updateDate(target, field, value) {
                         </label>
                         <p class="field-desc">Fassungen mit gesprochener Bildbeschreibung. Ist die Option aus, werden solche Fassungen übersprungen.</p>
                     </div>
+                    <div v-if="editedSub.Accessibility.AllowAudioDescription" class="sub-options">
+                        <div class="checkbox-field">
+                            <label>
+                                <input v-model="editedSub.Accessibility.DetectUndetectedAudioDescription" type="checkbox"> Fehlende Tonspuren finden
+                            </label>
+                            <p class="field-desc">Erkennt Audiodeskription am URL-Muster, auch wenn MediathekView dafür keinen eigenen Eintrag führt, und legt sie als Tonspur neben das Hauptvideo.</p>
+                        </div>
+                        <div class="checkbox-field">
+                            <label>
+                                <input v-model="editedSub.Accessibility.DetectCrossResultAudioDescription" type="checkbox"> Verwandte Suchtreffer mit zusätzliche Tonspuren finden
+                            </label>
+                            <p class="field-desc">Führt eigenständige Suchtreffer derselben Folge mit Audiodeskription als zusätzliche Tonspur zusammen, statt sie als zweites Video zu laden.</p>
+                        </div>
+                        <div class="checkbox-field">
+                            <label>
+                                <input v-model="editedSub.Accessibility.AddAudioDescriptionToExistingEpisodes" type="checkbox"> Tonspuren nachträglich zu vorhandenen Folgen hinzufügen
+                            </label>
+                            <p class="field-desc">Taucht die Fassung erst auf, wenn die Folge schon auf der Platte liegt, wird nur ihre Tonspur geladen und daneben gelegt. <strong>Setzt "Erweiterte Duplikaterkennung" im Reiter "Download" voraus.</strong></p>
+                            <p v-if="duplicateDetectionConflict" class="field-error">{{ duplicateDetectionMessage }}</p>
+                        </div>
+                    </div>
                     <div class="checkbox-field">
                         <label>
                             <input v-model="editedSub.Accessibility.DownloadClearSpeech" type="checkbox"> Klare Sprache herunterladen
                         </label>
                         <p class="field-desc">Fassungen mit sprachoptimiertem Ton ("klare Sprache"). Ist die Option aus, werden solche Fassungen übersprungen.</p>
                     </div>
-                    <div v-if="editedSub.Accessibility.AllowAudioDescription || editedSub.Accessibility.DownloadClearSpeech" class="sub-options">
-                        <p class="field-desc">Gilt für beide Optionen oben:</p>
+                    <div v-if="editedSub.Accessibility.DownloadClearSpeech" class="sub-options">
                         <div class="checkbox-field">
                             <label>
-                                <input v-model="editedSub.Accessibility.DetectUndetectedAccessibilityAudio" type="checkbox"> Fehlende Tonspuren erkennen und gegebenenfalls herunterladen
+                                <input v-model="editedSub.Accessibility.DetectUndetectedClearSpeech" type="checkbox"> Fehlende Tonspuren finden
                             </label>
-                            <p class="field-desc">Erkennt Audiodeskription und klare Sprache am URL-Muster, auch wenn MediathekView dafür keinen eigenen Eintrag führt, und legt sie als Tonspur neben das Hauptvideo.</p>
+                            <p class="field-desc">Erkennt klare Sprache am URL-Muster, auch wenn MediathekView dafür keinen eigenen Eintrag führt, und legt sie als Tonspur neben das Hauptvideo.</p>
                         </div>
                         <div class="checkbox-field">
                             <label>
-                                <input v-model="editedSub.Accessibility.DetectCrossResultAccessibilityVariants" type="checkbox"> Verwandte Suchtreffer als zusätzliche Tonspuren zusammenführen
+                                <input v-model="editedSub.Accessibility.DetectCrossResultClearSpeech" type="checkbox"> Verwandte Suchtreffer mit zusätzliche Tonspuren finden
                             </label>
-                            <p class="field-desc">Führt eigenständige Suchtreffer derselben Folge mit Audiodeskription oder klarer Sprache als zusätzliche Tonspur zusammen, statt sie als zweites Video zu laden.</p>
+                            <p class="field-desc">Führt eigenständige Suchtreffer derselben Folge mit klarer Sprache als zusätzliche Tonspur zusammen, statt sie als zweites Video zu laden.</p>
                         </div>
                         <div class="checkbox-field">
                             <label>
-                                <input v-model="editedSub.Accessibility.AddAccessibilityAudioToExistingEpisodes" type="checkbox"> Tonspuren nachträglich zu vorhandenen Folgen hinzufügen
+                                <input v-model="editedSub.Accessibility.AddClearSpeechToExistingEpisodes" type="checkbox"> Tonspuren nachträglich zu vorhandenen Folgen hinzufügen
                             </label>
                             <p class="field-desc">Taucht die Fassung erst auf, wenn die Folge schon auf der Platte liegt, wird nur ihre Tonspur geladen und daneben gelegt. <strong>Setzt "Erweiterte Duplikaterkennung" im Reiter "Download" voraus.</strong></p>
-                            <p v-if="duplicateDetectionConflict" class="field-error">Ohne "Erweiterte Duplikaterkennung" sieht das Plugin nicht, welche Folgen bereits auf der Platte liegen. Tonspuren, die erst in einem späteren Lauf auftauchen, landen dann als zweites vollständiges Video statt als Tonspur neben der vorhandenen Folge. Bitte die Duplikaterkennung einschalten oder das nachträgliche Hinzufügen abwählen.</p>
+                            <p v-if="duplicateDetectionConflict" class="field-error">{{ duplicateDetectionMessage }}</p>
                         </div>
                     </div>
                     <div class="checkbox-field">
@@ -532,6 +580,18 @@ function updateDate(target, field, value) {
                 <span v-if="duplicateDetectionConflict" class="field-error footer-error">Bitte den Konflikt bei der Duplikaterkennung beheben.</span>
                 <button @click="save" class="btn btn-primary" :disabled="duplicateDetectionConflict">Abo Speichern</button>
             </footer>
+
+            <div v-if="showDuplicateWarning" class="warning-overlay" @click.self="showDuplicateWarning = false">
+                <div class="warning-dialog" role="alertdialog" aria-modal="true" aria-labelledby="mvpl-dup-warning-title">
+                    <h3 id="mvpl-dup-warning-title">⚠️ Erweiterte Duplikaterkennung fehlt</h3>
+                    <p>{{ duplicateDetectionMessage }}</p>
+                    <p class="warning-hint">Bis dahin lässt sich das Abo nicht speichern.</p>
+                    <div class="warning-actions">
+                        <button @click="showDuplicateWarning = false" class="btn btn-secondary">Später</button>
+                        <button @click="enableDuplicateDetection" class="btn btn-primary">Duplikaterkennung einschalten</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </template>
@@ -567,6 +627,8 @@ function updateDate(target, field, value) {
        one didn't, letting the page underneath show through the dialog itself instead of just the
        dimmed overlay around it. Same color as the rest of this page's cards (.mvpl-card in style.css). */
     background: var(--mvpl-bg, #18181b);
+    /* Positioned so the warning overlay below can cover exactly this dialog and nothing else. */
+    position: relative;
     width: 100%;
     max-width: 800px;
     height: 80vh;
@@ -599,6 +661,54 @@ function updateDate(target, field, value) {
     padding: 20px;
     overflow-y: auto;
     flex: 1;
+}
+
+.warning-overlay {
+    /* Inside .editor-modal rather than the page, so the dialog it warns about stays visible behind
+       it and the two cannot end up on opposite sides of the screen. */
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 10;
+}
+
+.warning-dialog {
+    background: var(--mvpl-surface, #27272a);
+    color: var(--mvpl-text-primary, #e4e4e7);
+    border: 1px solid var(--mvpl-danger, #f87171);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    padding: 20px;
+    max-width: 480px;
+    width: 100%;
+    max-height: 100%;
+    overflow-y: auto;
+}
+
+.warning-dialog h3 {
+    margin: 0 0 12px;
+    font-size: 1.05em;
+}
+
+.warning-dialog p {
+    margin: 0 0 10px;
+    font-size: 0.9em;
+    line-height: 1.5;
+}
+
+.warning-hint {
+    color: var(--mvpl-text-secondary, #a1a1aa);
+}
+
+.warning-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 16px;
 }
 
 .editor-footer {

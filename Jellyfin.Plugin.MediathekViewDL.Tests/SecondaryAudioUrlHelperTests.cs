@@ -53,9 +53,10 @@ public class SecondaryAudioUrlHelperTests
     }
 
     [Fact]
-    public void IsKindEnabled_ShouldKeepTheTwoBranchesApart()
+    public void IsKindEnabled_ShouldKeepTheThreeKindsApart()
     {
-        // Language versions are switched on, accessibility tracks are not.
+        // Language versions are switched on, accessibility tracks are not - even though both
+        // accessibility kinds are allowed, nothing looks for them.
         var download = new BaseDownloadSettings { DetectUndetectedSecondaryAudio = true };
         var accessibility = new AccessibilitySettings { AllowAudioDescription = true, DownloadClearSpeech = true };
 
@@ -63,17 +64,63 @@ public class SecondaryAudioUrlHelperTests
         Assert.False(SecondaryAudioUrlHelper.IsKindEnabled(download, accessibility, SecondaryAudioKind.AudioDescription, SecondaryAudioDetectionSource.UrlDerived));
         Assert.False(SecondaryAudioUrlHelper.IsKindEnabled(download, accessibility, SecondaryAudioKind.ClearSpeech, SecondaryAudioDetectionSource.UrlDerived));
 
-        // ... and the other way round, including the kind switches inside the accessibility branch.
-        var accessibilityOn = new AccessibilitySettings
+        // Audio description alone: neither "klare Sprache" nor language versions come along.
+        var audioDescriptionOnly = new AccessibilitySettings
         {
             AllowAudioDescription = true,
-            DownloadClearSpeech = false,
-            DetectUndetectedAccessibilityAudio = true,
+            DownloadClearSpeech = true,
+            DetectUndetectedAudioDescription = true,
         };
 
-        Assert.True(SecondaryAudioUrlHelper.IsKindEnabled(new BaseDownloadSettings(), accessibilityOn, SecondaryAudioKind.AudioDescription, SecondaryAudioDetectionSource.UrlDerived));
-        Assert.False(SecondaryAudioUrlHelper.IsKindEnabled(new BaseDownloadSettings(), accessibilityOn, SecondaryAudioKind.ClearSpeech, SecondaryAudioDetectionSource.UrlDerived));
-        Assert.False(SecondaryAudioUrlHelper.IsKindEnabled(new BaseDownloadSettings(), accessibilityOn, SecondaryAudioKind.OriginalVersion, SecondaryAudioDetectionSource.UrlDerived));
+        Assert.True(SecondaryAudioUrlHelper.IsKindEnabled(new BaseDownloadSettings(), audioDescriptionOnly, SecondaryAudioKind.AudioDescription, SecondaryAudioDetectionSource.UrlDerived));
+        Assert.False(SecondaryAudioUrlHelper.IsKindEnabled(new BaseDownloadSettings(), audioDescriptionOnly, SecondaryAudioKind.ClearSpeech, SecondaryAudioDetectionSource.UrlDerived));
+        Assert.False(SecondaryAudioUrlHelper.IsKindEnabled(new BaseDownloadSettings(), audioDescriptionOnly, SecondaryAudioKind.OriginalVersion, SecondaryAudioDetectionSource.UrlDerived));
+
+        // ... and "klare Sprache" alone, the other way round.
+        var clearSpeechOnly = new AccessibilitySettings
+        {
+            AllowAudioDescription = true,
+            DownloadClearSpeech = true,
+            DetectUndetectedClearSpeech = true,
+        };
+
+        Assert.True(SecondaryAudioUrlHelper.IsKindEnabled(new BaseDownloadSettings(), clearSpeechOnly, SecondaryAudioKind.ClearSpeech, SecondaryAudioDetectionSource.UrlDerived));
+        Assert.False(SecondaryAudioUrlHelper.IsKindEnabled(new BaseDownloadSettings(), clearSpeechOnly, SecondaryAudioKind.AudioDescription, SecondaryAudioDetectionSource.UrlDerived));
+    }
+
+    [Fact]
+    public void IsKindEnabled_ShouldStillHonourTheKindsOwnSwitch()
+    {
+        // Looking for a kind that is not wanted at all finds nothing.
+        var accessibility = new AccessibilitySettings
+        {
+            AllowAudioDescription = false,
+            DownloadClearSpeech = false,
+            DetectUndetectedAudioDescription = true,
+            DetectUndetectedClearSpeech = true,
+        };
+
+        Assert.False(SecondaryAudioUrlHelper.IsKindEnabled(new BaseDownloadSettings(), accessibility, SecondaryAudioKind.AudioDescription, SecondaryAudioDetectionSource.UrlDerived));
+        Assert.False(SecondaryAudioUrlHelper.IsKindEnabled(new BaseDownloadSettings(), accessibility, SecondaryAudioKind.ClearSpeech, SecondaryAudioDetectionSource.UrlDerived));
+    }
+
+    [Fact]
+    public void AnyCrossResultDetectionEnabled_ShouldFollowTheSameRules()
+    {
+        Assert.False(SecondaryAudioUrlHelper.AnyCrossResultDetectionEnabled(new BaseDownloadSettings(), new AccessibilitySettings()));
+
+        // Switched on, but for a kind the subscription does not want at all.
+        Assert.False(SecondaryAudioUrlHelper.AnyCrossResultDetectionEnabled(
+            new BaseDownloadSettings(),
+            new AccessibilitySettings { DetectCrossResultClearSpeech = true }));
+
+        Assert.True(SecondaryAudioUrlHelper.AnyCrossResultDetectionEnabled(
+            new BaseDownloadSettings(),
+            new AccessibilitySettings { DownloadClearSpeech = true, DetectCrossResultClearSpeech = true }));
+
+        Assert.True(SecondaryAudioUrlHelper.AnyCrossResultDetectionEnabled(
+            new BaseDownloadSettings { DetectCrossResultAudioVariants = true },
+            new AccessibilitySettings()));
     }
 
     [Fact]

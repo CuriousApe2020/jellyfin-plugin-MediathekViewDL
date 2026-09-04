@@ -20,39 +20,64 @@ public record AccessibilitySettings
 
     /// <summary>
     /// Gets a value indicating whether to download versions with "klare Sprache" (speech-optimized
-    /// audio). Defaults to true, which is how the plugin behaved before this setting existed: such
-    /// versions were never filtered out, they simply came in as ordinary items.
+    /// audio). Off by default, like audio description: such versions used to come in as ordinary
+    /// items whenever the search happened to return them, which is not something to keep doing
+    /// silently.
     /// </summary>
-    public bool DownloadClearSpeech { get; init; } = true;
+    public bool DownloadClearSpeech { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether to detect audio-description and "klare Sprache" tracks that
-    /// MediathekViewWeb's search index doesn't surface as a separate result - derived from the main
-    /// video's URL. The accessibility counterpart to
+    /// Gets a value indicating whether to detect audio-description tracks that MediathekViewWeb's
+    /// search index doesn't surface as a separate result - derived from the main video's URL. The
+    /// audio-description counterpart to
     /// <see cref="BaseDownloadSettings.DetectUndetectedSecondaryAudio"/>, kept separate so a
     /// subscription can collect language versions without collecting accessibility tracks, or the
-    /// other way round. Applies to both <see cref="AllowAudioDescription"/> and
-    /// <see cref="DownloadClearSpeech"/>.
+    /// other way round. Only has an effect while <see cref="AllowAudioDescription"/> is on.
     /// </summary>
-    public bool DetectUndetectedAccessibilityAudio { get; init; }
+    public bool DetectUndetectedAudioDescription { get; init; }
 
     /// <summary>
     /// Gets a value indicating whether to merge sibling search results that represent the same
-    /// episode with audio description or "klare Sprache" into the episode's download job as an extra
-    /// audio track. The accessibility counterpart to
-    /// <see cref="BaseDownloadSettings.DetectCrossResultAudioVariants"/>. Applies to both
-    /// <see cref="AllowAudioDescription"/> and <see cref="DownloadClearSpeech"/>.
+    /// episode with audio description into the episode's download job as an extra audio track. The
+    /// audio-description counterpart to
+    /// <see cref="BaseDownloadSettings.DetectCrossResultAudioVariants"/>. Only has an effect while
+    /// <see cref="AllowAudioDescription"/> is on.
     /// </summary>
-    public bool DetectCrossResultAccessibilityVariants { get; init; }
+    public bool DetectCrossResultAudioDescription { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether a newly found audio-description or "klare Sprache" track for
-    /// an episode that already exists locally is attached to that existing video as an extra audio
-    /// track, instead of being downloaded as a second, near-duplicate video file. The accessibility
-    /// counterpart to <see cref="BaseDownloadSettings.AddAudioToExistingEpisodes"/>, and like it,
-    /// requires <see cref="BaseDownloadSettings.EnhancedDuplicateDetection"/>.
+    /// Gets a value indicating whether a newly found audio-description track for an episode that
+    /// already exists locally is attached to that existing video as an extra audio track, instead of
+    /// being downloaded as a second, near-duplicate video file. Requires
+    /// <see cref="BaseDownloadSettings.EnhancedDuplicateDetection"/>, which is what reads the
+    /// library in the first place.
     /// </summary>
-    public bool AddAccessibilityAudioToExistingEpisodes { get; init; }
+    public bool AddAudioDescriptionToExistingEpisodes { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether to detect "klare Sprache" tracks that MediathekViewWeb's
+    /// search index doesn't surface as a separate result - derived from the main video's URL. The
+    /// "klare Sprache" counterpart to <see cref="DetectUndetectedAudioDescription"/>, kept separate
+    /// so a subscription can collect one kind without the other. Only has an effect while
+    /// <see cref="DownloadClearSpeech"/> is on.
+    /// </summary>
+    public bool DetectUndetectedClearSpeech { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether to merge sibling search results that represent the same
+    /// episode with "klare Sprache" into the episode's download job as an extra audio track. The
+    /// "klare Sprache" counterpart to <see cref="DetectCrossResultAudioDescription"/>. Only has an
+    /// effect while <see cref="DownloadClearSpeech"/> is on.
+    /// </summary>
+    public bool DetectCrossResultClearSpeech { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether a newly found "klare Sprache" track for an episode that
+    /// already exists locally is attached to that existing video as an extra audio track. The
+    /// "klare Sprache" counterpart to <see cref="AddAudioDescriptionToExistingEpisodes"/>, and like
+    /// it, requires <see cref="BaseDownloadSettings.EnhancedDuplicateDetection"/>.
+    /// </summary>
+    public bool AddClearSpeechToExistingEpisodes { get; init; }
 
     /// <summary>
     /// Gets a value indicating whether to allow downloading versions with sign language (Gebärdensprache).
