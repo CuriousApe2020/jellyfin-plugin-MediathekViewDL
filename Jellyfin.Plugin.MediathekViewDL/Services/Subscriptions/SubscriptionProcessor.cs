@@ -423,12 +423,19 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         LocalEpisodeCache? localEpisodeCache,
         CancellationToken cancellationToken)
     {
-        // Accessibility tracks and language versions are attached on their own switches - a
-        // subscription can collect one without the other.
-        var attachingEnabled = tempVideoInfo switch
+        // Every kind is attached on its own switch - a subscription can collect one without the
+        // others.
+        var kind = tempVideoInfo switch
         {
-            { HasAudiodescription: true } => subscription.Accessibility.AddAudioDescriptionToExistingEpisodes,
-            { HasClearLanguage: true } => subscription.Accessibility.AddClearSpeechToExistingEpisodes,
+            { HasAudiodescription: true } => SecondaryAudioKind.AudioDescription,
+            { HasClearLanguage: true } => SecondaryAudioKind.ClearSpeech,
+            _ => SecondaryAudioKind.OriginalVersion,
+        };
+
+        var attachingEnabled = kind switch
+        {
+            SecondaryAudioKind.AudioDescription => subscription.Accessibility.AddAudioDescriptionToExistingEpisodes,
+            SecondaryAudioKind.ClearSpeech => subscription.Accessibility.AddClearSpeechToExistingEpisodes,
             _ => subscription.Download.AddAudioToExistingEpisodes,
         };
 
@@ -452,7 +459,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
 
         // An original-version row whose language nothing named: the subscription's setting decides
         // whether it is stored as "und", tagged with the configured language, or left out.
-        if (!isAccessibilityTrack && OriginalVersionLanguagePolicy.IsUndefined(language))
+        if (kind == SecondaryAudioKind.OriginalVersion && OriginalVersionLanguagePolicy.IsUndefined(language))
         {
             var undefinedDecision = OriginalVersionLanguagePolicy.Decide(
                 null,
@@ -468,7 +475,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             language = undefinedDecision.LanguageCode!;
         }
 
-        if (!IsAudioLanguageKept(subscription, isAccessibilityTrack ? SecondaryAudioKind.AudioDescription : SecondaryAudioKind.OriginalVersion, language))
+        if (!IsAudioLanguageKept(subscription, kind, language))
         {
             _logger.LogInformation(
                 "Skipping the '{Language}' audio track of '{Title}': the subscription only stores selected languages.",
