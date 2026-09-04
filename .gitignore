@@ -8,4 +8,5 @@ jellyfin-config/
 artifacts
 node_modules/
 configPageVueJS.js
+Jellyfin.Plugin.MediathekViewDL/Configuration/Web/MediathekViewDLVueJS.js
 Jellyfin.Plugin.MediathekViewDL/Configuration/Web/MediathekViewDLForkVueJS.js
