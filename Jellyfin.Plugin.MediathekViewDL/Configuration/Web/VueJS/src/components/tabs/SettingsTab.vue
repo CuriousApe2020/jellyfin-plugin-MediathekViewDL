@@ -50,10 +50,6 @@ const defDownloadFullVideoSecondaryAudio = ref(false)
 const defDetectUndetectedSecondaryAudio = ref(false)
 const defDetectCrossResultAudioVariants = ref(false)
 const defAddAudioToExistingEpisodes = ref(false)
-const defDownloadOriginalVersionAudio = ref(true)
-const defDownloadAudioDescriptionAudio = ref(false)
-const defDownloadClearSpeechAudio = ref(false)
-const defResolveOriginalVersionLanguage = ref(true)
 const defCleanAudioTrackLabels = ref(false)
 const defAlwaysCreateSubfolder = ref(false)
 const defEnhancedDuplicateDetection = ref(false)
@@ -81,7 +77,7 @@ const defAppendTimeToTitle = ref(false)
 
 // Subscription Defaults - Accessibility
 const defAllowAudioDesc = ref(false)
-const defDownloadClearSpeech = ref(true)
+const defDownloadClearSpeech = ref(false)
 const defDetectUndetectedAccessibilityAudio = ref(false)
 const defDetectCrossResultAccessibilityVariants = ref(false)
 const defAddAccessibilityAudioToExistingEpisodes = ref(false)
@@ -180,10 +176,6 @@ async function loadConfig() {
     defDetectUndetectedSecondaryAudio.value = defDl.DetectUndetectedSecondaryAudio ?? false
     defDetectCrossResultAudioVariants.value = defDl.DetectCrossResultAudioVariants ?? false
     defAddAudioToExistingEpisodes.value = defDl.AddAudioToExistingEpisodes ?? false
-    defDownloadOriginalVersionAudio.value = defDl.DownloadOriginalVersionAudio ?? true
-    defDownloadAudioDescriptionAudio.value = defDl.DownloadAudioDescriptionAudio ?? false
-    defDownloadClearSpeechAudio.value = defDl.DownloadClearSpeechAudio ?? false
-    defResolveOriginalVersionLanguage.value = defDl.ResolveOriginalVersionLanguage !== undefined ? defDl.ResolveOriginalVersionLanguage : true
     defCleanAudioTrackLabels.value = defDl.CleanAudioTrackLabels ?? false
     defAlwaysCreateSubfolder.value = defDl.AlwaysCreateSubfolder ?? false
     defEnhancedDuplicateDetection.value = defDl.EnhancedDuplicateDetection ?? false
@@ -208,7 +200,7 @@ async function loadConfig() {
     defAppendTimeToTitle.value = defMeta.AppendTimeToTitle ?? false
 
     defAllowAudioDesc.value = defAccess.AllowAudioDescription ?? false
-    defDownloadClearSpeech.value = defAccess.DownloadClearSpeech ?? true
+    defDownloadClearSpeech.value = defAccess.DownloadClearSpeech ?? false
     defDetectUndetectedAccessibilityAudio.value = defAccess.DetectUndetectedAccessibilityAudio ?? false
     defDetectCrossResultAccessibilityVariants.value = defAccess.DetectCrossResultAccessibilityVariants ?? false
     defAddAccessibilityAudioToExistingEpisodes.value = defAccess.AddAccessibilityAudioToExistingEpisodes ?? false
@@ -276,10 +268,6 @@ async function saveConfig() {
         DetectUndetectedSecondaryAudio: defDetectUndetectedSecondaryAudio.value,
         DetectCrossResultAudioVariants: defDetectCrossResultAudioVariants.value,
         AddAudioToExistingEpisodes: defAddAudioToExistingEpisodes.value,
-        DownloadOriginalVersionAudio: defDownloadOriginalVersionAudio.value,
-        DownloadAudioDescriptionAudio: defDownloadAudioDescriptionAudio.value,
-        DownloadClearSpeechAudio: defDownloadClearSpeechAudio.value,
-        ResolveOriginalVersionLanguage: defResolveOriginalVersionLanguage.value,
         CleanAudioTrackLabels: defCleanAudioTrackLabels.value,
         AlwaysCreateSubfolder: defAlwaysCreateSubfolder.value,
         EnhancedDuplicateDetection: defEnhancedDuplicateDetection.value,

@@ -46,7 +46,7 @@ export const SubscriptionFactory = {
     },
     Accessibility: {
       AllowAudioDescription: defaults.AccessibilitySettings?.AllowAudioDescription || false,
-      DownloadClearSpeech: defaults.AccessibilitySettings?.DownloadClearSpeech ?? true,
+      DownloadClearSpeech: defaults.AccessibilitySettings?.DownloadClearSpeech ?? false,
       DetectUndetectedAccessibilityAudio: defaults.AccessibilitySettings?.DetectUndetectedAccessibilityAudio || false,
       DetectCrossResultAccessibilityVariants: defaults.AccessibilitySettings?.DetectCrossResultAccessibilityVariants || false,
       AddAccessibilityAudioToExistingEpisodes: defaults.AccessibilitySettings?.AddAccessibilityAudioToExistingEpisodes || false,

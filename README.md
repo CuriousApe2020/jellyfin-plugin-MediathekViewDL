@@ -165,7 +165,7 @@ Das Herzstück des Plugins. Hier definieren Sie, was regelmäßig gesucht wird.
 | ↳ **Sprachfassungen nachträglich hinzufügen** | Hängt eine später auftauchende Fassung als Tonspur an die vorhandene Folge. Setzt die erweiterte Duplikaterkennung voraus - ohne sie lässt sich das Abo nicht speichern. |
 | ↳ **Wenn die OV-Sprache nicht bestimmbar ist** | Manche Sender nennen die Sprache nie (ARD/ONE meldet nur `ov`). Wahlweise: einen ISO-Code verwenden, als `und` speichern oder die Spur nicht speichern. |
 | ↳ **Sprachcodes nachtragen** | Benennt vorhandene `*.und.mka` um und taggt sie neu, sobald die Sprache bekannt wird - auch wenn der Sender sie erst bei einer Neuausstrahlung nennt. |
-| **Audiodeskription / Klare Sprache** (Reiter *Barrierefreiheit*) | Zwei getrennte Schalter; ist einer aktiv, erscheinen die gemeinsamen Erkennungs-Optionen (URL-Muster, verwandte Suchtreffer, nachträgliches Hinzufügen). Sind sie aus, werden solche Fassungen übersprungen. |
+| **Audiodeskription / Klare Sprache** (Reiter *Barrierefreiheit*) | Zwei getrennte Schalter, beide standardmäßig aus; ist einer aktiv, erscheinen die gemeinsamen Erkennungs-Optionen (URL-Muster, verwandte Suchtreffer, nachträgliches Hinzufügen). Sind sie aus, werden solche Fassungen übersprungen. |
 | **Nur wenn diese Tonspur verfügbar ist** (Reiter *Suche*) | Lädt nur Titel, die eine Tonspur in einer der angegebenen Sprachen haben (mehrere mit Komma). |
 | **Streaming (.strm) verwenden** | Speichert keine Videodatei, sondern nur eine Textdatei, die auf den Online-Stream verweist. |
 | **Vollständiges Video für sek. Audio** | Lädt das komplette Video, auch wenn es eine andere Sprache als Deutsch hat (sonst nur Audio-Extrakt). (Nicht bei .strm). |

@@ -72,7 +72,7 @@ watch(() => props.subscription, (newVal) => {
         copy.Download.AudioLanguageMode = toEnumValue(copy.Download.AudioLanguageMode, AUDIO_LANGUAGE_MODE, 0)
         copy.Metadata.UndefinedOriginalVersionHandling = toEnumValue(copy.Metadata.UndefinedOriginalVersionHandling, UNDEFINED_OV_HANDLING, 1)
         copy.Metadata.BackfillAudioLanguages = copy.Metadata.BackfillAudioLanguages ?? true
-        copy.Accessibility.DownloadClearSpeech = copy.Accessibility.DownloadClearSpeech ?? true
+        copy.Accessibility.DownloadClearSpeech = copy.Accessibility.DownloadClearSpeech ?? false
         editedSub.value = copy
         // Reset active tab when a new subscription is opened
         activeTab.value = 'basic'

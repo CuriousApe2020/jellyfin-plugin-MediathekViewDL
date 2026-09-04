@@ -20,10 +20,11 @@ public record AccessibilitySettings
 
     /// <summary>
     /// Gets a value indicating whether to download versions with "klare Sprache" (speech-optimized
-    /// audio). Defaults to true, which is how the plugin behaved before this setting existed: such
-    /// versions were never filtered out, they simply came in as ordinary items.
+    /// audio). Off by default, like audio description: such versions used to come in as ordinary
+    /// items whenever the search happened to return them, which is not something to keep doing
+    /// silently.
     /// </summary>
-    public bool DownloadClearSpeech { get; init; } = true;
+    public bool DownloadClearSpeech { get; init; }
 
     /// <summary>
     /// Gets a value indicating whether to detect audio-description and "klare Sprache" tracks that
