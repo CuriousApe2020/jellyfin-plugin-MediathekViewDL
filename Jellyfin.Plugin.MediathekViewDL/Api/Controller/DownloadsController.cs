@@ -287,8 +287,8 @@ public class DownloadsController : ControllerBase
 
         job.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.FFmpegDownload, CleanAudioTrackLabel = config.SubscriptionDefaults.DownloadSettings.CleanAudioTrackLabels });
 
-        await AddDetectedSecondaryAudioItemsAsync(job, item, videoUrl, paths.MainFilePath, config.SubscriptionDefaults.DownloadSettings).ConfigureAwait(false);
-        await AddCrossResultAudioVariantItemsAsync(job, item, videoInfo, paths.MainFilePath, config.SubscriptionDefaults.DownloadSettings, HttpContext.RequestAborted).ConfigureAwait(false);
+        await AddDetectedSecondaryAudioItemsAsync(job, item, videoUrl, paths.MainFilePath, config.SubscriptionDefaults.DownloadSettings, config.SubscriptionDefaults.MetadataSettings.OriginalLanguage).ConfigureAwait(false);
+        await AddCrossResultAudioVariantItemsAsync(job, item, videoInfo, paths.MainFilePath, config.SubscriptionDefaults.DownloadSettings, config.SubscriptionDefaults.MetadataSettings.OriginalLanguage, HttpContext.RequestAborted).ConfigureAwait(false);
 
         if (subtitleUrl is not null)
         {
@@ -394,8 +394,8 @@ public class DownloadsController : ControllerBase
         }
         else
         {
-            await AddDetectedSecondaryAudioItemsAsync(job, item, videoUrl, videoDestinationPath, config.SubscriptionDefaults.DownloadSettings).ConfigureAwait(false);
-            await AddCrossResultAudioVariantItemsAsync(job, item, videoInfo, videoDestinationPath, config.SubscriptionDefaults.DownloadSettings, HttpContext.RequestAborted).ConfigureAwait(false);
+            await AddDetectedSecondaryAudioItemsAsync(job, item, videoUrl, videoDestinationPath, config.SubscriptionDefaults.DownloadSettings, config.SubscriptionDefaults.MetadataSettings.OriginalLanguage).ConfigureAwait(false);
+            await AddCrossResultAudioVariantItemsAsync(job, item, videoInfo, videoDestinationPath, config.SubscriptionDefaults.DownloadSettings, config.SubscriptionDefaults.MetadataSettings.OriginalLanguage, HttpContext.RequestAborted).ConfigureAwait(false);
         }
 
         if (subtitleUrl is not null)
@@ -431,13 +431,16 @@ public class DownloadsController : ControllerBase
     /// <param name="videoUrl">The resolved main video URL.</param>
     /// <param name="mainFilePath">The destination path of the main video file.</param>
     /// <param name="downloadSettings">The download settings that decide which kinds are enabled.</param>
+    /// <param name="originalLanguage">The globally configured original-version language, used when the
+    /// broadcaster lookup yields nothing (or is disabled) instead of the generic "und" placeholder.</param>
     /// <returns>A task that completes once all detected items have been queued.</returns>
     private async Task AddDetectedSecondaryAudioItemsAsync(
         DownloadJob job,
         ResultItemDto item,
         string videoUrl,
         string mainFilePath,
-        BaseDownloadSettings downloadSettings)
+        BaseDownloadSettings downloadSettings,
+        string? originalLanguage)
     {
         foreach (var candidate in SecondaryAudioUrlHelper.DetectCandidates(videoUrl))
         {
@@ -446,16 +449,21 @@ public class DownloadsController : ControllerBase
                 continue;
             }
 
-            var isOriginalVersion = candidate.Kind == SecondaryAudioKind.OriginalVersion;
-            string? candidateLang;
-            if (isOriginalVersion && downloadSettings.ResolveOriginalVersionLanguage)
+            var candidateLang = candidate.LanguageCode;
+            if (candidate.Kind == SecondaryAudioKind.OriginalVersion)
             {
-                _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
-                candidateLang = (await _originalVersionLanguageResolver.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, HttpContext.RequestAborted).ConfigureAwait(false)) ?? candidate.LanguageCode;
-            }
-            else
-            {
-                candidateLang = candidate.LanguageCode;
+                string? resolvedLang = null;
+                if (downloadSettings.ResolveOriginalVersionLanguage)
+                {
+                    _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
+                    resolvedLang = await _originalVersionLanguageResolver.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, HttpContext.RequestAborted).ConfigureAwait(false);
+                }
+
+                // Broadcaster first, then the configured original language, then the "und"
+                // placeholder - the same order the subscription path uses.
+                candidateLang = !string.IsNullOrWhiteSpace(resolvedLang)
+                    ? resolvedLang
+                    : (!string.IsNullOrWhiteSpace(originalLanguage) ? originalLanguage : candidate.LanguageCode);
             }
 
             // Standalone file next to the main video (e.g. "Title.eng.mka"), same naming convention as a
@@ -489,6 +497,8 @@ public class DownloadsController : ControllerBase
     /// <param name="videoInfo">The parsed video info for <paramref name="item"/>.</param>
     /// <param name="mainFilePath">The destination path of the main video file.</param>
     /// <param name="downloadSettings">The download settings that decide whether this is enabled and which kinds are allowed.</param>
+    /// <param name="originalLanguage">The globally configured original-version language, used for a
+    /// sibling whose title only says "(OV)" when the broadcaster lookup yields nothing.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that completes once all grouped-in items have been queued.</returns>
     private async Task AddCrossResultAudioVariantItemsAsync(
@@ -497,6 +507,7 @@ public class DownloadsController : ControllerBase
         VideoInfo videoInfo,
         string mainFilePath,
         BaseDownloadSettings downloadSettings,
+        string? originalLanguage,
         CancellationToken cancellationToken)
     {
         if (!downloadSettings.DetectCrossResultAudioVariants || string.IsNullOrWhiteSpace(item.Topic))
@@ -540,11 +551,19 @@ public class DownloadsController : ControllerBase
                 continue;
             }
 
-            if (candidateInfo.Language == "und" && downloadSettings.ResolveOriginalVersionLanguage)
+            if (candidateInfo.Language == "und")
             {
-                candidateInfo.Language = (await _originalVersionLanguageResolver
-                    .TryGetOriginalVersionLanguageAsync(candidateItem.UrlWebsite, cancellationToken)
-                    .ConfigureAwait(false)) ?? candidateInfo.Language;
+                if (downloadSettings.ResolveOriginalVersionLanguage)
+                {
+                    candidateInfo.Language = (await _originalVersionLanguageResolver
+                        .TryGetOriginalVersionLanguageAsync(candidateItem.UrlWebsite, cancellationToken)
+                        .ConfigureAwait(false)) ?? candidateInfo.Language;
+                }
+
+                if (candidateInfo.Language == "und" && !string.IsNullOrWhiteSpace(originalLanguage))
+                {
+                    candidateInfo.Language = originalLanguage;
+                }
             }
 
             candidates.Add((candidateItem, candidateInfo));

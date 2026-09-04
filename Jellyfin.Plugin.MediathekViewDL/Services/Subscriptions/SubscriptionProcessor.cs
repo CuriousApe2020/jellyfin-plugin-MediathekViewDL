@@ -625,7 +625,8 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     /// Resolves the language a single URL-derived secondary-audio candidate (ARD-style, see
     /// <see cref="SecondaryAudioUrlHelper"/>) ends up tagged with - the broadcaster-API lookup for
     /// original-version tracks when <see cref="BaseDownloadSettings.ResolveOriginalVersionLanguage"/>
-    /// is enabled, falling back to the URL-derived placeholder otherwise. Shared by
+    /// is enabled, then the subscription's own <see cref="MetadataSettings.OriginalLanguage"/>
+    /// override, and only then the URL-derived "und" placeholder. Shared by
     /// <see cref="BuildDownloadJobAsync"/> (which turns the result into a real
     /// <see cref="DownloadItem"/>) and the dry-run language-filter probe in
     /// <see cref="WouldPassAudioLanguageFilterAsync"/> (which only needs the language, not a full
@@ -633,13 +634,53 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     /// </summary>
     private async Task<string?> ResolveSecondaryAudioLanguageAsync(Subscription subscription, ResultItemDto item, SecondaryAudioCandidate candidate, CancellationToken cancellationToken)
     {
-        if (candidate.Kind != SecondaryAudioKind.OriginalVersion || !subscription.Download.ResolveOriginalVersionLanguage)
+        if (candidate.Kind != SecondaryAudioKind.OriginalVersion)
         {
             return candidate.LanguageCode;
         }
 
-        _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
-        return (await _originalVersionLanguageResolver.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken).ConfigureAwait(false)) ?? candidate.LanguageCode;
+        if (subscription.Download.ResolveOriginalVersionLanguage)
+        {
+            _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
+            var resolvedLanguage = await _originalVersionLanguageResolver
+                .TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (!string.IsNullOrWhiteSpace(resolvedLanguage))
+            {
+                return resolvedLanguage;
+            }
+        }
+
+        // Same last resort <see cref="SetOvLanguageIfSetAsync"/> applies to title-marked
+        // original-version rows: the broadcaster said nothing (or the lookup is off), so use the
+        // language the user configured rather than the "und" placeholder.
+        var configuredLanguage = GetConfiguredOriginalLanguage(subscription);
+        if (!string.IsNullOrWhiteSpace(configuredLanguage))
+        {
+            return configuredLanguage;
+        }
+
+        return candidate.LanguageCode;
+    }
+
+    /// <summary>
+    /// Gets the original-version language the user configured: the subscription's own setting
+    /// first, then the global default for new subscriptions. The global default matters for the
+    /// broadcasters that mark a track as "Originalversion" without ever naming its language - ARD's
+    /// ONE/WDR items report the audio language as the literal "ov" - where no lookup can fill the
+    /// gap and the setting is the only source there is.
+    /// </summary>
+    /// <param name="subscription">The subscription the item belongs to.</param>
+    /// <returns>The configured 3-letter language code, or null when neither level sets one.</returns>
+    private string? GetConfiguredOriginalLanguage(Subscription subscription)
+    {
+        if (!string.IsNullOrWhiteSpace(subscription.Metadata.OriginalLanguage))
+        {
+            return subscription.Metadata.OriginalLanguage;
+        }
+
+        return _configurationProvider.ConfigurationOrNull?.SubscriptionDefaults.MetadataSettings.OriginalLanguage;
     }
 
     /// <summary>
@@ -1046,8 +1087,8 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     /// "(Originalversion mit Untertitel)"), which by itself doesn't say which language. Tries the
     /// broadcaster resolver first (works for any item MediathekViewWeb already returned as a
     /// distinct search result, not just the ones <see cref="SecondaryAudioUrlHelper"/> derives from
-    /// a main video URL); falls back to the subscription's manually configured OriginalLanguage
-    /// override if the resolver found nothing or is disabled.
+    /// a main video URL); falls back to the manually configured OriginalLanguage override - the
+    /// subscription's own, else the global default - if the resolver found nothing or is disabled.
     /// </summary>
     private async Task SetOvLanguageIfSetAsync(Subscription subscription, VideoInfo? videoInfo, ResultItemDto item, CancellationToken cancellationToken)
     {
@@ -1069,9 +1110,10 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(subscription.Metadata.OriginalLanguage))
+        var configuredLanguage = GetConfiguredOriginalLanguage(subscription);
+        if (!string.IsNullOrWhiteSpace(configuredLanguage))
         {
-            videoInfo.Language = subscription.Metadata.OriginalLanguage;
+            videoInfo.Language = configuredLanguage;
         }
     }
 

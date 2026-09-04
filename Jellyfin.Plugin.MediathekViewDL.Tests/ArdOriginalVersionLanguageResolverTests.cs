@@ -1,3 +1,4 @@
+using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -55,6 +56,189 @@ public class ArdOriginalVersionLanguageResolverTests
         Assert.Equal("eng", result);
         Assert.NotNull(capturedRequest);
         Assert.Contains("Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw", capturedRequest!.RequestUri!.ToString());
+    }
+
+    [Fact]
+    public async Task TryGetOriginalVersionLanguageAsync_ShouldRequestTheMediaCollection()
+    {
+        HttpRequestMessage? capturedRequest = null;
+        var (resolver, handlerMock) = CreateResolver();
+        handlerMock
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Returns((HttpRequestMessage req, CancellationToken _) =>
+            {
+                capturedRequest = req;
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{}")
+                });
+            });
+
+        await resolver.TryGetOriginalVersionLanguageAsync(
+            "https://www.ardmediathek.de/video/Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw",
+            CancellationToken.None);
+
+        // Without this parameter the page-gateway answers with page metadata only - no media
+        // collection, and therefore no language to find.
+        Assert.NotNull(capturedRequest);
+        Assert.Contains("mcV6=true", capturedRequest!.RequestUri!.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TryGetOriginalVersionLanguageAsync_ShouldReadLanguageFromMediaCollection_WhenNoOvLanguageCodeExists()
+    {
+        // Shape confirmed against ARD's page-gateway:
+        // widgets[].mediaCollection.embedded.streams[].media[].audios[] entries of
+        // { "kind": ..., "languageCode": ... }.
+        var (resolver, handlerMock) = CreateResolver();
+        SetResponse(
+            handlerMock,
+            """
+            {"widgets":[{"mediaCollection":{"embedded":{"streams":[
+              {"kind":"main","media":[{"url":"https://example.invalid/de.mp4","audios":[{"kind":"standard","languageCode":"deu"}]}]},
+              {"kind":"main","media":[{"url":"https://example.invalid/ov.mp4","audios":[{"kind":"standard","languageCode":"eng"}]}]}
+            ]}}}]}
+            """);
+
+        var result = await resolver.TryGetOriginalVersionLanguageAsync(
+            "https://www.ardmediathek.de/video/Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw",
+            CancellationToken.None);
+
+        Assert.Equal("eng", result);
+    }
+
+    [Fact]
+    public async Task TryGetOriginalVersionLanguageAsync_ShouldPreferAnAudioTrackMarkedAsOriginalVersion()
+    {
+        var (resolver, handlerMock) = CreateResolver();
+        SetResponse(
+            handlerMock,
+            """
+            {"widgets":[{"mediaCollection":{"embedded":{"streams":[
+              {"kind":"main","media":[{"audios":[{"kind":"standard","languageCode":"fra"}]}]},
+              {"kind":"main","media":[{"audios":[{"kind":"original-version","languageCode":"nld"}]}]}
+            ]}}}]}
+            """);
+
+        var result = await resolver.TryGetOriginalVersionLanguageAsync(
+            "https://www.ardmediathek.de/video/Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw",
+            CancellationToken.None);
+
+        Assert.Equal("nld", result);
+    }
+
+    [Fact]
+    public async Task TryGetOriginalVersionLanguageAsync_ShouldNormalizeTwoLetterAndLocaleCodes()
+    {
+        var (resolver, handlerMock) = CreateResolver();
+        SetResponse(
+            handlerMock,
+            """{"widgets":[{"mediaCollection":{"embedded":{"streams":[{"media":[{"audios":[{"kind":"standard","languageCode":"en-GB"}]}]}]}}}]}""");
+
+        var result = await resolver.TryGetOriginalVersionLanguageAsync(
+            "https://www.ardmediathek.de/video/Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw",
+            CancellationToken.None);
+
+        Assert.Equal("eng", result);
+    }
+
+    [Fact]
+    public async Task TryGetOriginalVersionLanguageAsync_ShouldFallBackToTheMediaCollection_WhenOvLanguageCodeIsUndetermined()
+    {
+        var (resolver, handlerMock) = CreateResolver();
+        SetResponse(
+            handlerMock,
+            """{"ovLanguageCode":"und","widgets":[{"mediaCollection":{"embedded":{"streams":[{"media":[{"audios":[{"kind":"standard","languageCode":"eng"}]}]}]}}}]}""");
+
+        var result = await resolver.TryGetOriginalVersionLanguageAsync(
+            "https://www.ardmediathek.de/video/Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw",
+            CancellationToken.None);
+
+        Assert.Equal("eng", result);
+    }
+
+    [Fact]
+    public async Task TryGetOriginalVersionLanguageAsync_ShouldReturnNull_WhenOnlyGermanAudioIsListed()
+    {
+        var (resolver, handlerMock) = CreateResolver();
+        SetResponse(
+            handlerMock,
+            """
+            {"widgets":[{"mediaCollection":{"embedded":{"streams":[
+              {"kind":"main","media":[{"audios":[{"kind":"standard","languageCode":"deu"}]}]},
+              {"kind":"audio-description","media":[{"audios":[{"kind":"audio-description","languageCode":"deu"}]}]}
+            ]}}}]}
+            """);
+
+        var result = await resolver.TryGetOriginalVersionLanguageAsync(
+            "https://www.ardmediathek.de/video/Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw",
+            CancellationToken.None);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task TryGetOriginalVersionLanguageAsync_ShouldIgnoreSubtitleLanguages()
+    {
+        var (resolver, handlerMock) = CreateResolver();
+        SetResponse(
+            handlerMock,
+            """
+            {"widgets":[{"mediaCollection":{"embedded":{
+              "subtitles":[{"kind":"ebutt","languageCode":"eng","sources":[{"url":"https://example.invalid/sub.xml"}]}],
+              "streams":[{"kind":"main","media":[{"audios":[{"kind":"standard","languageCode":"deu"}]}]}]
+            }}}]}
+            """);
+
+        var result = await resolver.TryGetOriginalVersionLanguageAsync(
+            "https://www.ardmediathek.de/video/Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw",
+            CancellationToken.None);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task TryGetOriginalVersionLanguageAsync_ShouldReturnNull_WhenArdReportsTheLiteralOvMarker()
+    {
+        // Real shape of an ONE/WDR original-version item ("Sherlock & Daughter ... (Originalversion)"):
+        // ARD says the track is the original version, but never says in which language.
+        var (resolver, handlerMock) = CreateResolver();
+        SetResponse(
+            handlerMock,
+            """
+            {"widgets":[{"mediaCollection":{"embedded":{
+              "streams":[{"kind":"main","kindName":"Normal","videoLanguageCode":"","media":[
+                {"url":"https://example.invalid/ov-1080.mp4","audios":[{"kind":"standard","languageCode":"ov"}]},
+                {"url":"https://example.invalid/ov-720.mp4","audios":[{"kind":"standard","languageCode":"ov"}]}
+              ]}],
+              "subtitles":[{"kind":"normal","languageCode":"deu","sources":[]}]
+            }}}]}
+            """);
+
+        var result = await resolver.TryGetOriginalVersionLanguageAsync(
+            "https://www.ardmediathek.de/video/Y3JpZDovL3dkci5kZS9CZWl0cmFnLXNvcGhvcmEtMmZiMDVmMGQ",
+            CancellationToken.None);
+
+        // Never "ov" - that is not a language code any player understands.
+        Assert.Null(result);
+    }
+
+    private static void SetResponse(Mock<HttpMessageHandler> handlerMock, string json)
+    {
+        handlerMock
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json)
+            });
     }
 
     [Fact]
