@@ -125,6 +125,52 @@ describe('jellyfinTheme', () => {
         expect(root.style.getPropertyValue('--mvpl-on-border')).toBe('rgb(255, 255, 255)')
     })
 
+    it('FlattensTranslucentDivider_SoTagsAreNotWhiteOnWhite', async () => {
+        // Arrange: Jellyfin's real dark palette - MUI defines the divider with alpha.
+        // Dropping that alpha turned it into pure white, and .field-tag paints text
+        // directly onto it: a white pill with white text.
+        document.body.style.setProperty('--jf-palette-background-default', '#18181b')
+        document.body.style.setProperty('--jf-palette-background-paper', '#27272a')
+        document.body.style.setProperty('--jf-palette-divider', 'rgba(255, 255, 255, 0.12)')
+        const root = document.createElement('div')
+
+        // Act
+        await applyJellyfinTheme(root)
+
+        // Assert: 12% white over the #27272a panel, not white
+        expect(root.style.getPropertyValue('--mvpl-border')).toBe('rgb(65, 65, 68)')
+        // ... and the readable foreground follows the visible color, so it stays white
+        expect(root.style.getPropertyValue('--mvpl-on-border')).toBe('rgb(255, 255, 255)')
+    })
+
+    it('FlattensTranslucentSecondaryText_AgainstTheBackground', async () => {
+        // Arrange: MUI's dark secondary text tone.
+        document.body.style.setProperty('--jf-palette-background-default', '#000000')
+        document.body.style.setProperty('--jf-palette-text-secondary', 'rgba(255, 255, 255, 0.7)')
+        const root = document.createElement('div')
+
+        // Act
+        await applyJellyfinTheme(root)
+
+        // Assert: 70% white over black, not pure white
+        expect(root.style.getPropertyValue('--mvpl-text-secondary')).toBe('rgb(179, 179, 179)')
+    })
+
+    it('LeavesOpaqueColorsUntouched', async () => {
+        // Arrange: a theme without any alpha - flattening must be a no-op here.
+        document.body.style.setProperty('--jf-palette-background-default', '#18181b')
+        document.body.style.setProperty('--jf-palette-divider', '#3f3f46')
+        document.body.style.setProperty('--jf-palette-primary-main', '#00a4dc')
+        const root = document.createElement('div')
+
+        // Act
+        await applyJellyfinTheme(root)
+
+        // Assert
+        expect(root.style.getPropertyValue('--mvpl-border')).toBe('rgb(63, 63, 70)')
+        expect(root.style.getPropertyValue('--mvpl-accent')).toBe('rgb(0, 164, 220)')
+    })
+
     it('NeverThrows_WhenRootIsInvalid', async () => {
         // Arrange: a root that will blow up when we try to set a CSS property on it
         const brokenRoot = {

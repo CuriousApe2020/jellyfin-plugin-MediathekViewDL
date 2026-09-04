@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.31"
+version: "0.0.0.32"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,35 +17,18 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Neu: alle Optionen zur Tonspur-Erkennung stehen jetzt gesammelt im Reiter
-  "Metadaten" unter "Tonspur-Erkennung" - als Baum, der zeigt, was wovon
-  abhaengt: was gefunden wird (URL-Muster, verwandte Suchtreffer), was davon
-  geladen wird (Originalversion, Audiodeskription, klare Sprache), wie die
-  Sprache der Originalversion bestimmt wird, ob Tonspuren an vorhandene
-  Folgen gehaengt werden und wie die Tonspur-Bezeichnungen aussehen. Im
-  Reiter "Download" stehen nur noch die Download-Optionen. Gespeichert wird
-  unveraendert - bestehende Abos behalten alle Einstellungen.
+  Fix: in der Abo-Oberflaeche waren die nicht ausgewaehlten Feld-Schalter
+  einer Suchanfrage ("Beschreibung", "Sender") weiss auf weiss und damit
+  unlesbar. Ursache war die Theme-Erkennung: Jellyfins Palette gibt mehrere
+  Toene mit Transparenz an - im dunklen Standard-Theme ist die Trennlinie
+  ein weisses rgba mit 12 Prozent Deckkraft -, und beim Uebernehmen ging die
+  Transparenz verloren. Aus "weiss mit 12 Prozent" wurde deckendes Weiss,
+  und genau diese Farbe dient den Schaltern als Hintergrund. Gemessene
+  Farben werden jetzt vor dem Uebernehmen mit dem Untergrund verrechnet,
+  also so, wie der Browser sie tatsaechlich zeichnet. Das betrifft auch die
+  abgeleitete Lesbarkeitsfarbe, die vorher gegen Weiss berechnet wurde.
 
-  Neu: "Undefinierte Originalversionen erlauben". Die Sprache einer
-  Originalversion wird in dieser Reihenfolge bestimmt: Sender-Abfrage,
-  eingestellte Originalsprache des Abos, globaler Standardwert. Liefert
-  keine davon eine Sprache - z.B. bei ARD/ONE, wo als Tonspur-Sprache nur
-  "ov" gemeldet wird -, entscheidet die neue Option: aktiviert wird die
-  Tonspur wie bisher als "und" gespeichert, deaktiviert schlaegt der
-  Download genau dieser Tonspur mit einer klaren Fehlermeldung fehl, die in
-  der Download-Liste steht. Das Hauptvideo ist davon nie betroffen.
-  Voreinstellung ist "erlaubt", also das bisherige Verhalten.
-
-  Neu: fehlende Sprachcodes werden nachgetragen. Wird eine Originalsprache
-  erst gesetzt, nachdem schon Folgen geladen wurden, werden vorhandene
-  "*.und.mka" beim naechsten Abo-Lauf umbenannt und der Sprach-Tag in der
-  Datei gesetzt - ohne neu zu kodieren und ohne das Video anzufassen. Nach
-  einem manuellen Download passiert dasselbe fuer den Zielordner. Eine
-  Datei wird nur ersetzt, wenn das Umschreiben geklappt hat; existiert die
-  Zieldatei schon, bleibt alles unveraendert.
-
-  Enthaelt ausserdem die Aenderung aus 0.0.0.30: von den sechs
-  ARTE-Kanaelen war nur "ARTE.FR" der Sprachzuordnung bekannt. Alles von
-  ARTE.EN, ARTE.ES, ARTE.IT und ARTE.PL galt damit als deutsch und wurde
-  als zweites vollstaendiges Video statt als zusaetzliche Tonspur abgelegt.
-  Jetzt sind alle sechs Kanaele eingetragen.
+  Neu: der Filter "Nur mit Tonspur (ISO Code)" steht jetzt im Reiter "Suche"
+  direkt unter den Suchanfragen, statt unter "Barrierefreiheit" - er
+  entscheidet, welche Treffer ueberhaupt in Frage kommen, und gehoert damit
+  zur Suche.

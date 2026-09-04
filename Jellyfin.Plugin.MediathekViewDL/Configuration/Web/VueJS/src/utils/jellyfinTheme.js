@@ -42,6 +42,35 @@ function toCss(color) {
   return `rgb(${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)})`
 }
 
+/**
+ * Composites a possibly translucent color over an opaque backdrop, exactly as the
+ * browser paints it.
+ *
+ * Jellyfin's MUI palette defines several of its tones with alpha - on the default
+ * dark theme the divider is `rgba(255, 255, 255, 0.12)` and the secondary text tone
+ * `rgba(255, 255, 255, 0.7)`. Dropping that alpha (which `toCss` does) turns both into
+ * pure white, so anything using the divider as a *background* - the search-field tags
+ * in the subscription editor - became white text on a white pill, and the derived
+ * "readable foreground" was computed against white as well and came out dark on dark.
+ * Flattening first keeps the measured color looking like what the user actually sees,
+ * and makes every luminance test operate on that same visible color.
+ */
+function flatten(color, backdrop) {
+  if (!color) {
+    return null
+  }
+  const alpha = color.a === undefined ? 1 : color.a
+  if (alpha >= 1) {
+    return color
+  }
+  return {
+    r: backdrop.r + (color.r - backdrop.r) * alpha,
+    g: backdrop.g + (color.g - backdrop.g) * alpha,
+    b: backdrop.b + (color.b - backdrop.b) * alpha,
+    a: 1,
+  }
+}
+
 function mix(from, to, weight) {
   return {
     r: from.r + (to.r - from.r) * weight,
@@ -163,23 +192,27 @@ export async function applyJellyfinTheme(root) {
     // itself is unavailable (e.g. standalone dev preview with no Jellyfin body to read from).
     const DEFAULT_ACCENT = { r: 0, g: 164, b: 220, a: 1 }
 
-    const bg = readJellyfinColor('--jf-palette-background-default') || DEFAULT_BG
-    const text = readJellyfinColor('--jf-palette-text-primary') || DEFAULT_TEXT
+    // Every measured tone is flattened onto what sits behind it, so a translucent
+    // palette entry becomes the opaque color the user actually sees (see flatten()).
+    const bg = flatten(readJellyfinColor('--jf-palette-background-default'), DEFAULT_BG) || DEFAULT_BG
+    const text = flatten(readJellyfinColor('--jf-palette-text-primary'), bg) || DEFAULT_TEXT
     const isDark = relativeLuminance(bg) < 0.5
     const surfaceTint = isDark ? { r: 255, g: 255, b: 255 } : { r: 0, g: 0, b: 0 }
     const sunkenTint = isDark ? { r: 0, g: 0, b: 0 } : { r: 255, g: 255, b: 255 }
 
-    const surface = readJellyfinColor('--jf-palette-background-paper') || mix(bg, surfaceTint, 0.06)
-    const textSecondary = readJellyfinColor('--jf-palette-text-secondary') || mix(text, bg, 0.35)
+    const surface = flatten(readJellyfinColor('--jf-palette-background-paper'), bg) || mix(bg, surfaceTint, 0.06)
+    const textSecondary = flatten(readJellyfinColor('--jf-palette-text-secondary'), bg) || mix(text, bg, 0.35)
     // Jellyfin doesn't expose a dedicated "muted" text tone - always derive it from
     // whichever secondary tone we ended up with (measured or fallback).
     const textMuted = mix(textSecondary, bg, 0.35)
-    const divider = readJellyfinColor('--jf-palette-divider') || mix(bg, surfaceTint, 0.2)
-    const accent = readJellyfinColor('--jf-palette-primary-main') || DEFAULT_ACCENT
+    // Over the surface rather than the page: the divider is drawn as a border on, and
+    // as the tag background inside, our surface-colored panels.
+    const divider = flatten(readJellyfinColor('--jf-palette-divider'), surface) || mix(bg, surfaceTint, 0.2)
+    const accent = flatten(readJellyfinColor('--jf-palette-primary-main'), bg) || DEFAULT_ACCENT
     // Jellyfin's own stylesheet already uses --jf-palette-primary-dark as the
     // hover/active shade for this same button style (.button-submit:hover), so
     // prefer it over deriving our own darkened variant.
-    const accentHover = readJellyfinColor('--jf-palette-primary-dark') || mix(accent, sunkenTint, 0.15)
+    const accentHover = flatten(readJellyfinColor('--jf-palette-primary-dark'), bg) || mix(accent, sunkenTint, 0.15)
 
     const vars = {
       '--mvpl-bg': toCss(bg),
