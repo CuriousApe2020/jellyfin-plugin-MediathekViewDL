@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.29"
+version: "0.0.0.30"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,18 +17,25 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Fix: bei ARD-Originalversionen von ONE/WDR (z. B. "Sherlock & Daughter")
-  blieb die Tonspur trotz 0.0.0.28 auf "und". Grund: diese Beitraege melden
-  als Tonspur-Sprache den Text "ov" - die ARD sagt damit "das ist die
-  Originalfassung", nennt die Sprache aber nicht. "ov" wird jetzt als das
-  erkannt, was es ist (keine Sprache), landet nie mehr als Sprach-Tag in der
-  Datei und wird im Protokoll klar benannt: "ARD lists ... as an original
-  version but does not name its language".
+  Fix: von den sechs ARTE-Kanälen wurde nur einer richtig einsortiert.
+  MediathekViewWeb führt arte je Sprache getrennt - "ARTE.DE", "ARTE.FR",
+  "ARTE.EN", "ARTE.ES", "ARTE.IT" und "ARTE.PL" -, und der Crawler setzt
+  eine Markierung im Titel nur für Tonspuren, die *nicht* die Standardspur
+  des jeweiligen Kanals sind. Die Standardspur selbst trägt also keine
+  Markierung, aus der sich ihre Sprache ablesen ließe; dafür gibt es die
+  Zuordnung über den Kanalnamen. Eingetragen war dort bisher nur
+  "ARTE.FR". Alles von ARTE.EN, ARTE.ES, ARTE.IT und ARTE.PL galt damit
+  als deutsch: die Folge wurde nicht als zusätzliche Tonspur neben der
+  deutschen abgelegt, sondern als zweites vollständiges Video, und da der
+  Dateiname keine Sprachkennung bekam, konnte auch die Duplikaterkennung
+  nichts ausrichten. Jetzt sind alle sechs Kanäle eingetragen.
 
-  Neu: die eingestellte Originalsprache wird jetzt auch aus den globalen
-  Standardwerten uebernommen, wenn das Abo selbst keine gesetzt hat. Damit
-  laesst sich die Luecke fuer genau diese Sender-Beitraege einmal zentral
-  schliessen (Einstellungen - Standardwerte - Originalsprache, z. B. "eng"),
-  statt sie in jedem Abo einzeln zu pflegen. Reihenfolge unveraendert:
-  Sender-Abfrage zuerst, dann Abo-Einstellung, dann globaler Standardwert,
-  erst danach "und".
+  Die Lücke war nicht geraten, sondern geprüft: die sechs Kanalnamen
+  stehen im Quelltext des MediathekView-Crawlers, und dort wird für jeden
+  einzelnen auch ein Crawler registriert - sie erreichen den Suchindex
+  also tatsächlich alle.
+
+  Hinweis: bereits doppelt geladene Folgen räumt das nicht auf. Die
+  zweiten Videodateien können gelöscht werden; beim nächsten Abo-Lauf
+  kommt die fremdsprachige Tonspur als ".mka" neben die vorhandene Folge,
+  sofern "Neue Tonspuren zu vorhandenen Folgen hinzufügen" aktiviert ist.
