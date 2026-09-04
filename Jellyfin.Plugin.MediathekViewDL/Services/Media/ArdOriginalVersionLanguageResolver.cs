@@ -18,6 +18,16 @@ namespace Jellyfin.Plugin.MediathekViewDL.Services.Media;
 /// </summary>
 public class ArdOriginalVersionLanguageResolver : IBroadcasterOriginalVersionLanguageResolver
 {
+    /// <summary>
+    /// Codes that appear where a language is expected but name none: ARD's own "ov" marker for
+    /// "this is the original version" plus the ISO placeholders for undetermined, uncoded and
+    /// multiple languages.
+    /// </summary>
+    private static readonly HashSet<string> NonLanguageCodes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ov", "und", "mis", "mul", "zxx",
+    };
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<ArdOriginalVersionLanguageResolver> _logger;
 
@@ -74,10 +84,26 @@ public class ArdOriginalVersionLanguageResolver : IBroadcasterOriginalVersionLan
             using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
 
+            var audioTracks = new List<(string? Kind, string Language)>();
+            CollectAudioTracks(doc.RootElement, audioTracks);
+
             // A present-but-useless "ovLanguageCode" (ARD's own "und" placeholder) must not end the
             // search either - it would leave the track exactly as untagged as no lookup at all.
             var languageCode = NormalizeLanguageCode(FindOvLanguageCode(doc.RootElement))
-                ?? FindForeignAudioLanguageCode(doc.RootElement);
+                ?? FindForeignAudioLanguageCode(audioTracks);
+
+            if (languageCode is null && audioTracks.Exists(track => IsUnnamedOriginalVersion(track.Language)))
+            {
+                // Confirmed on ONE/WDR items (e.g. "Sherlock & Daughter ... (Originalversion)"):
+                // the audio track's languageCode is the literal string "ov". ARD is saying "this is
+                // the original version" without saying in which language, so there is nothing to
+                // resolve here - only the user's configured original language can fill it in.
+                _logger.LogInformation(
+                    "ARD lists '{Url}' as an original version but does not name its language (languageCode 'ov'). Set the subscription's original language to tag this track.",
+                    itemWebsiteUrl);
+                return null;
+            }
+
             _logger.LogInformation("Original-version language lookup for '{Url}' resolved to '{Language}'.", itemWebsiteUrl, languageCode ?? "(not found)");
             return languageCode;
         }
@@ -135,13 +161,10 @@ public class ArdOriginalVersionLanguageResolver : IBroadcasterOriginalVersionLan
     /// first track in a language other than German is taken, which is what an "Originalversion"
     /// track is by definition.
     /// </summary>
-    /// <param name="root">The parsed page-gateway response.</param>
+    /// <param name="audioTracks">Every audio track collected from the response.</param>
     /// <returns>The 3-letter ISO language code, or null when no usable audio track was listed.</returns>
-    private static string? FindForeignAudioLanguageCode(JsonElement root)
+    private static string? FindForeignAudioLanguageCode(List<(string? Kind, string Language)> audioTracks)
     {
-        var audioTracks = new List<(string? Kind, string Language)>();
-        CollectAudioTracks(root, audioTracks);
-
         foreach (var (kind, language) in audioTracks)
         {
             if (kind is null
@@ -235,7 +258,14 @@ public class ArdOriginalVersionLanguageResolver : IBroadcasterOriginalVersionLan
 
         var primary = language.Trim().Split('-')[0];
 
-        if (primary.Length == 3 && !primary.Equals("und", StringComparison.OrdinalIgnoreCase))
+        // "ov" and the ISO placeholders name no language at all; letting them through would tag the
+        // track with a code no player understands.
+        if (NonLanguageCodes.Contains(primary))
+        {
+            return null;
+        }
+
+        if (primary.Length == 3)
         {
             return primary.ToLowerInvariant();
         }
@@ -257,6 +287,9 @@ public class ArdOriginalVersionLanguageResolver : IBroadcasterOriginalVersionLan
 
         return null;
     }
+
+    private static bool IsUnnamedOriginalVersion(string language) =>
+        language.Trim().Equals("ov", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsGerman(string threeLetterCode) =>
         threeLetterCode.Equals("deu", StringComparison.OrdinalIgnoreCase)

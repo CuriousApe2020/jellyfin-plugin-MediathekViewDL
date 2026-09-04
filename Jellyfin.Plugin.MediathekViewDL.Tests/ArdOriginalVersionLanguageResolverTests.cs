@@ -201,6 +201,32 @@ public class ArdOriginalVersionLanguageResolverTests
         Assert.Null(result);
     }
 
+    [Fact]
+    public async Task TryGetOriginalVersionLanguageAsync_ShouldReturnNull_WhenArdReportsTheLiteralOvMarker()
+    {
+        // Real shape of an ONE/WDR original-version item ("Sherlock & Daughter ... (Originalversion)"):
+        // ARD says the track is the original version, but never says in which language.
+        var (resolver, handlerMock) = CreateResolver();
+        SetResponse(
+            handlerMock,
+            """
+            {"widgets":[{"mediaCollection":{"embedded":{
+              "streams":[{"kind":"main","kindName":"Normal","videoLanguageCode":"","media":[
+                {"url":"https://example.invalid/ov-1080.mp4","audios":[{"kind":"standard","languageCode":"ov"}]},
+                {"url":"https://example.invalid/ov-720.mp4","audios":[{"kind":"standard","languageCode":"ov"}]}
+              ]}],
+              "subtitles":[{"kind":"normal","languageCode":"deu","sources":[]}]
+            }}}]}
+            """);
+
+        var result = await resolver.TryGetOriginalVersionLanguageAsync(
+            "https://www.ardmediathek.de/video/Y3JpZDovL3dkci5kZS9CZWl0cmFnLXNvcGhvcmEtMmZiMDVmMGQ",
+            CancellationToken.None);
+
+        // Never "ov" - that is not a language code any player understands.
+        Assert.Null(result);
+    }
+
     private static void SetResponse(Mock<HttpMessageHandler> handlerMock, string json)
     {
         handlerMock

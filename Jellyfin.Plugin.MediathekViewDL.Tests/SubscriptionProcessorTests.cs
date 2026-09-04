@@ -9,6 +9,7 @@ using Jellyfin.Plugin.MediathekViewDL.Api.External;
 using Jellyfin.Plugin.MediathekViewDL.Api.External.Models;
 using Jellyfin.Plugin.MediathekViewDL.Api.Models;
 using Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration;
+using Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration.Groups;
 using Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration.SubscriptionSettings;
 using Jellyfin.Plugin.MediathekViewDL.Data;
 using Jellyfin.Plugin.MediathekViewDL.Services.Downloading.Clients;
@@ -292,6 +293,70 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
             var originalVersion = jobs[0].DownloadItems.Single(i => i.SourceUrl.Contains("_originalversion_", StringComparison.Ordinal));
             Assert.Equal("eng", originalVersion.Language);
             Assert.EndsWith(".eng.mka", originalVersion.DestinationPath, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldUseGlobalOriginalLanguageDefault_WhenSubscriptionHasNone()
+        {
+            // Arrange
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Download = new DownloadSettings
+                {
+                    DetectUndetectedSecondaryAudio = true,
+                    DownloadOriginalVersionAudio = true,
+                    ResolveOriginalVersionLanguage = true,
+                }
+            };
+            var item = new ResultItem
+            {
+                Id = "123",
+                Title = "TestTitle",
+                UrlVideoHd = "http://test.com/video_sendeton_1080p.mp4",
+                UrlWebsite = "https://www.ardmediathek.de/video/Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw"
+            };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+
+            _apiClientMock
+                .Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "TestTitle", Language = "deu" };
+            _videoParserMock
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mkv" });
+
+            _originalVersionLanguageResolverMock
+                .Setup(x => x.TryGetOriginalVersionLanguageAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((string?)null);
+
+            // The subscription itself sets no original language - the global default has to apply.
+            var config = new PluginConfiguration
+            {
+                SubscriptionDefaults = new SubscriptionDefaults
+                {
+                    MetadataSettings = new MetadataSettings { OriginalLanguage = "eng" }
+                }
+            };
+            _configurationProviderMock.Setup(x => x.ConfigurationOrNull).Returns(config);
+            _configurationProviderMock.Setup(x => x.Configuration).Returns(config);
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            var originalVersion = jobs[0].DownloadItems.Single(i => i.SourceUrl.Contains("_originalversion_", StringComparison.Ordinal));
+            Assert.Equal("eng", originalVersion.Language);
         }
 
         [Fact]
