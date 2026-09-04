@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.29"
+version: "0.0.0.30"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,18 +17,29 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Fix: bei ARD-Originalversionen von ONE/WDR (z. B. "Sherlock & Daughter")
-  blieb die Tonspur trotz 0.0.0.28 auf "und". Grund: diese Beitraege melden
-  als Tonspur-Sprache den Text "ov" - die ARD sagt damit "das ist die
-  Originalfassung", nennt die Sprache aber nicht. "ov" wird jetzt als das
-  erkannt, was es ist (keine Sprache), landet nie mehr als Sprach-Tag in der
-  Datei und wird im Protokoll klar benannt: "ARD lists ... as an original
-  version but does not name its language".
+  Neu: alle Optionen zur Tonspur-Erkennung stehen jetzt gesammelt im Reiter
+  "Metadaten" unter "Tonspur-Erkennung" - als Baum, der zeigt, was wovon
+  abhaengt: was gefunden wird (URL-Muster, verwandte Suchtreffer), was davon
+  geladen wird (Originalversion, Audiodeskription, klare Sprache), wie die
+  Sprache der Originalversion bestimmt wird, ob Tonspuren an vorhandene
+  Folgen gehaengt werden und wie die Tonspur-Bezeichnungen aussehen. Im
+  Reiter "Download" stehen nur noch die Download-Optionen. Gespeichert wird
+  unveraendert - bestehende Abos behalten alle Einstellungen.
 
-  Neu: die eingestellte Originalsprache wird jetzt auch aus den globalen
-  Standardwerten uebernommen, wenn das Abo selbst keine gesetzt hat. Damit
-  laesst sich die Luecke fuer genau diese Sender-Beitraege einmal zentral
-  schliessen (Einstellungen - Standardwerte - Originalsprache, z. B. "eng"),
-  statt sie in jedem Abo einzeln zu pflegen. Reihenfolge unveraendert:
-  Sender-Abfrage zuerst, dann Abo-Einstellung, dann globaler Standardwert,
-  erst danach "und".
+  Neu: "Undefinierte Originalversionen erlauben". Die Sprache einer
+  Originalversion wird in dieser Reihenfolge bestimmt: Sender-Abfrage,
+  eingestellte Originalsprache des Abos, globaler Standardwert. Liefert
+  keine davon eine Sprache - z.B. bei ARD/ONE, wo als Tonspur-Sprache nur
+  "ov" gemeldet wird -, entscheidet die neue Option: aktiviert wird die
+  Tonspur wie bisher als "und" gespeichert, deaktiviert schlaegt der
+  Download genau dieser Tonspur mit einer klaren Fehlermeldung fehl, die in
+  der Download-Liste steht. Das Hauptvideo ist davon nie betroffen.
+  Voreinstellung ist "erlaubt", also das bisherige Verhalten.
+
+  Neu: fehlende Sprachcodes werden nachgetragen. Wird eine Originalsprache
+  erst gesetzt, nachdem schon Folgen geladen wurden, werden vorhandene
+  "*.und.mka" beim naechsten Abo-Lauf umbenannt und der Sprach-Tag in der
+  Datei gesetzt - ohne neu zu kodieren und ohne das Video anzufassen. Nach
+  einem manuellen Download passiert dasselbe fuer den Zielordner. Eine
+  Datei wird nur ersetzt, wenn das Umschreiben geklappt hat; existiert die
+  Zieldatei schon, bleibt alles unveraendert.

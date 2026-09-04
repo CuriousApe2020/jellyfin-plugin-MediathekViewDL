@@ -159,7 +159,10 @@ Das Herzstück des Plugins. Hier definieren Sie, was regelmäßig gesucht wird.
 | **Nur Serien herunterladen** | Lädt nur Inhalte, bei denen Staffel und Episode (SxxExx) erkannt wurden (`EnforceSeriesParsing`). |
 | **Absolute Nummerierung erlauben** | Erlaubt Episoden wie "Episode 5" statt "S01E05". (Nur aktiv wenn "Nur Serien" aktiv). |
 | **Metadaten (.nfo) erstellen** | Generiert NFO-Dateien mit Beschreibungen und Tags für Jellyfin/Kodi. |
-| **Originalsprache (ISO)** | Setzt einen ISO-Sprachcode (z.B. 'eng'), wenn der Inhalt als Originalversion erkannt wird. |
+| **Tonspur-Erkennung** (Reiter *Metadaten*) | Sammelt alle Optionen rund um zusätzliche Tonspuren in einem Baum: welche gefunden werden (URL-Muster, verwandte Suchtreffer), welche geladen werden (Originalversion, Audiodeskription, klare Sprache), das Anhängen an vorhandene Folgen und die Bereinigung der Tonspur-Bezeichnungen. |
+| ↳ **1. Beim Sender ermitteln** | Fragt die API des Senders (ARD, arte) nach der tatsächlich gesprochenen Sprache der Originalversion. |
+| ↳ **2. Originalsprache (ISO)** | Setzt einen ISO-Sprachcode (z.B. 'eng'), wenn der Sender die Sprache nicht nennt. Leer = Wert aus den Standardwerten. |
+| ↳ **3. Undefinierte Originalversionen erlauben** | Greift, wenn weder Sender noch Originalsprache eine Sprache liefern - z.B. bei ARD/ONE, wo als Sprache nur `ov` gemeldet wird. *Ja*: Tonspur wird als `und` (unbestimmt) gespeichert. *Nein*: der Download genau dieser Tonspur schlägt mit einer Fehlermeldung fehl, das Hauptvideo bleibt unberührt. Wird später eine Originalsprache gesetzt, werden vorhandene `*.und.mka` beim nächsten Abo-Lauf automatisch umbenannt und neu getaggt. |
 | **Streaming (.strm) verwenden** | Speichert keine Videodatei, sondern nur eine Textdatei, die auf den Online-Stream verweist. |
 | **Vollständiges Video für sek. Audio** | Lädt das komplette Video, auch wenn es eine andere Sprache als Deutsch hat (sonst nur Audio-Extrakt). (Nicht bei .strm). |
 | **Nicht-Episoden als Extras** | Behandelt Videos ohne Episodennummer als Bonusmaterial. |

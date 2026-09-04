@@ -24,6 +24,17 @@ public record MetadataSettings
     public string? OriginalLanguage { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether an original-version audio track may be stored with the
+    /// generic "und" (undetermined) placeholder when neither the broadcaster nor
+    /// <see cref="OriginalLanguage"/> names its real language. Some broadcasters never name it -
+    /// ARD's ONE/WDR items report the audio language as the literal "ov" - so this decides whether
+    /// such a track is taken as-is or refused with an error the user can act on. Null means "follow
+    /// the global default", which itself defaults to true - how the plugin behaved before this
+    /// setting existed.
+    /// </summary>
+    public bool? AllowUndefinedOriginalVersion { get; init; }
+
+    /// <summary>
     /// Gets a value indicating whether to append the broadcast date to the title.
     /// Useful for shows that don't have unique titles or season/episode numbers.
     /// </summary>

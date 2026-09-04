@@ -287,8 +287,8 @@ public class DownloadsController : ControllerBase
 
         job.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, DestinationPath = paths.MainFilePath, JobType = DownloadType.FFmpegDownload, CleanAudioTrackLabel = config.SubscriptionDefaults.DownloadSettings.CleanAudioTrackLabels });
 
-        await AddDetectedSecondaryAudioItemsAsync(job, item, videoUrl, paths.MainFilePath, config.SubscriptionDefaults.DownloadSettings, config.SubscriptionDefaults.MetadataSettings.OriginalLanguage).ConfigureAwait(false);
-        await AddCrossResultAudioVariantItemsAsync(job, item, videoInfo, paths.MainFilePath, config.SubscriptionDefaults.DownloadSettings, config.SubscriptionDefaults.MetadataSettings.OriginalLanguage, HttpContext.RequestAborted).ConfigureAwait(false);
+        await AddDetectedSecondaryAudioItemsAsync(job, item, videoUrl, paths.MainFilePath, config.SubscriptionDefaults.MetadataSettings, config.SubscriptionDefaults.DownloadSettings).ConfigureAwait(false);
+        await AddCrossResultAudioVariantItemsAsync(job, item, videoInfo, paths.MainFilePath, config.SubscriptionDefaults.MetadataSettings, config.SubscriptionDefaults.DownloadSettings, HttpContext.RequestAborted).ConfigureAwait(false);
 
         if (subtitleUrl is not null)
         {
@@ -394,8 +394,8 @@ public class DownloadsController : ControllerBase
         }
         else
         {
-            await AddDetectedSecondaryAudioItemsAsync(job, item, videoUrl, videoDestinationPath, config.SubscriptionDefaults.DownloadSettings, config.SubscriptionDefaults.MetadataSettings.OriginalLanguage).ConfigureAwait(false);
-            await AddCrossResultAudioVariantItemsAsync(job, item, videoInfo, videoDestinationPath, config.SubscriptionDefaults.DownloadSettings, config.SubscriptionDefaults.MetadataSettings.OriginalLanguage, HttpContext.RequestAborted).ConfigureAwait(false);
+            await AddDetectedSecondaryAudioItemsAsync(job, item, videoUrl, videoDestinationPath, config.SubscriptionDefaults.MetadataSettings, config.SubscriptionDefaults.DownloadSettings).ConfigureAwait(false);
+            await AddCrossResultAudioVariantItemsAsync(job, item, videoInfo, videoDestinationPath, config.SubscriptionDefaults.MetadataSettings, config.SubscriptionDefaults.DownloadSettings, HttpContext.RequestAborted).ConfigureAwait(false);
         }
 
         if (subtitleUrl is not null)
@@ -430,17 +430,17 @@ public class DownloadsController : ControllerBase
     /// <param name="item">The item being downloaded, used to resolve the original-version language.</param>
     /// <param name="videoUrl">The resolved main video URL.</param>
     /// <param name="mainFilePath">The destination path of the main video file.</param>
+    /// <param name="metadataSettings">The metadata defaults deciding the configured original language
+    /// and whether an undetermined original version may be stored at all.</param>
     /// <param name="downloadSettings">The download settings that decide which kinds are enabled.</param>
-    /// <param name="originalLanguage">The globally configured original-version language, used when the
-    /// broadcaster lookup yields nothing (or is disabled) instead of the generic "und" placeholder.</param>
     /// <returns>A task that completes once all detected items have been queued.</returns>
     private async Task AddDetectedSecondaryAudioItemsAsync(
         DownloadJob job,
         ResultItemDto item,
         string videoUrl,
         string mainFilePath,
-        BaseDownloadSettings downloadSettings,
-        string? originalLanguage)
+        MetadataSettings metadataSettings,
+        BaseDownloadSettings downloadSettings)
     {
         foreach (var candidate in SecondaryAudioUrlHelper.DetectCandidates(videoUrl))
         {
@@ -450,6 +450,7 @@ public class DownloadsController : ControllerBase
             }
 
             var candidateLang = candidate.LanguageCode;
+            string? blockedReason = null;
             if (candidate.Kind == SecondaryAudioKind.OriginalVersion)
             {
                 string? resolvedLang = null;
@@ -459,11 +460,15 @@ public class DownloadsController : ControllerBase
                     resolvedLang = await _originalVersionLanguageResolver.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, HttpContext.RequestAborted).ConfigureAwait(false);
                 }
 
-                // Broadcaster first, then the configured original language, then the "und"
-                // placeholder - the same order the subscription path uses.
-                candidateLang = !string.IsNullOrWhiteSpace(resolvedLang)
-                    ? resolvedLang
-                    : (!string.IsNullOrWhiteSpace(originalLanguage) ? originalLanguage : candidate.LanguageCode);
+                // Broadcaster first, then the configured original language, then either the "und"
+                // placeholder or a refusal - the same order and rules the subscription path uses.
+                var decision = OriginalVersionLanguagePolicy.Decide(
+                    resolvedLang,
+                    metadataSettings.OriginalLanguage,
+                    metadataSettings.AllowUndefinedOriginalVersion ?? true);
+
+                candidateLang = decision.LanguageCode ?? OriginalVersionLanguagePolicy.UndefinedLanguageCode;
+                blockedReason = decision.RefusalReason;
             }
 
             // Standalone file next to the main video (e.g. "Title.eng.mka"), same naming convention as a
@@ -476,6 +481,7 @@ public class DownloadsController : ControllerBase
                 SourceUrl = candidate.Url,
                 DestinationPath = standaloneDestination,
                 Language = candidateLang,
+                BlockedReason = blockedReason,
                 IsAudioDescription = candidate.Kind == SecondaryAudioKind.AudioDescription,
                 CleanAudioTrackLabel = downloadSettings.CleanAudioTrackLabels,
                 JobType = DownloadType.AudioExtraction
@@ -496,9 +502,9 @@ public class DownloadsController : ControllerBase
     /// <param name="item">The item being downloaded.</param>
     /// <param name="videoInfo">The parsed video info for <paramref name="item"/>.</param>
     /// <param name="mainFilePath">The destination path of the main video file.</param>
+    /// <param name="metadataSettings">The metadata defaults deciding the configured original language
+    /// and whether an undetermined original version may be stored at all.</param>
     /// <param name="downloadSettings">The download settings that decide whether this is enabled and which kinds are allowed.</param>
-    /// <param name="originalLanguage">The globally configured original-version language, used for a
-    /// sibling whose title only says "(OV)" when the broadcaster lookup yields nothing.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that completes once all grouped-in items have been queued.</returns>
     private async Task AddCrossResultAudioVariantItemsAsync(
@@ -506,8 +512,8 @@ public class DownloadsController : ControllerBase
         ResultItemDto item,
         VideoInfo videoInfo,
         string mainFilePath,
+        MetadataSettings metadataSettings,
         BaseDownloadSettings downloadSettings,
-        string? originalLanguage,
         CancellationToken cancellationToken)
     {
         if (!downloadSettings.DetectCrossResultAudioVariants || string.IsNullOrWhiteSpace(item.Topic))
@@ -560,9 +566,9 @@ public class DownloadsController : ControllerBase
                         .ConfigureAwait(false)) ?? candidateInfo.Language;
                 }
 
-                if (candidateInfo.Language == "und" && !string.IsNullOrWhiteSpace(originalLanguage))
+                if (candidateInfo.Language == "und" && !string.IsNullOrWhiteSpace(metadataSettings.OriginalLanguage))
                 {
-                    candidateInfo.Language = originalLanguage;
+                    candidateInfo.Language = metadataSettings.OriginalLanguage;
                 }
             }
 
@@ -607,6 +613,11 @@ public class DownloadsController : ControllerBase
                 SourceUrl = secondaryUrl,
                 DestinationPath = standaloneDestination,
                 Language = lang,
+                BlockedReason = secondary.Kind == SecondaryAudioKind.OriginalVersion
+                    && OriginalVersionLanguagePolicy.IsUndefined(lang)
+                    && metadataSettings.AllowUndefinedOriginalVersion == false
+                        ? OriginalVersionLanguagePolicy.UndefinedRefusedMessage
+                        : null,
                 IsAudioDescription = secondary.Kind == SecondaryAudioKind.AudioDescription,
                 CleanAudioTrackLabel = downloadSettings.CleanAudioTrackLabels,
                 JobType = DownloadType.AudioExtraction,

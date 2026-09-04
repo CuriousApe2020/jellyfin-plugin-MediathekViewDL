@@ -77,6 +77,7 @@ namespace Jellyfin.Plugin.MediathekViewDL
             serviceCollection.AddSingleton<IVideoParser, VideoParser>();
             serviceCollection.AddSingleton<IFileNameBuilderService, FileNameBuilderService>();
             serviceCollection.AddSingleton<ILocalMediaScanner, LocalMediaScanner>();
+            serviceCollection.AddSingleton<IUndefinedAudioLanguageBackfill, UndefinedAudioLanguageBackfill>();
             serviceCollection.AddTransient<ITempMetadataCache, TempMetadataCache>();
             // IMediathekViewApiClient is already registered via AddHttpClient above
             serviceCollection.AddTransient<IFFmpegService, FFmpegService>();

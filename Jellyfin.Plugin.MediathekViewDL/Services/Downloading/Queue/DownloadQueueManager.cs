@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
@@ -8,6 +9,7 @@ using System.Threading.Tasks;
 using Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration;
 using Jellyfin.Plugin.MediathekViewDL.Data;
 using Jellyfin.Plugin.MediathekViewDL.Services.Downloading.Models;
+using Jellyfin.Plugin.MediathekViewDL.Services.Media;
 using MediaBrowser.Controller.Library;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -312,6 +314,7 @@ public sealed class DownloadQueueManager : IDownloadQueueManager, IDisposable
         var downloadManager = scope.ServiceProvider.GetRequiredService<IDownloadManager>();
         var historyRepository = scope.ServiceProvider.GetRequiredService<IDownloadHistoryRepository>();
         var libraryManager = scope.ServiceProvider.GetRequiredService<ILibraryManager>();
+        var audioLanguageBackfill = scope.ServiceProvider.GetRequiredService<IUndefinedAudioLanguageBackfill>();
 
         var progress = new Progress<double>(p =>
         {
@@ -347,6 +350,8 @@ public sealed class DownloadQueueManager : IDownloadQueueManager, IDisposable
                         download.Job.ItemInfo.Language).ConfigureAwait(false);
                 }
 
+                await BackfillUndefinedAudioLanguagesAsync(audioLanguageBackfill, download).ConfigureAwait(false);
+
                 if (_configurationProvider.ConfigurationOrNull?.Download.ScanLibraryAfterDownload == true && _activeDownloads.Values.All(d => d.Status != DownloadStatus.Queued))
                 {
                     _logger.LogInformation("Triggering library scan (all downloads finished).");
@@ -369,6 +374,39 @@ public sealed class DownloadQueueManager : IDownloadQueueManager, IDisposable
             download.Status = DownloadStatus.Failed;
             download.ErrorMessage = ex.Message;
             _logger.LogError(ex, "Exception during download job '{Title}' (ID: {Id}).", download.Job.Title, download.Id);
+        }
+    }
+
+    /// <summary>
+    /// After a job landed, fills in the language of any "*.und.mka" sitting in the same folder, now
+    /// that an original language is configured. Covers the manual downloads that never pass through
+    /// a subscription run; only the folder the files landed in is looked at, never the whole library.
+    /// </summary>
+    private async Task BackfillUndefinedAudioLanguagesAsync(IUndefinedAudioLanguageBackfill backfill, ActiveDownload download)
+    {
+        var config = _configurationProvider.ConfigurationOrNull;
+        if (config == null)
+        {
+            return;
+        }
+
+        var subscription = download.SubscriptionId is { } subscriptionId
+            ? config.Subscriptions.FirstOrDefault(s => s.Id == subscriptionId)
+            : null;
+
+        var language = !string.IsNullOrWhiteSpace(subscription?.Metadata.OriginalLanguage)
+            ? subscription!.Metadata.OriginalLanguage
+            : config.SubscriptionDefaults.MetadataSettings.OriginalLanguage;
+
+        var directory = Path.GetDirectoryName(download.Job.DownloadItems.FirstOrDefault()?.DestinationPath);
+
+        try
+        {
+            await backfill.BackfillAsync(directory, language, recursive: false, download.Cts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down mid-job: the next run picks the files up again.
         }
     }
 }

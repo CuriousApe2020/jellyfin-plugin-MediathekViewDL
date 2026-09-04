@@ -32,6 +32,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     private readonly IMediathekViewApiClient _apiClient;
     private readonly IVideoParser _videoParser;
     private readonly ILocalMediaScanner _localMediaScanner;
+    private readonly IUndefinedAudioLanguageBackfill _undefinedAudioLanguageBackfill;
     private readonly IFileNameBuilderService _fileNameBuilderService;
     private readonly IStrmValidationService _strmValidationService;
     private readonly IFFmpegService _ffmpegService;
@@ -54,6 +55,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     /// <param name="configurationProvider">The Configuration Provider.</param>
     /// <param name="downloadQueueManager">The download queue manager.</param>
     /// <param name="originalVersionLanguageResolver">Resolves the correct original-version language code from the relevant broadcaster's own API.</param>
+    /// <param name="undefinedAudioLanguageBackfill">Fills in the language of audio tracks that were stored as "und" before it was known.</param>
     public SubscriptionProcessor(
         ILogger<SubscriptionProcessor> logger,
         IMediathekViewApiClient apiClient,
@@ -65,7 +67,8 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         IDownloadHistoryRepository downloadHistoryRepository,
         IConfigurationProvider configurationProvider,
         IDownloadQueueManager downloadQueueManager,
-        IOriginalVersionLanguageResolver originalVersionLanguageResolver)
+        IOriginalVersionLanguageResolver originalVersionLanguageResolver,
+        IUndefinedAudioLanguageBackfill undefinedAudioLanguageBackfill)
     {
         _logger = logger;
         _apiClient = apiClient;
@@ -78,6 +81,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         _configurationProvider = configurationProvider;
         _downloadQueueManager = downloadQueueManager;
         _originalVersionLanguageResolver = originalVersionLanguageResolver;
+        _undefinedAudioLanguageBackfill = undefinedAudioLanguageBackfill;
     }
 
     /// <inheritdoc/>
@@ -179,6 +183,26 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     }
 
     /// <summary>
+    /// Fills in the real language of audio tracks this subscription stored as "und" earlier, now
+    /// that one is configured. Cheap when there is nothing to do: without a configured language it
+    /// returns immediately, and otherwise it is a single directory walk.
+    /// </summary>
+    /// <param name="subscription">The subscription whose target directory to update.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task that completes once the directory has been walked.</returns>
+    private async Task BackfillUndefinedAudioLanguagesAsync(Subscription subscription, CancellationToken cancellationToken)
+    {
+        var configuredLanguage = GetConfiguredOriginalLanguage(subscription);
+        if (OriginalVersionLanguagePolicy.IsUndefined(configuredLanguage) || subscription.IsVirtual || subscription.Download.UseStreamingUrlFiles)
+        {
+            return;
+        }
+
+        var baseDirectory = _fileNameBuilderService.GetSubscriptionBaseDirectory(subscription, DownloadContext.Subscription);
+        await _undefinedAudioLanguageBackfill.BackfillAsync(baseDirectory, configuredLanguage, recursive: true, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Returns all items matching the subscription, optionally filtering out items that were
     /// already processed according to the download history.
     /// </summary>
@@ -261,6 +285,11 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         // on disk, and BuildDownloadJobAsync uses it to attach a new audio variant to the video that
         // is already there instead of fetching a second copy of the same episode.
         var localEpisodeCache = BuildLocalEpisodeCache(subscription);
+
+        // An original language configured after the first downloads leaves "*.und.mka" files behind;
+        // fill those in before looking for new items, so the library ends up consistent instead of
+        // carrying the placeholder forever.
+        await BackfillUndefinedAudioLanguagesAsync(subscription, cancellationToken).ConfigureAwait(false);
 
         if (subscription.Download.DetectCrossResultAudioVariants)
         {
@@ -398,7 +427,8 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             return null;
         }
 
-        var language = string.IsNullOrWhiteSpace(tempVideoInfo.Language) ? "und" : tempVideoInfo.Language;
+        var language = string.IsNullOrWhiteSpace(tempVideoInfo.Language) ? OriginalVersionLanguagePolicy.UndefinedLanguageCode : tempVideoInfo.Language;
+        var refusalReason = tempVideoInfo.HasAudiodescription ? null : GetUndefinedOriginalVersionRefusal(subscription, language);
 
         // Already there - either as the existing video's own audio or as a track added on an earlier
         // run. Without this the same track would be re-fetched on every single pass.
@@ -436,6 +466,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             FallbackSourceUrls = audioUrlFallbacks,
             DestinationPath = destination,
             Language = language,
+            BlockedReason = refusalReason,
             IsAudioDescription = tempVideoInfo.HasAudiodescription,
             CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
             JobType = DownloadType.AudioExtraction
@@ -506,7 +537,8 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                             continue;
                         }
 
-                        var candidateLang = await ResolveSecondaryAudioLanguageAsync(subscription, item, candidate, cancellationToken).ConfigureAwait(false);
+                        var decision = await ResolveSecondaryAudioLanguageAsync(subscription, item, candidate, cancellationToken).ConfigureAwait(false);
+                        var candidateLang = decision.LanguageCode ?? OriginalVersionLanguagePolicy.UndefinedLanguageCode;
 
                         // Standalone file next to the main video, e.g. "Title.eng.mka" or "Title [AD].deu.mka" -
                         // same naming convention already used for secondary-language items found via the API,
@@ -521,7 +553,11 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                             Language = candidateLang,
                             IsAudioDescription = candidate.Kind == SecondaryAudioKind.AudioDescription,
                             CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
-                            JobType = DownloadType.AudioExtraction
+                            JobType = DownloadType.AudioExtraction,
+
+                            // Queued but refused: the user asked not to store undetermined original
+                            // versions, so this fails visibly instead of vanishing from the job.
+                            BlockedReason = decision.RefusalReason
                         });
                     }
                 }
@@ -545,12 +581,20 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                         .TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken)
                         .ConfigureAwait(false);
 
+                // The item's own parsed language already went through SetOvLanguageIfSetAsync, so it
+                // carries the configured original language when there is one; only a still-"und"
+                // track can be refused here, and never an audio description (always German).
+                var audioLanguage = resolvedLang ?? tempVideoInfo.Language;
+
                 downloadJob.DownloadItems.Add(new DownloadItem
                 {
                     SourceUrl = videoUrl,
                     FallbackSourceUrls = videoUrlFallbacks,
                     DestinationPath = paths.MainFilePath,
                     Language = resolvedLang,
+                    BlockedReason = tempVideoInfo.HasAudiodescription
+                        ? null
+                        : GetUndefinedOriginalVersionRefusal(subscription, audioLanguage),
                     CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
                     JobType = DownloadType.AudioExtraction
                 });
@@ -632,36 +676,60 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     /// <see cref="WouldPassAudioLanguageFilterAsync"/> (which only needs the language, not a full
     /// download item) - so both agree on what a given candidate resolves to.
     /// </summary>
-    private async Task<string?> ResolveSecondaryAudioLanguageAsync(Subscription subscription, ResultItemDto item, SecondaryAudioCandidate candidate, CancellationToken cancellationToken)
+    private async Task<OriginalVersionLanguageDecision> ResolveSecondaryAudioLanguageAsync(Subscription subscription, ResultItemDto item, SecondaryAudioCandidate candidate, CancellationToken cancellationToken)
     {
         if (candidate.Kind != SecondaryAudioKind.OriginalVersion)
         {
-            return candidate.LanguageCode;
+            // Audio description and clear speech are always the main track's own language - nothing
+            // to resolve and nothing that could be undetermined.
+            return OriginalVersionLanguageDecision.Tag(candidate.LanguageCode);
         }
 
+        string? resolvedLanguage = null;
         if (subscription.Download.ResolveOriginalVersionLanguage)
         {
             _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
-            var resolvedLanguage = await _originalVersionLanguageResolver
+            resolvedLanguage = await _originalVersionLanguageResolver
                 .TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken)
                 .ConfigureAwait(false);
-
-            if (!string.IsNullOrWhiteSpace(resolvedLanguage))
-            {
-                return resolvedLanguage;
-            }
         }
 
-        // Same last resort <see cref="SetOvLanguageIfSetAsync"/> applies to title-marked
-        // original-version rows: the broadcaster said nothing (or the lookup is off), so use the
-        // language the user configured rather than the "und" placeholder.
-        var configuredLanguage = GetConfiguredOriginalLanguage(subscription);
-        if (!string.IsNullOrWhiteSpace(configuredLanguage))
+        return OriginalVersionLanguagePolicy.Decide(
+            resolvedLanguage,
+            GetConfiguredOriginalLanguage(subscription),
+            AllowsUndefinedOriginalVersion(subscription));
+    }
+
+    /// <summary>
+    /// Gets whether this subscription accepts an original-version track tagged with the "und"
+    /// placeholder: its own setting first, then the global default, which itself defaults to
+    /// allowing it (the behaviour before the setting existed).
+    /// </summary>
+    /// <param name="subscription">The subscription the item belongs to.</param>
+    /// <returns>True when an undetermined original version may be stored.</returns>
+    private bool AllowsUndefinedOriginalVersion(Subscription subscription) =>
+        subscription.Metadata.AllowUndefinedOriginalVersion
+        ?? _configurationProvider.ConfigurationOrNull?.SubscriptionDefaults.MetadataSettings.AllowUndefinedOriginalVersion
+        ?? true;
+
+    /// <summary>
+    /// Returns the reason an already-parsed track must not be downloaded, or null when it may be:
+    /// its language is the "und" placeholder and this subscription does not accept that. Applies to
+    /// the rows MediathekViewWeb returns as their own original-version search result, where the
+    /// language was decided in <see cref="SetOvLanguageIfSetAsync"/> long before the download job
+    /// is built.
+    /// </summary>
+    /// <param name="subscription">The subscription the item belongs to.</param>
+    /// <param name="languageCode">The language the track would be tagged with.</param>
+    /// <returns>The refusal reason, or null.</returns>
+    private string? GetUndefinedOriginalVersionRefusal(Subscription subscription, string? languageCode)
+    {
+        if (!OriginalVersionLanguagePolicy.IsUndefined(languageCode) || AllowsUndefinedOriginalVersion(subscription))
         {
-            return configuredLanguage;
+            return null;
         }
 
-        return candidate.LanguageCode;
+        return OriginalVersionLanguagePolicy.UndefinedRefusedMessage;
     }
 
     /// <summary>
@@ -764,8 +832,8 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                     continue;
                 }
 
-                var candidateLang = await ResolveSecondaryAudioLanguageAsync(subscription, item, candidate, cancellationToken).ConfigureAwait(false);
-                if (string.Equals(candidateLang, requiredLanguage, StringComparison.OrdinalIgnoreCase))
+                var decision = await ResolveSecondaryAudioLanguageAsync(subscription, item, candidate, cancellationToken).ConfigureAwait(false);
+                if (string.Equals(decision.LanguageCode, requiredLanguage, StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }
@@ -801,7 +869,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                 continue;
             }
 
-            var lang = string.IsNullOrWhiteSpace(secondary.VideoInfo.Language) ? "und" : secondary.VideoInfo.Language;
+            var lang = string.IsNullOrWhiteSpace(secondary.VideoInfo.Language) ? OriginalVersionLanguagePolicy.UndefinedLanguageCode : secondary.VideoInfo.Language;
             var kindTag = secondary.Kind == SecondaryAudioKind.AudioDescription ? " [AD]" : string.Empty;
             var standaloneDestination = Path.ChangeExtension(mainFilePath, null) + kindTag + "." + lang + ".mka";
 
@@ -814,7 +882,10 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                 IsAudioDescription = secondary.Kind == SecondaryAudioKind.AudioDescription,
                 CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
                 JobType = DownloadType.AudioExtraction,
-                SourceItemId = secondary.Item.Id
+                SourceItemId = secondary.Item.Id,
+                BlockedReason = secondary.Kind == SecondaryAudioKind.OriginalVersion
+                    ? GetUndefinedOriginalVersionRefusal(subscription, lang)
+                    : null
             });
         }
     }
