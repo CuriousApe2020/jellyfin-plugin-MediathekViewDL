@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.27"
+version: "0.0.0.28"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,23 +17,24 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Fix: der Hintergrund des Abo-Fensters ("Neues Abo" / "Bearbeiten") war
-  durchsichtig, sodass die Liste dahinter durchschien. Ursache waren zwei
-  voneinander unabhängige Dinge. Zum einen trugen unsere Karten und Dialoge
-  die Klasse "card" - denselben Namen, den Jellyfin für seine eigenen
-  Poster-Kacheln verwendet, teils mit "!important". Damit landeten
-  Jellyfin-Regeln auf unseren Elementen und überschrieben unseren
-  Hintergrund. Alle Stellen heißen jetzt "mvpl-card". Zum anderen wurden die
-  Theme-Farben nur auf der Plugin-Seite gesetzt, die Dialoge hängen als
-  Teleport aber direkt am Body und lagen damit außerhalb - sie fielen immer
-  auf die fest eingebaute dunkle Palette zurück. Die Farben werden jetzt
-  zusätzlich am Body gesetzt, sodass die Dialoge dieselbe Hintergrundfarbe
-  tragen wie der Rest der Seite, auch in hellen Themes.
+  Fix: die Originalversion-Tonspur wurde bei ARD-Inhalten immer als "und"
+  (unbestimmt) getaggt, zum Beispiel die englische Fassung von
+  "Sherlock & Daughter". Die Abfrage an die ARD-Page-Gateway-API lief zwar,
+  lieferte aber gar keine Mediensammlung mit - im Protokoll endete jede
+  Abfrage mit "resolved to (not found)". Es fehlte der Parameter
+  "mcV6=true"; ohne ihn antwortet die API nur mit Seiten- und
+  Teaser-Daten. Der Parameter wird jetzt mitgeschickt, und die Sprache wird
+  aus den Tonspuren der Mediensammlung gelesen
+  (streams[].media[].audios[] mit "kind" und "languageCode"): eine von der
+  ARD selbst als Originalversion markierte Spur hat Vorrang, sonst zählt die
+  erste nicht-deutsche Spur. Untertitel-Sprachen werden dabei ignoriert.
+  Zwei- und Locale-Codes ("en", "en-GB") werden auf die dreibuchstabige Form
+  ("eng") gebracht, und ein von der ARD selbst geliefertes "und" gilt nicht
+  mehr als Treffer.
 
-  Fix: die Abo-Seite lief auf schmalen Bildschirmen (Handy) horizontal über.
-  Die Overlays waren 100% breit plus 20px Innenabstand und damit 40px breiter
-  als der Bildschirm; sie rechnen den Abstand jetzt ein. Außerdem: die
-  Tab-Leiste scrollt seitlich, statt die Seite zu dehnen, lange Abo-Namen
-  brechen um, statt die Zeile aufzuweiten, und unter 600px stehen Name und
-  Aktionsknöpfe untereinander, mit größeren Abständen zwischen den
-  Knöpfen.
+  Fix: findet der Sender-Abruf nichts (oder ist er abgeschaltet), greift bei
+  den aus der Video-URL abgeleiteten Tonspuren jetzt die im Abo bzw. in den
+  Standardwerten eingestellte Originalsprache, bevor auf "und" ausgewichen
+  wird. Bisher galt diese Einstellung nur für Treffer, die die Suche selbst
+  als eigene Zeile liefert; damit lässt sich der Sprach-Tag jetzt in jedem
+  Fall von Hand festlegen.

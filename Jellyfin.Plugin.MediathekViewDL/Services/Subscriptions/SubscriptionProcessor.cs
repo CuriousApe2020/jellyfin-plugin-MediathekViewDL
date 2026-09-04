@@ -625,7 +625,8 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     /// Resolves the language a single URL-derived secondary-audio candidate (ARD-style, see
     /// <see cref="SecondaryAudioUrlHelper"/>) ends up tagged with - the broadcaster-API lookup for
     /// original-version tracks when <see cref="BaseDownloadSettings.ResolveOriginalVersionLanguage"/>
-    /// is enabled, falling back to the URL-derived placeholder otherwise. Shared by
+    /// is enabled, then the subscription's own <see cref="MetadataSettings.OriginalLanguage"/>
+    /// override, and only then the URL-derived "und" placeholder. Shared by
     /// <see cref="BuildDownloadJobAsync"/> (which turns the result into a real
     /// <see cref="DownloadItem"/>) and the dry-run language-filter probe in
     /// <see cref="WouldPassAudioLanguageFilterAsync"/> (which only needs the language, not a full
@@ -633,13 +634,33 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     /// </summary>
     private async Task<string?> ResolveSecondaryAudioLanguageAsync(Subscription subscription, ResultItemDto item, SecondaryAudioCandidate candidate, CancellationToken cancellationToken)
     {
-        if (candidate.Kind != SecondaryAudioKind.OriginalVersion || !subscription.Download.ResolveOriginalVersionLanguage)
+        if (candidate.Kind != SecondaryAudioKind.OriginalVersion)
         {
             return candidate.LanguageCode;
         }
 
-        _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
-        return (await _originalVersionLanguageResolver.TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken).ConfigureAwait(false)) ?? candidate.LanguageCode;
+        if (subscription.Download.ResolveOriginalVersionLanguage)
+        {
+            _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
+            var resolvedLanguage = await _originalVersionLanguageResolver
+                .TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (!string.IsNullOrWhiteSpace(resolvedLanguage))
+            {
+                return resolvedLanguage;
+            }
+        }
+
+        // Same last resort <see cref="SetOvLanguageIfSetAsync"/> applies to title-marked
+        // original-version rows: the broadcaster said nothing (or the lookup is off), so use the
+        // language the user configured for this subscription rather than the "und" placeholder.
+        if (!string.IsNullOrWhiteSpace(subscription.Metadata.OriginalLanguage))
+        {
+            return subscription.Metadata.OriginalLanguage;
+        }
+
+        return candidate.LanguageCode;
     }
 
     /// <summary>
