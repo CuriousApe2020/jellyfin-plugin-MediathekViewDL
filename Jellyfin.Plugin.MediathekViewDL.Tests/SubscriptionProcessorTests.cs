@@ -239,6 +239,62 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
         }
 
         [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldUseConfiguredOriginalLanguage_WhenResolverFindsNothing()
+        {
+            // Arrange
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Download = new DownloadSettings
+                {
+                    DetectUndetectedSecondaryAudio = true,
+                    DownloadOriginalVersionAudio = true,
+                    ResolveOriginalVersionLanguage = true,
+                },
+                Metadata = new MetadataSettings { OriginalLanguage = "eng" }
+            };
+            var item = new ResultItem
+            {
+                Id = "123",
+                Title = "TestTitle",
+                UrlVideoHd = "http://test.com/video_sendeton_1080p.mp4",
+                UrlWebsite = "https://www.ardmediathek.de/video/Y3JpZDovL2Rhc2Vyc3RlLmRlL2FiYzEyMw"
+            };
+
+            var resultChannels = new ResultChannels
+            {
+                Results = new Collection<ResultItem> { item },
+                QueryInfo = new QueryInfo { TotalResults = 1 }
+            };
+
+            _apiClientMock
+                .Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(resultChannels.ToDto(new ApiQueryDto(), false));
+
+            var videoInfo = new VideoInfo { Title = "TestTitle", Language = "deu" };
+            _videoParserMock
+                .Setup(x => x.ParseVideoInfo(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(videoInfo);
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GenerateDownloadPaths(It.IsAny<VideoInfo>(), It.IsAny<Subscription>(), It.IsAny<DownloadContext>(), It.IsAny<FileType?>()))
+                .Returns(new DownloadPaths { DirectoryPath = "/tmp", MainFilePath = "/tmp/video.mkv" });
+
+            // The broadcaster has nothing to say about this item's original version.
+            _originalVersionLanguageResolverMock
+                .Setup(x => x.TryGetOriginalVersionLanguageAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((string?)null);
+
+            // Act
+            var jobs = await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert - the subscription's own setting takes over from the "und" placeholder.
+            var originalVersion = jobs[0].DownloadItems.Single(i => i.SourceUrl.Contains("_originalversion_", StringComparison.Ordinal));
+            Assert.Equal("eng", originalVersion.Language);
+            Assert.EndsWith(".eng.mka", originalVersion.DestinationPath, StringComparison.Ordinal);
+        }
+
+        [Fact]
         public async Task GetJobsForSubscriptionAsync_ShouldNotCleanAudioTrackLabels_WhenDisabled()
         {
             // Arrange
