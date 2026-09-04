@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.28"
+version: "0.0.0.29"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,24 +17,18 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Fix: die Originalversion-Tonspur wurde bei ARD-Inhalten immer als "und"
-  (unbestimmt) getaggt, zum Beispiel die englische Fassung von
-  "Sherlock & Daughter". Die Abfrage an die ARD-Page-Gateway-API lief zwar,
-  lieferte aber gar keine Mediensammlung mit - im Protokoll endete jede
-  Abfrage mit "resolved to (not found)". Es fehlte der Parameter
-  "mcV6=true"; ohne ihn antwortet die API nur mit Seiten- und
-  Teaser-Daten. Der Parameter wird jetzt mitgeschickt, und die Sprache wird
-  aus den Tonspuren der Mediensammlung gelesen
-  (streams[].media[].audios[] mit "kind" und "languageCode"): eine von der
-  ARD selbst als Originalversion markierte Spur hat Vorrang, sonst zählt die
-  erste nicht-deutsche Spur. Untertitel-Sprachen werden dabei ignoriert.
-  Zwei- und Locale-Codes ("en", "en-GB") werden auf die dreibuchstabige Form
-  ("eng") gebracht, und ein von der ARD selbst geliefertes "und" gilt nicht
-  mehr als Treffer.
+  Fix: bei ARD-Originalversionen von ONE/WDR (z. B. "Sherlock & Daughter")
+  blieb die Tonspur trotz 0.0.0.28 auf "und". Grund: diese Beitraege melden
+  als Tonspur-Sprache den Text "ov" - die ARD sagt damit "das ist die
+  Originalfassung", nennt die Sprache aber nicht. "ov" wird jetzt als das
+  erkannt, was es ist (keine Sprache), landet nie mehr als Sprach-Tag in der
+  Datei und wird im Protokoll klar benannt: "ARD lists ... as an original
+  version but does not name its language".
 
-  Fix: findet der Sender-Abruf nichts (oder ist er abgeschaltet), greift bei
-  den aus der Video-URL abgeleiteten Tonspuren jetzt die im Abo bzw. in den
-  Standardwerten eingestellte Originalsprache, bevor auf "und" ausgewichen
-  wird. Bisher galt diese Einstellung nur für Treffer, die die Suche selbst
-  als eigene Zeile liefert; damit lässt sich der Sprach-Tag jetzt in jedem
-  Fall von Hand festlegen.
+  Neu: die eingestellte Originalsprache wird jetzt auch aus den globalen
+  Standardwerten uebernommen, wenn das Abo selbst keine gesetzt hat. Damit
+  laesst sich die Luecke fuer genau diese Sender-Beitraege einmal zentral
+  schliessen (Einstellungen - Standardwerte - Originalsprache, z. B. "eng"),
+  statt sie in jedem Abo einzeln zu pflegen. Reihenfolge unveraendert:
+  Sender-Abfrage zuerst, dann Abo-Einstellung, dann globaler Standardwert,
+  erst danach "und".
