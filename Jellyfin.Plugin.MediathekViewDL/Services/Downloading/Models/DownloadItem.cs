@@ -59,6 +59,16 @@ public class DownloadItem
     public bool CleanAudioTrackLabel { get; set; }
 
     /// <summary>
+    /// Gets or sets the reason this item must not be downloaded, or null when it may be. Set when a
+    /// track was queued for the user to see but cannot legitimately be stored - currently an
+    /// original-version audio track whose language nothing names while
+    /// <see cref="Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration.SubscriptionSettings.MetadataSettings.AllowUndefinedOriginalVersion"/>
+    /// is off. The download manager fails such an item with this exact message instead of running a
+    /// handler, so the reason shows up in the downloads list rather than only in the log.
+    /// </summary>
+    public string? BlockedReason { get; set; }
+
+    /// <summary>
     /// Gets or sets the MediathekViewWeb result ID this item was sourced from, if it came from its own
     /// distinct search result rather than being derived from the main item's URL (e.g. a sibling row
     /// grouped in via <see cref="Media.AudioVariantGroupingService"/>). When set, download-history

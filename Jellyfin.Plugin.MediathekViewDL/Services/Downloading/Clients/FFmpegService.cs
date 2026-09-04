@@ -132,6 +132,46 @@ public class FFmpegService : IFFmpegService
     }
 
     /// <inheritdoc />
+    public async Task<bool> RetagAudioLanguageAsync(string inputAudioPath, string outputAudioPath, string languageCode, bool setOriginalLanguageTag, CancellationToken cancellationToken)
+    {
+        if (!File.Exists(inputAudioPath))
+        {
+            _logger.LogError("Cannot retag '{Input}': file does not exist.", inputAudioPath);
+            return false;
+        }
+
+        _logger.LogInformation("Retagging audio '{Input}' as language '{Lang}'.", inputAudioPath, languageCode);
+
+        var args = new List<string>
+        {
+            "-i",
+            inputAudioPath,
+
+            // Stream copy: this only rewrites container metadata, it never re-encodes the audio.
+            "-map",
+            "0",
+            "-c",
+            "copy",
+            "-metadata:s:a:0",
+            $"language={languageCode}"
+        };
+
+        if (setOriginalLanguageTag)
+        {
+            args.Add("-disposition:a:0");
+            args.Add("original");
+        }
+
+        args.Add("-f");
+        args.Add("matroska");
+        args.Add("-y");
+        args.Add(outputAudioPath);
+
+        var res = await ExecuteFFmpegAsync(args, cancellationToken, false).ConfigureAwait(false);
+        return res.ExitCode == 0;
+    }
+
+    /// <inheritdoc />
     public async Task<LocalMediaInfo?> GetMediaInfoAsync(string urlOrPath, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(urlOrPath))

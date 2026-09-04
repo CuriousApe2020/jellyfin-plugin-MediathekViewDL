@@ -1,5 +1,5 @@
 <script setup>
-import {ref, watch} from 'vue'
+import {computed, ref, watch} from 'vue'
 import { MS_PER_DAY_MINUS_ONE } from '../utils/Constants'
 import ApiService from '../utils/ApiService'
 
@@ -14,6 +14,17 @@ const emit = defineEmits(['save', 'cancel'])
 
 const editedSub = ref(null)
 const activeTab = ref('basic')
+
+// Tri-state: null means "follow the global default", which is what an untouched subscription stores.
+// A checkbox cannot express that third state, so this is bound to a select instead.
+const allowUndefinedOriginalVersion = computed({
+    get: () => editedSub.value?.Metadata?.AllowUndefinedOriginalVersion ?? null,
+    set: (value) => {
+        if (editedSub.value) {
+            editedSub.value.Metadata.AllowUndefinedOriginalVersion = value
+        }
+    }
+})
 
 const availableChannels = ref([])
 const availableTopics = ref([])
@@ -250,55 +261,7 @@ function updateDate(target, field, value) {
                         </label>
                         <p class="field-desc">Verwendet Streaming-URL-Dateien (.strm) anstelle des Herunterladens der tatsächlichen Videodateien. Es werden keine Videodateien gespeichert, die Videos werden von ARD/ZDF direkt gestreamt. Untertitel sind hiervon nicht betroffen.</p>
                     </div>
-                    <div v-if="!editedSub.Download.UseStreamingUrlFiles" class="sub-options">
-                        <div class="checkbox-field">
-                            <label>
-                                <input v-model="editedSub.Download.DownloadFullVideoForSecondaryAudio" type="checkbox"> Vollständiges Video für sekundäre Audiosprachen herunterladen
-                            </label>
-                            <p class="field-desc">Wenn aktiviert, wird das vollständige Video heruntergeladen, auch wenn es eine andere Audiosprache als Deutsch enthält. Andernfalls wird nur die Audiospur dieser Sprache extrahiert.</p>
-                        </div>
-                        <div class="checkbox-field">
-                            <label>
-                                <input v-model="editedSub.Download.DetectUndetectedSecondaryAudio" type="checkbox"> Fehlende Tonspuren erkennen und herunterladen
-                            </label>
-                            <p class="field-desc">Manche ARD-Titel zeigen in MediathekView nur einen Eintrag, obwohl im Player mehrere Tonspuren wählbar sind (z. B. Originalversion, Audiodeskription). Wenn aktiviert, werden solche zusätzlichen Tonspuren anhand des URL-Musters erkannt und als separate Datei neben dem Hauptvideo gespeichert — genau wie bei einer Sprachversion, die MediathekView bereits als eigenen Eintrag findet.</p>
-                        </div>
-                        <div class="checkbox-field">
-                            <label>
-                                <input v-model="editedSub.Download.DetectCrossResultAudioVariants" type="checkbox"> Verwandte Suchtreffer als zusätzliche Tonspuren zusammenführen
-                            </label>
-                            <p class="field-desc">Manche Sender (arte, ZDF/ZDFneo/3sat) führen dieselbe Sendung als mehrere eigenständige Suchtreffer in unterschiedlichen Sprachen, statt als eine Sendung mit wählbaren Tonspuren. Wenn aktiviert, werden solche zusammengehörigen Treffer erkannt (gleiches Thema, gleicher Titel, ähnliche Dauer und Sendezeit) und als zusätzliche Tonspur-Dateien neben dem Hauptvideo gespeichert, statt als eigene, sich überschneidende Downloads. Unabhängig von "Fehlende Tonspuren erkennen" oben — beide lassen sich zusammen aktivieren.</p>
-                        </div>
-                        <div class="checkbox-field">
-                            <label>
-                                <input v-model="editedSub.Download.AddAudioToExistingEpisodes" type="checkbox" :disabled="!editedSub.Download.EnhancedDuplicateDetection"> Neue Tonspuren zu vorhandenen Folgen hinzufügen
-                            </label>
-                            <p class="field-desc">Wird eine Sendung gefunden, die bereits lokal vorliegt - aber in einer anderen Sprache -, wird nur deren Tonspur geladen und als zusätzliche Tonspur-Datei neben das vorhandene Video gelegt, statt ein zweites, fast identisches Video herunterzuladen. Jellyfin zeigt die Folge dadurch als einen Eintrag mit auswählbaren Tonspuren statt als zwei. Die vorhandene Videodatei wird dabei nicht verändert. Setzt "Erweiterte Duplikaterkennung" voraus, da nur diese die Bibliothek überhaupt einliest.</p>
-                        </div>
-                        <div v-if="editedSub.Download.DetectUndetectedSecondaryAudio || editedSub.Download.DetectCrossResultAudioVariants" class="sub-options">
-                            <div class="checkbox-field">
-                                <label><input v-model="editedSub.Download.DownloadOriginalVersionAudio" type="checkbox"> Originalversion (andere Sprache)</label>
-                            </div>
-                            <div class="checkbox-field">
-                                <label><input v-model="editedSub.Download.DownloadAudioDescriptionAudio" type="checkbox"> Audiodeskription</label>
-                            </div>
-                            <div class="checkbox-field">
-                                <label><input v-model="editedSub.Download.DownloadClearSpeechAudio" type="checkbox"> Klare Sprache</label>
-                            </div>
-                        </div>
-                        <div class="checkbox-field">
-                            <label>
-                                <input v-model="editedSub.Download.CleanAudioTrackLabels" type="checkbox"> Tonspur-Bezeichnungen bereinigen
-                            </label>
-                            <p class="field-desc">Entfernt die vom Sender eingebettete Tonspur-Bezeichnung (z.B. "Hessischer Rundfunk mp4toolbox 1.17.1"). Jellyfin erzeugt dann selbst eine saubere, für jeden Benutzer automatisch in dessen Sprache übersetzte Bezeichnung aus Sprache, Codec und Kanälen. Betrifft die Hauptspur des Videos sowie alle eigenständigen Tonspur-Dateien.</p>
-                        </div>
-                    </div>
-                    <div class="checkbox-field">
-                        <label>
-                            <input v-model="editedSub.Download.ResolveOriginalVersionLanguage" type="checkbox"> Echte Sprache der Originalversion ermitteln
-                        </label>
-                        <p class="field-desc">Fragt die eigene API des jeweiligen Senders (aktuell ARD und arte) nach der tatsächlich gesprochenen Sprache einer "Originalversion"-Tonspur ab, statt sie mit dem generischen Platzhalter "und" (unbestimmt) zu kennzeichnen. Gilt sowohl für über die URL erkannte Tonspuren als auch für Originalversion-Titel, die MediathekView bereits als eigenen Suchtreffer anzeigt.</p>
-                    </div>
+                    <p class="field-desc">Die Optionen zur Tonspur-Erkennung stehen jetzt gesammelt im Reiter "Metadaten" unter "Tonspur-Erkennung".</p>
                     <div class="checkbox-field">
                         <label>
                             <input v-model="editedSub.Download.AlwaysCreateSubfolder" type="checkbox"> Unterordner für dieses Abo erstellen
@@ -379,10 +342,75 @@ function updateDate(target, field, value) {
 
                 <!-- Metadaten Tab -->
                 <div v-if="activeTab === 'metadata'" class="tab-pane">
-                    <div class="field">
-                        <label>Originalsprache (ISO Code, z.B. 'eng')</label>
-                        <input v-model="editedSub.Metadata.OriginalLanguage" type="text" class="field-input" placeholder="z.B. eng oder fra">
-                        <p class="field-desc">Falls gesetzt, wird dieser Sprachcode verwendet, wenn der Inhalt als Originalversion (OV/OmU) erkannt wird (statt 'und').</p>
+                    <h4 class="section-title">Tonspur-Erkennung</h4>
+                    <p class="field-desc">Alles, was zusätzliche Tonspuren betrifft: welche gefunden werden, welche geladen werden und wie sie beschriftet sind.</p>
+                    <p v-if="editedSub.Download.UseStreamingUrlFiles" class="field-desc">Nicht verfügbar, solange im Reiter "Download" Streaming-URL-Dateien (.strm) aktiv sind - dabei wird keine Datei gespeichert, an die eine Tonspur gelegt werden könnte.</p>
+                    <div v-else class="sub-options">
+                        <div class="checkbox-field">
+                            <label>
+                                <input v-model="editedSub.Download.DetectUndetectedSecondaryAudio" type="checkbox"> Fehlende Tonspuren erkennen und herunterladen
+                            </label>
+                            <p class="field-desc">Manche ARD-Titel zeigen in MediathekView nur einen Eintrag, obwohl im Player mehrere Tonspuren wählbar sind (z. B. Originalversion, Audiodeskription). Wenn aktiviert, werden solche zusätzlichen Tonspuren anhand des URL-Musters erkannt und als separate Datei neben dem Hauptvideo gespeichert.</p>
+                        </div>
+                        <div class="checkbox-field">
+                            <label>
+                                <input v-model="editedSub.Download.DetectCrossResultAudioVariants" type="checkbox"> Verwandte Suchtreffer als zusätzliche Tonspuren zusammenführen
+                            </label>
+                            <p class="field-desc">Manche Sender (arte, ZDF/ZDFneo/3sat) führen dieselbe Sendung als mehrere eigenständige Suchtreffer in unterschiedlichen Sprachen. Wenn aktiviert, werden solche zusammengehörigen Treffer erkannt (gleiches Thema, gleicher Titel, ähnliche Dauer und Sendezeit) und als zusätzliche Tonspur-Dateien gespeichert, statt als eigene, sich überschneidende Downloads.</p>
+                        </div>
+                        <div v-if="editedSub.Download.DetectUndetectedSecondaryAudio || editedSub.Download.DetectCrossResultAudioVariants" class="sub-options">
+                            <p class="field-desc">Welche gefundenen Tonspuren geladen werden:</p>
+                            <div class="checkbox-field">
+                                <label><input v-model="editedSub.Download.DownloadOriginalVersionAudio" type="checkbox"> Originalversion (andere Sprache)</label>
+                            </div>
+                            <div v-if="editedSub.Download.DownloadOriginalVersionAudio" class="sub-options">
+                                <p class="field-desc">Sprache der Originalversion - in dieser Reihenfolge:</p>
+                                <div class="checkbox-field">
+                                    <label>
+                                        <input v-model="editedSub.Download.ResolveOriginalVersionLanguage" type="checkbox"> 1. Beim Sender ermitteln
+                                    </label>
+                                    <p class="field-desc">Fragt die eigene API des Senders (aktuell ARD und arte) nach der tatsächlich gesprochenen Sprache. Manche Beiträge nennen sie nicht - ARD/ONE meldet dort nur "ov" -, dann greifen die nächsten Punkte.</p>
+                                </div>
+                                <div class="field">
+                                    <label>2. Originalsprache (ISO Code, z.B. 'eng')</label>
+                                    <input v-model="editedSub.Metadata.OriginalLanguage" type="text" class="field-input" placeholder="z.B. eng oder fra">
+                                    <p class="field-desc">Wird verwendet, wenn der Sender die Sprache nicht nennt. Leer lassen, um den Wert aus den Standardwerten zu übernehmen.</p>
+                                </div>
+                                <div class="field">
+                                    <label>3. Undefinierte Originalversionen erlauben</label>
+                                    <select v-model="allowUndefinedOriginalVersion" class="field-input">
+                                        <option :value="null">Standardwert übernehmen</option>
+                                        <option :value="true">Ja - als "und" speichern</option>
+                                        <option :value="false">Nein - Download fehlschlagen lassen</option>
+                                    </select>
+                                    <p class="field-desc">Greift, wenn weder der Sender noch die Originalsprache oben eine Sprache liefern. "Ja" speichert die Tonspur mit dem Platzhalter "und" (unbestimmt). "Nein" lässt den Download genau dieser Tonspur mit einer Fehlermeldung fehlschlagen, statt eine unbrauchbar getaggte Datei anzulegen - das Hauptvideo ist davon nicht betroffen.</p>
+                                </div>
+                            </div>
+                            <div class="checkbox-field">
+                                <label><input v-model="editedSub.Download.DownloadAudioDescriptionAudio" type="checkbox"> Audiodeskription</label>
+                            </div>
+                            <div class="checkbox-field">
+                                <label><input v-model="editedSub.Download.DownloadClearSpeechAudio" type="checkbox"> Klare Sprache</label>
+                            </div>
+                        </div>
+                        <div class="checkbox-field">
+                            <label>
+                                <input v-model="editedSub.Download.AddAudioToExistingEpisodes" type="checkbox" :disabled="!editedSub.Download.EnhancedDuplicateDetection"> Neue Tonspuren zu vorhandenen Folgen hinzufügen
+                            </label>
+                            <p class="field-desc">Wird eine Sendung gefunden, die bereits lokal vorliegt - aber in einer anderen Sprache -, wird nur deren Tonspur geladen und neben das vorhandene Video gelegt, statt ein zweites, fast identisches Video herunterzuladen. Die vorhandene Videodatei wird nicht verändert. Setzt "Erweiterte Duplikaterkennung" im Reiter "Download" voraus.</p>
+                        </div>
+                        <div class="checkbox-field">
+                            <label>
+                                <input v-model="editedSub.Download.DownloadFullVideoForSecondaryAudio" type="checkbox"> Vollständiges Video für sekundäre Audiosprachen herunterladen
+                            </label>
+                            <p class="field-desc">Wenn aktiviert, wird das vollständige Video heruntergeladen, auch wenn es eine andere Audiosprache als Deutsch enthält. Andernfalls wird nur die Audiospur dieser Sprache extrahiert.</p>
+                        </div>
+                        <div class="checkbox-field">
+                            <label>
+                                <input v-model="editedSub.Download.CleanAudioTrackLabels" type="checkbox"> Tonspur-Bezeichnungen bereinigen
+                            </label>
+                            <p class="field-desc">Entfernt die vom Sender eingebettete Tonspur-Bezeichnung (z.B. "Hessischer Rundfunk mp4toolbox 1.17.1"). Jellyfin erzeugt dann selbst eine saubere, für jeden Benutzer in dessen Sprache übersetzte Bezeichnung aus Sprache, Codec und Kanälen.</p>
+                        </div>
                     </div>
                     <div class="checkbox-field">
                         <label>
@@ -575,6 +603,13 @@ function updateDate(target, field, value) {
 .input-with-btn {
     display: flex;
     gap: 10px;
+}
+
+.section-title {
+    margin: 20px 0 4px;
+    font-size: 1.05em;
+    font-weight: 600;
+    color: var(--mvpl-text-primary, #e4e4e7);
 }
 
 .sub-options {

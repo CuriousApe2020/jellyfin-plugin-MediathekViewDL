@@ -36,6 +36,19 @@ public interface IFFmpegService
     Task<bool> ExtractAudioFromWebAsync(string videoUrl, string outputAudioPath, string languageCode, bool setOriginalLanguageTag, bool isAudioDescription, bool cleanAudioTrackLabel, IProgress<double> progress, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Rewrites an existing audio file's language tag without re-encoding, by remuxing it to a new
+    /// file. Used to fill in the real language of tracks that were stored as "und" before the
+    /// language was known.
+    /// </summary>
+    /// <param name="inputAudioPath">The existing audio file.</param>
+    /// <param name="outputAudioPath">The file to write, with the language tag set.</param>
+    /// <param name="languageCode">The 3-letter language code (e.g. 'eng') to set.</param>
+    /// <param name="setOriginalLanguageTag">Whether to also mark the track as the original version.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>True if the file was rewritten successfully, otherwise false.</returns>
+    Task<bool> RetagAudioLanguageAsync(string inputAudioPath, string outputAudioPath, string languageCode, bool setOriginalLanguageTag, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets the media information (width, height, duration) from a remote URL or local file.
     /// </summary>
     /// <param name="urlOrPath">The URL or file path.</param>

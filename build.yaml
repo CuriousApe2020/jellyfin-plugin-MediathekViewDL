@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.30"
+version: "0.0.0.31"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,25 +17,35 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Fix: von den sechs ARTE-Kanälen wurde nur einer richtig einsortiert.
-  MediathekViewWeb führt arte je Sprache getrennt - "ARTE.DE", "ARTE.FR",
-  "ARTE.EN", "ARTE.ES", "ARTE.IT" und "ARTE.PL" -, und der Crawler setzt
-  eine Markierung im Titel nur für Tonspuren, die *nicht* die Standardspur
-  des jeweiligen Kanals sind. Die Standardspur selbst trägt also keine
-  Markierung, aus der sich ihre Sprache ablesen ließe; dafür gibt es die
-  Zuordnung über den Kanalnamen. Eingetragen war dort bisher nur
-  "ARTE.FR". Alles von ARTE.EN, ARTE.ES, ARTE.IT und ARTE.PL galt damit
-  als deutsch: die Folge wurde nicht als zusätzliche Tonspur neben der
-  deutschen abgelegt, sondern als zweites vollständiges Video, und da der
-  Dateiname keine Sprachkennung bekam, konnte auch die Duplikaterkennung
-  nichts ausrichten. Jetzt sind alle sechs Kanäle eingetragen.
+  Neu: alle Optionen zur Tonspur-Erkennung stehen jetzt gesammelt im Reiter
+  "Metadaten" unter "Tonspur-Erkennung" - als Baum, der zeigt, was wovon
+  abhaengt: was gefunden wird (URL-Muster, verwandte Suchtreffer), was davon
+  geladen wird (Originalversion, Audiodeskription, klare Sprache), wie die
+  Sprache der Originalversion bestimmt wird, ob Tonspuren an vorhandene
+  Folgen gehaengt werden und wie die Tonspur-Bezeichnungen aussehen. Im
+  Reiter "Download" stehen nur noch die Download-Optionen. Gespeichert wird
+  unveraendert - bestehende Abos behalten alle Einstellungen.
 
-  Die Lücke war nicht geraten, sondern geprüft: die sechs Kanalnamen
-  stehen im Quelltext des MediathekView-Crawlers, und dort wird für jeden
-  einzelnen auch ein Crawler registriert - sie erreichen den Suchindex
-  also tatsächlich alle.
+  Neu: "Undefinierte Originalversionen erlauben". Die Sprache einer
+  Originalversion wird in dieser Reihenfolge bestimmt: Sender-Abfrage,
+  eingestellte Originalsprache des Abos, globaler Standardwert. Liefert
+  keine davon eine Sprache - z.B. bei ARD/ONE, wo als Tonspur-Sprache nur
+  "ov" gemeldet wird -, entscheidet die neue Option: aktiviert wird die
+  Tonspur wie bisher als "und" gespeichert, deaktiviert schlaegt der
+  Download genau dieser Tonspur mit einer klaren Fehlermeldung fehl, die in
+  der Download-Liste steht. Das Hauptvideo ist davon nie betroffen.
+  Voreinstellung ist "erlaubt", also das bisherige Verhalten.
 
-  Hinweis: bereits doppelt geladene Folgen räumt das nicht auf. Die
-  zweiten Videodateien können gelöscht werden; beim nächsten Abo-Lauf
-  kommt die fremdsprachige Tonspur als ".mka" neben die vorhandene Folge,
-  sofern "Neue Tonspuren zu vorhandenen Folgen hinzufügen" aktiviert ist.
+  Neu: fehlende Sprachcodes werden nachgetragen. Wird eine Originalsprache
+  erst gesetzt, nachdem schon Folgen geladen wurden, werden vorhandene
+  "*.und.mka" beim naechsten Abo-Lauf umbenannt und der Sprach-Tag in der
+  Datei gesetzt - ohne neu zu kodieren und ohne das Video anzufassen. Nach
+  einem manuellen Download passiert dasselbe fuer den Zielordner. Eine
+  Datei wird nur ersetzt, wenn das Umschreiben geklappt hat; existiert die
+  Zieldatei schon, bleibt alles unveraendert.
+
+  Enthaelt ausserdem die Aenderung aus 0.0.0.30: von den sechs
+  ARTE-Kanaelen war nur "ARTE.FR" der Sprachzuordnung bekannt. Alles von
+  ARTE.EN, ARTE.ES, ARTE.IT und ARTE.PL galt damit als deutsch und wurde
+  als zweites vollstaendiges Video statt als zusaetzliche Tonspur abgelegt.
+  Jetzt sind alle sechs Kanaele eingetragen.
