@@ -1,27 +1,36 @@
+using System;
 using System.Collections.Generic;
 
 namespace Jellyfin.Plugin.MediathekViewDL.Services.Media;
 
 /// <summary>
-/// Some broadcasters are indexed by MediathekViewWeb under multiple channel variants that share
-/// the same content but dub it into a different default language - most notably arte, which is
-/// crawled once as "ARTE.DE" (German default, no title marker) and once as "ARTE.FR" (French
-/// default, also no title marker - the crawler only adds a marker like "(Audiodeskription)" or
-/// "(Originalversion mit Untertitel)" for tracks *other* than that channel's own default). Since
-/// there is no title marker to detect for the default track itself, the plugin's language
-/// detection can't infer it from the title alone and needs this per-channel override; every other
-/// broadcaster only publishes a single, German-default variant, so the fallback stays "deu".
+/// Some broadcasters are indexed by MediathekViewWeb under several channel variants that carry the
+/// same content dubbed into a different default language - arte is crawled once per language as
+/// "ARTE.DE", "ARTE.FR", "ARTE.EN", "ARTE.ES", "ARTE.IT" and "ARTE.PL". The crawler only adds a
+/// title marker like "(Audiodeskription)" or "(Originalversion mit Untertitel)" for tracks *other*
+/// than a channel's own default, so the default track itself carries no marker at all and the
+/// plugin's title-based language detection cannot infer it. This per-channel override supplies it;
+/// every other broadcaster publishes a single, German-default variant, so the fallback stays "deu".
 /// </summary>
 public static class ChannelDefaultLanguage
 {
-    // Confirmed via a real MediathekViewWeb query (see PR history): the same film appears under
-    // both "ARTE.DE" (default track untitled, code "VA-*") and "ARTE.FR" (default track untitled,
-    // code "VF-*"). Other language-specific arte channel variants may exist (the crawler also has
-    // EN/ES/IT/PL variants in its source), but haven't been confirmed to actually appear in the
-    // live index, so aren't included here to avoid guessing at an unverified channel name.
-    private static readonly Dictionary<string, string> Overrides = new(System.StringComparer.OrdinalIgnoreCase)
+    // Verified against the MediathekView crawler (mediathekview/MServer): the six ARTE_* channel
+    // names live in de/mediathekview/mlib/Const.java, and FilmeSuchen.java registers a crawler for
+    // every one of them (ArteCrawler plus ArteCrawler_FR/_EN/_ES/_PL/_IT), so all six really do
+    // reach the index. The codes are .NET's ThreeLetterISOLanguageName values (ISO 639-2/T, i.e.
+    // "deu"/"fra" rather than "ger"/"fre"), matching what LanguageDetectionService produces.
+    //
+    // ARTE.DE is listed although "deu" is also the fallback: this table is the one place that says
+    // what each arte variant speaks, and a complete table is easier to check against the crawler
+    // than one with a silent hole in it.
+    private static readonly Dictionary<string, string> Overrides = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["ARTE.DE"] = "deu",
         ["ARTE.FR"] = "fra",
+        ["ARTE.EN"] = "eng",
+        ["ARTE.ES"] = "spa",
+        ["ARTE.IT"] = "ita",
+        ["ARTE.PL"] = "pol",
     };
 
     /// <summary>

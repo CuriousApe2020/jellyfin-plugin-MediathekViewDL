@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.27"
+version: "0.0.0.28"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,23 +17,25 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Fix: der Hintergrund des Abo-Fensters ("Neues Abo" / "Bearbeiten") war
-  durchsichtig, sodass die Liste dahinter durchschien. Ursache waren zwei
-  voneinander unabhängige Dinge. Zum einen trugen unsere Karten und Dialoge
-  die Klasse "card" - denselben Namen, den Jellyfin für seine eigenen
-  Poster-Kacheln verwendet, teils mit "!important". Damit landeten
-  Jellyfin-Regeln auf unseren Elementen und überschrieben unseren
-  Hintergrund. Alle Stellen heißen jetzt "mvpl-card". Zum anderen wurden die
-  Theme-Farben nur auf der Plugin-Seite gesetzt, die Dialoge hängen als
-  Teleport aber direkt am Body und lagen damit außerhalb - sie fielen immer
-  auf die fest eingebaute dunkle Palette zurück. Die Farben werden jetzt
-  zusätzlich am Body gesetzt, sodass die Dialoge dieselbe Hintergrundfarbe
-  tragen wie der Rest der Seite, auch in hellen Themes.
+  Fix: von den sechs ARTE-Kanälen wurde nur einer richtig einsortiert.
+  MediathekViewWeb führt arte je Sprache getrennt - "ARTE.DE", "ARTE.FR",
+  "ARTE.EN", "ARTE.ES", "ARTE.IT" und "ARTE.PL" -, und der Crawler setzt
+  eine Markierung im Titel nur für Tonspuren, die *nicht* die Standardspur
+  des jeweiligen Kanals sind. Die Standardspur selbst trägt also keine
+  Markierung, aus der sich ihre Sprache ablesen ließe; dafür gibt es die
+  Zuordnung über den Kanalnamen. Eingetragen war dort bisher nur
+  "ARTE.FR". Alles von ARTE.EN, ARTE.ES, ARTE.IT und ARTE.PL galt damit
+  als deutsch: die Folge wurde nicht als zusätzliche Tonspur neben der
+  deutschen abgelegt, sondern als zweites vollständiges Video, und da der
+  Dateiname keine Sprachkennung bekam, konnte auch die Duplikaterkennung
+  nichts ausrichten. Jetzt sind alle sechs Kanäle eingetragen.
 
-  Fix: die Abo-Seite lief auf schmalen Bildschirmen (Handy) horizontal über.
-  Die Overlays waren 100% breit plus 20px Innenabstand und damit 40px breiter
-  als der Bildschirm; sie rechnen den Abstand jetzt ein. Außerdem: die
-  Tab-Leiste scrollt seitlich, statt die Seite zu dehnen, lange Abo-Namen
-  brechen um, statt die Zeile aufzuweiten, und unter 600px stehen Name und
-  Aktionsknöpfe untereinander, mit größeren Abständen zwischen den
-  Knöpfen.
+  Die Lücke war nicht geraten, sondern geprüft: die sechs Kanalnamen
+  stehen im Quelltext des MediathekView-Crawlers, und dort wird für jeden
+  einzelnen auch ein Crawler registriert - sie erreichen den Suchindex
+  also tatsächlich alle.
+
+  Hinweis: bereits doppelt geladene Folgen räumt das nicht auf. Die
+  zweiten Videodateien können gelöscht werden; beim nächsten Abo-Lauf
+  kommt die fremdsprachige Tonspur als ".mka" neben die vorhandene Folge,
+  sofern "Neue Tonspuren zu vorhandenen Folgen hinzufügen" aktiviert ist.
