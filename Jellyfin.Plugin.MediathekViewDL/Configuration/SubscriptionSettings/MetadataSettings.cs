@@ -19,20 +19,33 @@ public record MetadataSettings
     public bool CreateNfo { get; init; } = false;
 
     /// <summary>
-    /// Gets the language code (3-letter ISO) to use when the language cannot be detected or is detected as "und" (e.g. for OV content).
+    /// Gets the language to fall back to for an original-version track whose spoken language nothing
+    /// names - used when the handling below is set to "use the fallback language". A 3-letter ISO
+    /// code such as "eng". Empty means "take the global default for new
+    /// subscriptions"; if that is empty too, the track is stored as "und" instead.
     /// </summary>
+    /// <remarks>
+    /// Shown in the subscription editor under "Sprachfassungen" in the Download tab, next to the
+    /// setting it belongs to - it is only stored here because that is where it has always lived, and
+    /// moving it would silently drop what users already configured.
+    /// </remarks>
     public string? OriginalLanguage { get; init; }
 
     /// <summary>
-    /// Gets a value indicating whether an original-version audio track may be stored with the
-    /// generic "und" (undetermined) placeholder when neither the broadcaster nor
-    /// <see cref="OriginalLanguage"/> names its real language. Some broadcasters never name it -
-    /// ARD's ONE/WDR items report the audio language as the literal "ov" - so this decides whether
-    /// such a track is taken as-is or refused with an error the user can act on. Null means "follow
-    /// the global default", which itself defaults to true - how the plugin behaved before this
-    /// setting existed.
+    /// Gets what happens to an original-version track whose language nothing names: tag it with
+    /// <see cref="OriginalLanguage"/>, store it as "und", or skip it. Defaults to storing it as
+    /// "und", which is how the plugin behaved before this setting existed.
     /// </summary>
-    public bool? AllowUndefinedOriginalVersion { get; init; }
+    public UndefinedOriginalVersionHandling UndefinedOriginalVersionHandling { get; init; }
+        = UndefinedOriginalVersionHandling.StoreAsUndetermined;
+
+    /// <summary>
+    /// Gets a value indicating whether audio tracks already stored as "und" are renamed and re-tagged
+    /// once their real language becomes known - either because a language was configured, or because
+    /// the broadcaster named it on a later run (a repeat broadcast that finally carries a proper
+    /// code). Defaults to true.
+    /// </summary>
+    public bool BackfillAudioLanguages { get; init; } = true;
 
     /// <summary>
     /// Gets a value indicating whether to append the broadcast date to the title.

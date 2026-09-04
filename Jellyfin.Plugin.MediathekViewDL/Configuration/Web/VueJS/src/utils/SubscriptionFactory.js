@@ -18,13 +18,11 @@ export const SubscriptionFactory = {
       EnhancedDuplicateDetection: defaults.DownloadSettings?.EnhancedDuplicateDetection || false,
       QualityCheckWithUrl: defaults.DownloadSettings?.QualityCheckWithUrl || false,
       DownloadFullVideoForSecondaryAudio: defaults.DownloadSettings?.DownloadFullVideoForSecondaryAudio || false,
+      AudioLanguageMode: defaults.DownloadSettings?.AudioLanguageMode ?? 0,
+      SelectedAudioLanguages: defaults.DownloadSettings?.SelectedAudioLanguages || '',
       DetectUndetectedSecondaryAudio: defaults.DownloadSettings?.DetectUndetectedSecondaryAudio || false,
       DetectCrossResultAudioVariants: defaults.DownloadSettings?.DetectCrossResultAudioVariants || false,
       AddAudioToExistingEpisodes: defaults.DownloadSettings?.AddAudioToExistingEpisodes || false,
-      DownloadOriginalVersionAudio: defaults.DownloadSettings?.DownloadOriginalVersionAudio ?? true,
-      DownloadAudioDescriptionAudio: defaults.DownloadSettings?.DownloadAudioDescriptionAudio || false,
-      DownloadClearSpeechAudio: defaults.DownloadSettings?.DownloadClearSpeechAudio || false,
-      ResolveOriginalVersionLanguage: defaults.DownloadSettings?.ResolveOriginalVersionLanguage ?? true,
       CleanAudioTrackLabels: defaults.DownloadSettings?.CleanAudioTrackLabels || false
     },
     Series: {
@@ -39,6 +37,8 @@ export const SubscriptionFactory = {
     },
     Metadata: {
       OriginalLanguage: defaults.MetadataSettings?.OriginalLanguage || '',
+      UndefinedOriginalVersionHandling: defaults.MetadataSettings?.UndefinedOriginalVersionHandling ?? 1,
+      BackfillAudioLanguages: defaults.MetadataSettings?.BackfillAudioLanguages ?? true,
       CreateNfo: defaults.MetadataSettings?.CreateNfo || false,
       AppendDateToTitle: defaults.MetadataSettings?.AppendDateToTitle || false,
       KeepOriginalTitle: defaults.MetadataSettings?.KeepOriginalTitle || false,
@@ -46,6 +46,10 @@ export const SubscriptionFactory = {
     },
     Accessibility: {
       AllowAudioDescription: defaults.AccessibilitySettings?.AllowAudioDescription || false,
+      DownloadClearSpeech: defaults.AccessibilitySettings?.DownloadClearSpeech ?? true,
+      DetectUndetectedAccessibilityAudio: defaults.AccessibilitySettings?.DetectUndetectedAccessibilityAudio || false,
+      DetectCrossResultAccessibilityVariants: defaults.AccessibilitySettings?.DetectCrossResultAccessibilityVariants || false,
+      AddAccessibilityAudioToExistingEpisodes: defaults.AccessibilitySettings?.AddAccessibilityAudioToExistingEpisodes || false,
       AllowSignLanguage: defaults.AccessibilitySettings?.AllowSignLanguage || false,
       RequiredAudioLanguage: defaults.AccessibilitySettings?.RequiredAudioLanguage || ''
     }

@@ -45,20 +45,48 @@ public static class SecondaryAudioUrlHelper
     }
 
     /// <summary>
-    /// Determines whether the given secondary-audio kind is enabled for download in the given
-    /// download settings. Shared by both the subscription and manual-download code paths so the
-    /// two can't silently drift apart.
+    /// Determines whether a secondary track of the given kind, found the given way, is collected at
+    /// all. Language versions and accessibility tracks are governed by separate switches - a
+    /// subscription can collect one without the other - so both settings groups are needed here.
+    /// Shared by the subscription and manual-download paths so the two can't silently drift apart.
     /// </summary>
-    /// <param name="settings">The download settings to check (subscription-level or global default).</param>
+    /// <param name="download">The download settings (subscription-level or global default).</param>
+    /// <param name="accessibility">The accessibility settings (subscription-level or global default).</param>
     /// <param name="kind">The secondary audio kind to check.</param>
-    /// <returns>True if the given kind is enabled for download.</returns>
-    public static bool IsKindEnabled(BaseDownloadSettings settings, SecondaryAudioKind kind)
+    /// <param name="source">How the track was found.</param>
+    /// <returns>True if such a track is collected.</returns>
+    /// <remarks>
+    /// For <see cref="SecondaryAudioKind.OriginalVersion"/> this only says the track is *collected*;
+    /// whether it is ultimately kept is decided afterwards by the subscription's language selection
+    /// (see <see cref="AudioLanguageSelection"/>), which needs the resolved language to judge.
+    /// </remarks>
+    public static bool IsKindEnabled(
+        BaseDownloadSettings download,
+        AccessibilitySettings accessibility,
+        SecondaryAudioKind kind,
+        SecondaryAudioDetectionSource source)
     {
+        ArgumentNullException.ThrowIfNull(download);
+        ArgumentNullException.ThrowIfNull(accessibility);
+
+        var detectionEnabled = kind == SecondaryAudioKind.OriginalVersion
+            ? (source == SecondaryAudioDetectionSource.UrlDerived
+                ? download.DetectUndetectedSecondaryAudio
+                : download.DetectCrossResultAudioVariants)
+            : (source == SecondaryAudioDetectionSource.UrlDerived
+                ? accessibility.DetectUndetectedAccessibilityAudio
+                : accessibility.DetectCrossResultAccessibilityVariants);
+
+        if (!detectionEnabled)
+        {
+            return false;
+        }
+
         return kind switch
         {
-            SecondaryAudioKind.OriginalVersion => settings.DownloadOriginalVersionAudio,
-            SecondaryAudioKind.AudioDescription => settings.DownloadAudioDescriptionAudio,
-            SecondaryAudioKind.ClearSpeech => settings.DownloadClearSpeechAudio,
+            SecondaryAudioKind.OriginalVersion => true,
+            SecondaryAudioKind.AudioDescription => accessibility.AllowAudioDescription,
+            SecondaryAudioKind.ClearSpeech => accessibility.DownloadClearSpeech,
             _ => false,
         };
     }

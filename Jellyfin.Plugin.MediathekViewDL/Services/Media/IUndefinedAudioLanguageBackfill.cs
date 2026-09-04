@@ -21,4 +21,14 @@ public interface IUndefinedAudioLanguageBackfill
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The number of files that were updated.</returns>
     Task<int> BackfillAsync(string? directory, string? languageCode, bool recursive, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Fills in the language of the "und" audio track sitting next to one specific video, now that
+    /// the language is known - typically because the broadcaster named it on a later run.
+    /// </summary>
+    /// <param name="videoPath">The video the track sits next to.</param>
+    /// <param name="languageCode">The language to fill in.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>True when a track was updated.</returns>
+    Task<bool> BackfillEpisodeAsync(string? videoPath, string? languageCode, CancellationToken cancellationToken);
 }

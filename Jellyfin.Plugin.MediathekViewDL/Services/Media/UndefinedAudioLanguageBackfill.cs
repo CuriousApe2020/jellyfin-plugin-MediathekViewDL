@@ -86,6 +86,25 @@ public class UndefinedAudioLanguageBackfill : IUndefinedAudioLanguageBackfill
         return updated;
     }
 
+    /// <inheritdoc/>
+    public async Task<bool> BackfillEpisodeAsync(string? videoPath, string? languageCode, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(videoPath) || LanguageCodes.Normalize(languageCode) is not { } language)
+        {
+            return false;
+        }
+
+        var source = Path.ChangeExtension(videoPath, null) + UndefinedSuffix;
+        var destination = Path.ChangeExtension(videoPath, null) + "." + language + ".mka";
+
+        if (!File.Exists(source) || File.Exists(destination))
+        {
+            return false;
+        }
+
+        return await RetagAsync(source, destination, language, cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>
     /// Rewrites one file, writing the language into the file itself and only then removing the
     /// original - a failed remux must never cost the user the track they already had.

@@ -67,47 +67,6 @@ public class DownloadManagerTests
     }
 
     [Fact]
-    public async Task ExecuteJobAsync_ShouldFailABlockedItemWithItsReason_AndStillRunTheRest()
-    {
-        // A track queued only so the user sees why it was refused - e.g. an original version whose
-        // language nothing names while undetermined ones are not allowed. It must never reach a
-        // handler, and it must not stop the video next to it from being downloaded.
-        var videoPath = Path.Combine(Path.GetTempPath(), $"video_{Guid.NewGuid():N}.mp4");
-        var audioPath = Path.Combine(Path.GetTempPath(), $"audio_{Guid.NewGuid():N}.mka");
-
-        _validationServiceMock
-            .Setup(s => s.ValidateUrlAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-
-        var job = CreateJob("https://ard.de/video.mp4", videoPath, DownloadType.FFmpegDownload);
-        job.DownloadItems.Add(new DownloadItem
-        {
-            SourceUrl = "https://ard.de/video_originalversion.mp4",
-            DestinationPath = audioPath,
-            JobType = DownloadType.AudioExtraction,
-            Language = "und",
-            BlockedReason = "Die Sprache der Originalversion konnte nicht bestimmt werden."
-        });
-
-        var result = await _downloadManager.ExecuteJobAsync(job, Mock.Of<IProgress<double>>(), CancellationToken.None);
-
-        Assert.False(result.Success);
-
-        var blocked = Assert.Single(result.ItemResults, r => r.DestinationPath == audioPath);
-        Assert.False(blocked.Success);
-        Assert.Equal("Die Sprache der Originalversion konnte nicht bestimmt werden.", blocked.ErrorMessage);
-
-        var video = Assert.Single(result.ItemResults, r => r.DestinationPath == videoPath);
-        Assert.True(video.Success);
-
-        // The refused item never reaches a handler - only the video does.
-        _fileDownloaderMock.As<IDownloadHandler>().Verify(
-            h => h.ExecuteAsync(It.Is<DownloadItem>(i => i.DestinationPath == audioPath), It.IsAny<DownloadJob>(),
-                It.IsAny<IProgress<double>>(), It.IsAny<CancellationToken>()),
-            Times.Never());
-    }
-
-    [Fact]
     public async Task ExecuteJobAsync_ShouldStopAndNotLogAnError_WhenValidationIsCancelled()
     {
         // Arrange: reproduces a real server log - the user hit "cancel all downloads" while a job

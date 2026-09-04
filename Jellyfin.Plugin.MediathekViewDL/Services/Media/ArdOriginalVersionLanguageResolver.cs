@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
@@ -18,16 +17,6 @@ namespace Jellyfin.Plugin.MediathekViewDL.Services.Media;
 /// </summary>
 public class ArdOriginalVersionLanguageResolver : IBroadcasterOriginalVersionLanguageResolver
 {
-    /// <summary>
-    /// Codes that appear where a language is expected but name none: ARD's own "ov" marker for
-    /// "this is the original version" plus the ISO placeholders for undetermined, uncoded and
-    /// multiple languages.
-    /// </summary>
-    private static readonly HashSet<string> NonLanguageCodes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "ov", "und", "mis", "mul", "zxx",
-    };
-
     private readonly HttpClient _httpClient;
     private readonly ILogger<ArdOriginalVersionLanguageResolver> _logger;
 
@@ -89,7 +78,7 @@ public class ArdOriginalVersionLanguageResolver : IBroadcasterOriginalVersionLan
 
             // A present-but-useless "ovLanguageCode" (ARD's own "und" placeholder) must not end the
             // search either - it would leave the track exactly as untagged as no lookup at all.
-            var languageCode = NormalizeLanguageCode(FindOvLanguageCode(doc.RootElement))
+            var languageCode = LanguageCodes.Normalize(FindOvLanguageCode(doc.RootElement))
                 ?? FindForeignAudioLanguageCode(audioTracks);
 
             if (languageCode is null && audioTracks.Exists(track => IsUnnamedOriginalVersion(track.Language)))
@@ -174,7 +163,7 @@ public class ArdOriginalVersionLanguageResolver : IBroadcasterOriginalVersionLan
                 continue;
             }
 
-            var markedLanguage = NormalizeLanguageCode(language);
+            var markedLanguage = LanguageCodes.Normalize(language);
             if (markedLanguage is not null)
             {
                 return markedLanguage;
@@ -183,7 +172,7 @@ public class ArdOriginalVersionLanguageResolver : IBroadcasterOriginalVersionLan
 
         foreach (var (_, language) in audioTracks)
         {
-            var normalized = NormalizeLanguageCode(language);
+            var normalized = LanguageCodes.Normalize(language);
             if (normalized is not null && !IsGerman(normalized))
             {
                 return normalized;
@@ -241,51 +230,6 @@ public class ArdOriginalVersionLanguageResolver : IBroadcasterOriginalVersionLan
                 CollectAudioTracks(item, audioTracks);
             }
         }
-    }
-
-    /// <summary>
-    /// Brings ARD's language codes into the plugin's usual 3-letter form. ARD normally uses
-    /// 3-letter codes ("deu", "eng") but 2-letter and locale forms ("en", "en-GB") show up too;
-    /// the "und" placeholder is treated as "no language", since returning it would be no better
-    /// than not resolving at all.
-    /// </summary>
-    private static string? NormalizeLanguageCode(string? language)
-    {
-        if (string.IsNullOrWhiteSpace(language))
-        {
-            return null;
-        }
-
-        var primary = language.Trim().Split('-')[0];
-
-        // "ov" and the ISO placeholders name no language at all; letting them through would tag the
-        // track with a code no player understands.
-        if (NonLanguageCodes.Contains(primary))
-        {
-            return null;
-        }
-
-        if (primary.Length == 3)
-        {
-            return primary.ToLowerInvariant();
-        }
-
-        if (primary.Length == 2)
-        {
-            try
-            {
-                var threeLetterCode = new CultureInfo(primary).ThreeLetterISOLanguageName;
-                return string.IsNullOrWhiteSpace(threeLetterCode) || threeLetterCode.Equals("und", StringComparison.OrdinalIgnoreCase)
-                    ? null
-                    : threeLetterCode;
-            }
-            catch (CultureNotFoundException)
-            {
-                return null;
-            }
-        }
-
-        return null;
     }
 
     private static bool IsUnnamedOriginalVersion(string language) =>

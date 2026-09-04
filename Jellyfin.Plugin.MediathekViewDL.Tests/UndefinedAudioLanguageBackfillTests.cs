@@ -134,6 +134,43 @@ public class UndefinedAudioLanguageBackfillTests : IDisposable
         Assert.Equal(0, updated);
     }
 
+    [Fact]
+    public async Task BackfillEpisodeAsync_ShouldRenameTheTrackNextToOneVideo()
+    {
+        var video = Path.Combine(_directory, "S01E01 - Folge.mkv");
+        var track = Path.Combine(_directory, "S01E01 - Folge.und.mka");
+        await File.WriteAllTextAsync(video, "video");
+        await File.WriteAllTextAsync(track, "audio");
+
+        var updated = await _backfill.BackfillEpisodeAsync(video, "eng", CancellationToken.None);
+
+        Assert.True(updated);
+        Assert.False(File.Exists(track));
+        Assert.True(File.Exists(Path.Combine(_directory, "S01E01 - Folge.eng.mka")));
+        Assert.True(File.Exists(video));
+    }
+
+    [Fact]
+    public async Task BackfillEpisodeAsync_ShouldDoNothing_WhenThereIsNoUndeterminedTrack()
+    {
+        var video = Path.Combine(_directory, "S01E02 - Folge.mkv");
+        await File.WriteAllTextAsync(video, "video");
+
+        Assert.False(await _backfill.BackfillEpisodeAsync(video, "eng", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task BackfillEpisodeAsync_ShouldDoNothing_WithoutARealLanguage()
+    {
+        var video = Path.Combine(_directory, "S01E03 - Folge.mkv");
+        var track = Path.Combine(_directory, "S01E03 - Folge.und.mka");
+        await File.WriteAllTextAsync(video, "video");
+        await File.WriteAllTextAsync(track, "audio");
+
+        Assert.False(await _backfill.BackfillEpisodeAsync(video, "und", CancellationToken.None));
+        Assert.True(File.Exists(track));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_directory))
