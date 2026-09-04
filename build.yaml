@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.34"
+version: "0.0.0.35"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -36,20 +36,22 @@ changelog: >
   vorhandene "*.und.mka" umbenannt und neu getaggt, ohne neu zu kodieren.
 
   Audiodeskription und klare Sprache stehen jetzt vollstaendig in
-  "Barrierefreiheit": zwei getrennte Schalter, darunter die gemeinsamen
-  Erkennungs-Optionen. Sie sind unabhaengig von denen der Sprachfassungen -
-  ein Abo kann Tonspuren fuer Barrierefreiheit sammeln, ohne fremdsprachige
-  Fassungen zu sammeln, und umgekehrt. "Klare Sprache herunterladen" ist neu
-  und wie die Audiodeskription standardmaessig aus: solche Fassungen werden
+  "Barrierefreiheit": zwei getrennte Schalter, jeder mit seinem eigenen
+  Untermenue aus den drei Erkennungs-Optionen. Damit laesst sich die eine
+  Fassung suchen, ohne die andere mitzunehmen - und beide unabhaengig von den
+  Sprachfassungen. "Klare Sprache herunterladen" ist neu und wie die
+  Audiodeskription standardmaessig aus: solche Fassungen werden
   uebersprungen, statt wie bisher als gewoehnliche Treffer durchzulaufen.
 
   Das nachtraegliche Hinzufuegen zu vorhandenen Folgen gibt es getrennt fuer
-  beide Zweige. Beide setzen die erweiterte Duplikaterkennung voraus - nur
-  sie liest die Bibliothek ein. Fehlt sie, erscheint eine rote Meldung an
-  beiden Stellen und in den Einstellungen, und das Abo laesst sich erst
-  wieder speichern, wenn der Widerspruch aufgeloest ist.
+  Sprachfassungen, Audiodeskription und klare Sprache. Alle drei setzen die
+  erweiterte Duplikaterkennung voraus - nur sie liest die Bibliothek ein.
+  Fehlt sie, meldet sich ein Hinweisfenster, das sie gleich einschalten kann,
+  eine rote Meldung steht an jeder betroffenen Option, und gespeichert wird
+  erst wieder, wenn der Widerspruch aufgeloest ist.
 
   Ausserdem: der Suchfilter heisst jetzt "Nur wenn diese Tonspur verfuegbar
-  ist" und akzeptiert mehrere ISO-Codes, mit Komma getrennt - erfuellt ist
-  er, sobald eine davon vorhanden ist. Die Sender-Abfrage nach der echten
+  ist", steht im Reiter "Suche" unter den Dauer-Feldern und akzeptiert
+  mehrere ISO-Codes, mit Komma getrennt - erfuellt ist er, sobald eine davon
+  vorhanden ist. Die Sender-Abfrage nach der echten
   Originalversion-Sprache laeuft immer und hat keinen eigenen Schalter mehr.

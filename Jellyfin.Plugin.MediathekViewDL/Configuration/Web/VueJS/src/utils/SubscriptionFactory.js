@@ -47,9 +47,12 @@ export const SubscriptionFactory = {
     Accessibility: {
       AllowAudioDescription: defaults.AccessibilitySettings?.AllowAudioDescription || false,
       DownloadClearSpeech: defaults.AccessibilitySettings?.DownloadClearSpeech ?? false,
-      DetectUndetectedAccessibilityAudio: defaults.AccessibilitySettings?.DetectUndetectedAccessibilityAudio || false,
-      DetectCrossResultAccessibilityVariants: defaults.AccessibilitySettings?.DetectCrossResultAccessibilityVariants || false,
-      AddAccessibilityAudioToExistingEpisodes: defaults.AccessibilitySettings?.AddAccessibilityAudioToExistingEpisodes || false,
+      DetectUndetectedAudioDescription: defaults.AccessibilitySettings?.DetectUndetectedAudioDescription || false,
+      DetectCrossResultAudioDescription: defaults.AccessibilitySettings?.DetectCrossResultAudioDescription || false,
+      AddAudioDescriptionToExistingEpisodes: defaults.AccessibilitySettings?.AddAudioDescriptionToExistingEpisodes || false,
+      DetectUndetectedClearSpeech: defaults.AccessibilitySettings?.DetectUndetectedClearSpeech || false,
+      DetectCrossResultClearSpeech: defaults.AccessibilitySettings?.DetectCrossResultClearSpeech || false,
+      AddClearSpeechToExistingEpisodes: defaults.AccessibilitySettings?.AddClearSpeechToExistingEpisodes || false,
       AllowSignLanguage: defaults.AccessibilitySettings?.AllowSignLanguage || false,
       RequiredAudioLanguage: defaults.AccessibilitySettings?.RequiredAudioLanguage || ''
     }

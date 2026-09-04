@@ -183,7 +183,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
                 {
                     AllowAudioDescription = true,
                     DownloadClearSpeech = false,
-                    DetectUndetectedAccessibilityAudio = true,
+                    DetectUndetectedAudioDescription = true,
                 }
             };
             var item = new ResultItem
@@ -1062,7 +1062,7 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
                 {
                     AllowAudioDescription = false,
                     DownloadClearSpeech = true,
-                    DetectUndetectedAccessibilityAudio = true,
+                    DetectUndetectedClearSpeech = true,
                 }
             };
             var item = new ResultItem

@@ -534,7 +534,7 @@ public class DownloadsController : ControllerBase
         AccessibilitySettings accessibilitySettings,
         CancellationToken cancellationToken)
     {
-        if ((!downloadSettings.DetectCrossResultAudioVariants && !accessibilitySettings.DetectCrossResultAccessibilityVariants)
+        if (!SecondaryAudioUrlHelper.AnyCrossResultDetectionEnabled(downloadSettings, accessibilitySettings)
             || string.IsNullOrWhiteSpace(item.Topic))
         {
             return;

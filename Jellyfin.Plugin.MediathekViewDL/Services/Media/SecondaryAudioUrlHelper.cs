@@ -69,13 +69,24 @@ public static class SecondaryAudioUrlHelper
         ArgumentNullException.ThrowIfNull(download);
         ArgumentNullException.ThrowIfNull(accessibility);
 
-        var detectionEnabled = kind == SecondaryAudioKind.OriginalVersion
-            ? (source == SecondaryAudioDetectionSource.UrlDerived
+        var urlDerived = source == SecondaryAudioDetectionSource.UrlDerived;
+
+        // Each kind carries its own pair of detection switches, so a subscription can look for
+        // audio description without looking for "klare Sprache", and either without looking for
+        // foreign-language versions.
+        var detectionEnabled = kind switch
+        {
+            SecondaryAudioKind.OriginalVersion => urlDerived
                 ? download.DetectUndetectedSecondaryAudio
-                : download.DetectCrossResultAudioVariants)
-            : (source == SecondaryAudioDetectionSource.UrlDerived
-                ? accessibility.DetectUndetectedAccessibilityAudio
-                : accessibility.DetectCrossResultAccessibilityVariants);
+                : download.DetectCrossResultAudioVariants,
+            SecondaryAudioKind.AudioDescription => urlDerived
+                ? accessibility.DetectUndetectedAudioDescription
+                : accessibility.DetectCrossResultAudioDescription,
+            SecondaryAudioKind.ClearSpeech => urlDerived
+                ? accessibility.DetectUndetectedClearSpeech
+                : accessibility.DetectCrossResultClearSpeech,
+            _ => false,
+        };
 
         if (!detectionEnabled)
         {
@@ -90,4 +101,19 @@ public static class SecondaryAudioUrlHelper
             _ => false,
         };
     }
+
+    /// <summary>
+    /// Gets a value indicating whether any kind of track is looked for across sibling search
+    /// results. Grouping the result stream is only worth its buffering cost when at least one kind
+    /// would actually be picked up.
+    /// </summary>
+    /// <param name="download">The subscription's download settings.</param>
+    /// <param name="accessibility">The subscription's accessibility settings.</param>
+    /// <returns>True when at least one kind is collected from sibling results.</returns>
+    public static bool AnyCrossResultDetectionEnabled(
+        BaseDownloadSettings download,
+        AccessibilitySettings accessibility)
+        => IsKindEnabled(download, accessibility, SecondaryAudioKind.OriginalVersion, SecondaryAudioDetectionSource.CrossResult)
+            || IsKindEnabled(download, accessibility, SecondaryAudioKind.AudioDescription, SecondaryAudioDetectionSource.CrossResult)
+            || IsKindEnabled(download, accessibility, SecondaryAudioKind.ClearSpeech, SecondaryAudioDetectionSource.CrossResult);
 }
