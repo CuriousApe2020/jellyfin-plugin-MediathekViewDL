@@ -222,6 +222,12 @@ function updateDate(target, field, value) {
                     </datalist>
                     <button @click="addQuery" class="btn btn-secondary">Anfrage hinzufügen</button>
 
+                    <div class="field">
+                        <label>Nur mit Tonspur (ISO Code, z.B. 'eng')</label>
+                        <input v-model="editedSub.Accessibility.RequiredAudioLanguage" type="text" class="field-input" placeholder="leer = kein Filter">
+                        <p class="field-desc">Wenn gesetzt, werden nur Titel heruntergeladen, die zusätzlich zur Hauptspur eine Tonspur in dieser Sprache haben — egal ob MediathekView sie als eigenen Suchtreffer findet oder sie erst über die Tonspur-Erkennung im Reiter "Metadaten" gefunden wird. Titel ohne passende Tonspur werden komplett übersprungen, also auch ohne Hauptspur.</p>
+                    </div>
+
                     <hr>
                     <div class="grid-2">
                         <div class="field">
@@ -454,11 +460,7 @@ function updateDate(target, field, value) {
                         </label>
                         <p class="field-desc">Lädt auch Inhalte mit Gebärdensprache herunter. (sofern verfügbar).</p>
                     </div>
-                    <div class="field">
-                        <label>Nur mit Tonspur (ISO Code, z.B. 'eng')</label>
-                        <input v-model="editedSub.Accessibility.RequiredAudioLanguage" type="text" class="field-input" placeholder="leer = kein Filter">
-                        <p class="field-desc">Wenn gesetzt, werden nur Titel heruntergeladen, die zusätzlich zur Hauptspur eine Tonspur in dieser Sprache haben — egal ob MediathekView sie als eigenen Suchtreffer findet oder sie erst über "Fehlende Tonspuren erkennen" bzw. "Verwandte Suchtreffer zusammenführen" erkannt wird. Titel ohne passende Tonspur werden komplett übersprungen (auch die Hauptspur nicht heruntergeladen). Setzt voraus, dass die entsprechende Erkennung weiter oben unter "Download" aktiviert ist.</p>
-                    </div>
+                    <p class="field-desc">Der Filter "Nur mit Tonspur" steht jetzt im Reiter "Suche" unter den Suchanfragen.</p>
                 </div>
             </div>
 
