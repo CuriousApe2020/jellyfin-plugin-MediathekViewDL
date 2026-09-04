@@ -193,7 +193,10 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     private async Task BackfillUndefinedAudioLanguagesAsync(Subscription subscription, CancellationToken cancellationToken)
     {
         var configuredLanguage = GetConfiguredOriginalLanguage(subscription);
-        if (OriginalVersionLanguagePolicy.IsUndefined(configuredLanguage) || subscription.IsVirtual || subscription.Download.UseStreamingUrlFiles)
+        if (!subscription.Metadata.BackfillAudioLanguages
+            || OriginalVersionLanguagePolicy.IsUndefined(configuredLanguage)
+            || subscription.IsVirtual
+            || subscription.Download.UseStreamingUrlFiles)
         {
             return;
         }
@@ -291,7 +294,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         // carrying the placeholder forever.
         await BackfillUndefinedAudioLanguagesAsync(subscription, cancellationToken).ConfigureAwait(false);
 
-        if (subscription.Download.DetectCrossResultAudioVariants)
+        if (subscription.Download.DetectCrossResultAudioVariants || subscription.Accessibility.DetectCrossResultAccessibilityVariants)
         {
             // Buffer the whole eligible-item stream so sibling rows representing the same episode in a
             // different audio track (arte's channel/marker split, ZDF/ZDFneo/3sat's per-language rows)
@@ -302,8 +305,17 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                 eligibleItems.Add(eligible);
             }
 
-            foreach (var group in AudioVariantGroupingService.GroupByEpisode(eligibleItems))
+            foreach (var rawGroup in AudioVariantGroupingService.GroupByEpisode(eligibleItems))
             {
+                var group = SelectMainByLanguage(subscription, rawGroup);
+                if (group == null)
+                {
+                    _logger.LogInformation(
+                        "Skipping '{Title}': no version in a selected language is available.",
+                        rawGroup.MainItem.Title);
+                    continue;
+                }
+
                 var job = await BuildDownloadJobAsync(subscription, downloadSubtitles, group.MainItem, group.MainVideoInfo, group.Secondaries, localEpisodeCache, cancellationToken).ConfigureAwait(false);
                 if (job != null)
                 {
@@ -411,7 +423,14 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         LocalEpisodeCache? localEpisodeCache,
         CancellationToken cancellationToken)
     {
-        if (!subscription.Download.AddAudioToExistingEpisodes || localEpisodeCache == null)
+        // Accessibility tracks and language versions are attached on their own switches - a
+        // subscription can collect one without the other.
+        var isAccessibilityTrack = tempVideoInfo.HasAudiodescription || tempVideoInfo.HasClearLanguage;
+        var attachingEnabled = isAccessibilityTrack
+            ? subscription.Accessibility.AddAccessibilityAudioToExistingEpisodes
+            : subscription.Download.AddAudioToExistingEpisodes;
+
+        if (!attachingEnabled || localEpisodeCache == null)
         {
             return null;
         }
@@ -428,7 +447,48 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         }
 
         var language = string.IsNullOrWhiteSpace(tempVideoInfo.Language) ? OriginalVersionLanguagePolicy.UndefinedLanguageCode : tempVideoInfo.Language;
-        var refusalReason = tempVideoInfo.HasAudiodescription ? null : GetUndefinedOriginalVersionRefusal(subscription, language);
+
+        // An original-version row whose language nothing named: the subscription's setting decides
+        // whether it is stored as "und", tagged with the configured language, or left out.
+        if (!isAccessibilityTrack && OriginalVersionLanguagePolicy.IsUndefined(language))
+        {
+            var undefinedDecision = OriginalVersionLanguagePolicy.Decide(
+                null,
+                GetConfiguredOriginalLanguage(subscription),
+                subscription.Metadata.UndefinedOriginalVersionHandling);
+
+            if (undefinedDecision.IsSkipped)
+            {
+                _logger.LogInformation("Skipping the audio track of '{Title}': {Reason}", item.Title, undefinedDecision.SkipReason);
+                return null;
+            }
+
+            language = undefinedDecision.LanguageCode!;
+        }
+
+        if (!IsAudioLanguageKept(subscription, isAccessibilityTrack ? SecondaryAudioKind.AudioDescription : SecondaryAudioKind.OriginalVersion, language))
+        {
+            _logger.LogInformation(
+                "Skipping the '{Language}' audio track of '{Title}': the subscription only stores selected languages.",
+                language,
+                item.Title);
+            return null;
+        }
+
+        // The same track may already be sitting there as "und" from an earlier run, back when nobody
+        // named its language - now that one is known, renaming and re-tagging that file is both
+        // cheaper and more correct than downloading the very same audio a second time.
+        if (subscription.Metadata.BackfillAudioLanguages
+            && existingLanguages.Contains(OriginalVersionLanguagePolicy.UndefinedLanguageCode, StringComparer.OrdinalIgnoreCase)
+            && !existingLanguages.Contains(language, StringComparer.OrdinalIgnoreCase)
+            && await _undefinedAudioLanguageBackfill.BackfillEpisodeAsync(existingVideoPath, language, cancellationToken).ConfigureAwait(false))
+        {
+            _logger.LogInformation(
+                "Filled in the language '{Language}' for the existing audio track of '{ExistingPath}' instead of downloading it again.",
+                language,
+                existingVideoPath);
+            return null;
+        }
 
         // Already there - either as the existing video's own audio or as a track added on an earlier
         // run. Without this the same track would be re-fetched on every single pass.
@@ -466,13 +526,93 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             FallbackSourceUrls = audioUrlFallbacks,
             DestinationPath = destination,
             Language = language,
-            BlockedReason = refusalReason,
             IsAudioDescription = tempVideoInfo.HasAudiodescription,
             CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
             JobType = DownloadType.AudioExtraction
         });
 
         return downloadJob;
+    }
+
+    /// <summary>
+    /// Finds another version of the same item whose language the subscription does store, to be
+    /// downloaded as the main video in place of one it doesn't. Only original-version tracks
+    /// qualify: an audio description or a "klare Sprache" track speaks the same language as the
+    /// track it would replace, so swapping in one of those would change nothing about the language.
+    /// </summary>
+    /// <param name="subscription">The subscription the item belongs to.</param>
+    /// <param name="item">The API result.</param>
+    /// <param name="videoUrl">The resolved main video URL to derive versions from.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The URL and language of the version to download instead, or null when there is none.</returns>
+    /// <remarks>
+    /// Deliberately independent of <see cref="BaseDownloadSettings.DetectUndetectedSecondaryAudio"/>:
+    /// that setting is about collecting *additional* tracks next to the main video, while this is
+    /// about which single version gets downloaded at all. Someone who asks for English only should
+    /// get the English version without having to enable extra-track detection first.
+    /// </remarks>
+    private async Task<(string Url, string LanguageCode)?> TryPromoteAllowedVersionAsync(
+        Subscription subscription,
+        ResultItemDto item,
+        string videoUrl,
+        CancellationToken cancellationToken)
+    {
+        foreach (var candidate in SecondaryAudioUrlHelper.DetectCandidates(videoUrl))
+        {
+            if (candidate.Kind != SecondaryAudioKind.OriginalVersion)
+            {
+                continue;
+            }
+
+            var decision = await ResolveSecondaryAudioLanguageAsync(subscription, item, candidate, cancellationToken).ConfigureAwait(false);
+            if (decision.IsSkipped)
+            {
+                continue;
+            }
+
+            if (IsAudioLanguageKept(subscription, candidate.Kind, decision.LanguageCode))
+            {
+                return (candidate.Url, decision.LanguageCode!);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Adjusts a grouped episode to the subscription's language selection: when the main row's
+    /// language is not stored but a grouped sibling's is, that sibling becomes the main video and
+    /// the rejected row drops out. Returns null when nothing in the group qualifies.
+    /// </summary>
+    /// <param name="subscription">The subscription the group belongs to.</param>
+    /// <param name="group">The grouped episode.</param>
+    /// <returns>The group to download, or null to skip the episode entirely.</returns>
+    private AudioVariantGroup? SelectMainByLanguage(Subscription subscription, AudioVariantGroup group)
+    {
+        if (IsAudioLanguageKept(subscription, SecondaryAudioKind.OriginalVersion, group.MainVideoInfo.Language))
+        {
+            return group;
+        }
+
+        foreach (var secondary in group.Secondaries)
+        {
+            if (secondary.Kind != SecondaryAudioKind.OriginalVersion
+                || !IsAudioLanguageKept(subscription, secondary.Kind, ResolveGroupedSecondaryLanguage(subscription, secondary)))
+            {
+                continue;
+            }
+
+            var remaining = group.Secondaries.Where(other => !ReferenceEquals(other, secondary)).ToList();
+            _logger.LogInformation(
+                "Using the '{Language}' version of '{Title}' as the main video: the '{RejectedLanguage}' one is not among the selected languages.",
+                secondary.VideoInfo.Language,
+                secondary.Item.Title,
+                group.MainVideoInfo.Language);
+
+            return new AudioVariantGroup(secondary.Item, secondary.VideoInfo, remaining);
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -495,14 +635,41 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             return audioOnlyJob;
         }
 
-        var paths = _fileNameBuilderService.GenerateDownloadPaths(tempVideoInfo, subscription, DownloadContext.Subscription);
-        if (!paths.IsValid)
+        var (videoUrl, videoUrlFallbacks) = await GetUrlCandidate(item, subscription, cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(videoUrl))
         {
             return null;
         }
 
-        var (videoUrl, videoUrlFallbacks) = await GetUrlCandidate(item, subscription, cancellationToken).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(videoUrl))
+        // The language selection decides before anything is written: when the main track's own
+        // language is not one the subscription stores, another version of the same item has to take
+        // its place - there would otherwise be no video file for its audio track to sit next to.
+        // Resolved before the paths are built, because the language is part of the file name.
+        if (!IsAudioLanguageKept(subscription, SecondaryAudioKind.OriginalVersion, tempVideoInfo.Language))
+        {
+            var replacement = await TryPromoteAllowedVersionAsync(subscription, item, videoUrl, cancellationToken).ConfigureAwait(false);
+            if (replacement is null)
+            {
+                _logger.LogInformation(
+                    "Skipping '{Title}': its audio is '{Language}' and no version in a selected language is available.",
+                    item.Title,
+                    tempVideoInfo.Language);
+                return null;
+            }
+
+            _logger.LogInformation(
+                "Downloading the '{Language}' version of '{Title}' as the main video: its own '{MainLanguage}' audio is not among the selected languages.",
+                replacement.Value.LanguageCode,
+                item.Title,
+                tempVideoInfo.Language);
+
+            videoUrl = replacement.Value.Url;
+            videoUrlFallbacks = Array.Empty<string>();
+            tempVideoInfo.Language = replacement.Value.LanguageCode;
+        }
+
+        var paths = _fileNameBuilderService.GenerateDownloadPaths(tempVideoInfo, subscription, DownloadContext.Subscription);
+        if (!paths.IsValid)
         {
             return null;
         }
@@ -528,38 +695,45 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             case FileType.Video:
                 downloadJob.DownloadItems.Add(new DownloadItem { SourceUrl = videoUrl, FallbackSourceUrls = videoUrlFallbacks, DestinationPath = paths.MainFilePath, JobType = DownloadType.FFmpegDownload, CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels });
 
-                if (subscription.Download.DetectUndetectedSecondaryAudio)
+                foreach (var candidate in SecondaryAudioUrlHelper.DetectCandidates(videoUrl))
                 {
-                    foreach (var candidate in SecondaryAudioUrlHelper.DetectCandidates(videoUrl))
+                    if (!SecondaryAudioUrlHelper.IsKindEnabled(subscription.Download, subscription.Accessibility, candidate.Kind, SecondaryAudioDetectionSource.UrlDerived))
                     {
-                        if (!SecondaryAudioUrlHelper.IsKindEnabled(subscription.Download, candidate.Kind))
-                        {
-                            continue;
-                        }
-
-                        var decision = await ResolveSecondaryAudioLanguageAsync(subscription, item, candidate, cancellationToken).ConfigureAwait(false);
-                        var candidateLang = decision.LanguageCode ?? OriginalVersionLanguagePolicy.UndefinedLanguageCode;
-
-                        // Standalone file next to the main video, e.g. "Title.eng.mka" or "Title [AD].deu.mka" -
-                        // same naming convention already used for secondary-language items found via the API,
-                        // and self-contained (no dependency on any other job finishing first).
-                        var kindTag = candidate.Kind == SecondaryAudioKind.AudioDescription ? " [AD]" : string.Empty;
-                        var standaloneDestination = Path.ChangeExtension(paths.MainFilePath, null) + kindTag + "." + candidateLang + ".mka";
-
-                        _ = TryAddDownloadItem(downloadJob, new DownloadItem
-                        {
-                            SourceUrl = candidate.Url,
-                            DestinationPath = standaloneDestination,
-                            Language = candidateLang,
-                            IsAudioDescription = candidate.Kind == SecondaryAudioKind.AudioDescription,
-                            CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
-                            JobType = DownloadType.AudioExtraction,
-
-                            // Queued but refused: the user asked not to store undetermined original
-                            // versions, so this fails visibly instead of vanishing from the job.
-                            BlockedReason = decision.RefusalReason
-                        });
+                        continue;
                     }
+
+                    var decision = await ResolveSecondaryAudioLanguageAsync(subscription, item, candidate, cancellationToken).ConfigureAwait(false);
+                    if (decision.IsSkipped)
+                    {
+                        _logger.LogInformation("Skipping a secondary audio track of '{Title}': {Reason}", item.Title, decision.SkipReason);
+                        continue;
+                    }
+
+                    var candidateLang = decision.LanguageCode!;
+                    if (!IsAudioLanguageKept(subscription, candidate.Kind, candidateLang))
+                    {
+                        _logger.LogDebug(
+                            "Skipping the '{Language}' audio track of '{Title}': not among the selected languages.",
+                            candidateLang,
+                            item.Title);
+                        continue;
+                    }
+
+                    // Standalone file next to the main video, e.g. "Title.eng.mka" or "Title [AD].deu.mka" -
+                    // same naming convention already used for secondary-language items found via the API,
+                    // and self-contained (no dependency on any other job finishing first).
+                    var kindTag = candidate.Kind == SecondaryAudioKind.AudioDescription ? " [AD]" : string.Empty;
+                    var standaloneDestination = Path.ChangeExtension(paths.MainFilePath, null) + kindTag + "." + candidateLang + ".mka";
+
+                    _ = TryAddDownloadItem(downloadJob, new DownloadItem
+                    {
+                        SourceUrl = candidate.Url,
+                        DestinationPath = standaloneDestination,
+                        Language = candidateLang,
+                        IsAudioDescription = candidate.Kind == SecondaryAudioKind.AudioDescription,
+                        CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
+                        JobType = DownloadType.AudioExtraction
+                    });
                 }
 
                 if (crossResultSecondaries.Count > 0)
@@ -569,32 +743,33 @@ public class SubscriptionProcessor : ISubscriptionProcessor
 
                 break;
             case FileType.Audio:
-                // Prefer the broadcaster's own metadata for the real original-version language
-                // (ARD-family stations via the page-gateway API, arte via its player-config API),
-                // falling back to the title-parsed language (set via job.ItemInfo) for broadcasters
-                // with no known resolver (ZDF, 3sat - which already tag the real language in the
-                // title text directly, so there's nothing to resolve) or for audio-description
-                // items, where a language lookup doesn't apply.
-                var resolvedLang = (tempVideoInfo.HasAudiodescription || !subscription.Download.ResolveOriginalVersionLanguage)
-                    ? null
-                    : await _originalVersionLanguageResolver
-                        .TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken)
-                        .ConfigureAwait(false);
+                // The item is a standalone audio version (an original-version row downloaded as its
+                // own track). Its language went through SetOvLanguageIfSetAsync already; only a
+                // still-undetermined one needs the subscription's setting applied here, and an audio
+                // description is always the main track's language and never undetermined.
+                var audioLanguage = tempVideoInfo.Language;
+                if (!tempVideoInfo.HasAudiodescription && OriginalVersionLanguagePolicy.IsUndefined(audioLanguage))
+                {
+                    var audioDecision = OriginalVersionLanguagePolicy.Decide(
+                        null,
+                        GetConfiguredOriginalLanguage(subscription),
+                        subscription.Metadata.UndefinedOriginalVersionHandling);
 
-                // The item's own parsed language already went through SetOvLanguageIfSetAsync, so it
-                // carries the configured original language when there is one; only a still-"und"
-                // track can be refused here, and never an audio description (always German).
-                var audioLanguage = resolvedLang ?? tempVideoInfo.Language;
+                    if (audioDecision.IsSkipped)
+                    {
+                        _logger.LogInformation("Skipping '{Title}': {Reason}", item.Title, audioDecision.SkipReason);
+                        return null;
+                    }
+
+                    audioLanguage = audioDecision.LanguageCode!;
+                }
 
                 downloadJob.DownloadItems.Add(new DownloadItem
                 {
                     SourceUrl = videoUrl,
                     FallbackSourceUrls = videoUrlFallbacks,
                     DestinationPath = paths.MainFilePath,
-                    Language = resolvedLang,
-                    BlockedReason = tempVideoInfo.HasAudiodescription
-                        ? null
-                        : GetUndefinedOriginalVersionRefusal(subscription, audioLanguage),
+                    Language = audioLanguage,
                     CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
                     JobType = DownloadType.AudioExtraction
                 });
@@ -667,15 +842,17 @@ public class SubscriptionProcessor : ISubscriptionProcessor
 
     /// <summary>
     /// Resolves the language a single URL-derived secondary-audio candidate (ARD-style, see
-    /// <see cref="SecondaryAudioUrlHelper"/>) ends up tagged with - the broadcaster-API lookup for
-    /// original-version tracks when <see cref="BaseDownloadSettings.ResolveOriginalVersionLanguage"/>
-    /// is enabled, then the subscription's own <see cref="MetadataSettings.OriginalLanguage"/>
-    /// override, and only then the URL-derived "und" placeholder. Shared by
+    /// <see cref="SecondaryAudioUrlHelper"/>) ends up tagged with: the broadcaster's own API first,
+    /// then the subscription's setting for tracks whose language nothing names. Shared by
     /// <see cref="BuildDownloadJobAsync"/> (which turns the result into a real
     /// <see cref="DownloadItem"/>) and the dry-run language-filter probe in
-    /// <see cref="WouldPassAudioLanguageFilterAsync"/> (which only needs the language, not a full
-    /// download item) - so both agree on what a given candidate resolves to.
+    /// <see cref="WouldPassAudioLanguageFilterAsync"/>, so both agree on what a candidate resolves to.
     /// </summary>
+    /// <param name="subscription">The subscription the item belongs to.</param>
+    /// <param name="item">The API result the candidate was derived from.</param>
+    /// <param name="candidate">The detected candidate.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The decision: a language to tag with, or a skip.</returns>
     private async Task<OriginalVersionLanguageDecision> ResolveSecondaryAudioLanguageAsync(Subscription subscription, ResultItemDto item, SecondaryAudioCandidate candidate, CancellationToken cancellationToken)
     {
         if (candidate.Kind != SecondaryAudioKind.OriginalVersion)
@@ -685,62 +862,23 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             return OriginalVersionLanguageDecision.Tag(candidate.LanguageCode);
         }
 
-        string? resolvedLanguage = null;
-        if (subscription.Download.ResolveOriginalVersionLanguage)
-        {
-            _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
-            resolvedLanguage = await _originalVersionLanguageResolver
-                .TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken)
-                .ConfigureAwait(false);
-        }
+        _logger.LogInformation("Resolving original-version language for '{Title}' using UrlWebsite '{UrlWebsite}'.", item.Title, item.UrlWebsite ?? "(null)");
+        var resolvedLanguage = await _originalVersionLanguageResolver
+            .TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken)
+            .ConfigureAwait(false);
 
         return OriginalVersionLanguagePolicy.Decide(
             resolvedLanguage,
             GetConfiguredOriginalLanguage(subscription),
-            AllowsUndefinedOriginalVersion(subscription));
+            subscription.Metadata.UndefinedOriginalVersionHandling);
     }
 
     /// <summary>
-    /// Gets whether this subscription accepts an original-version track tagged with the "und"
-    /// placeholder: its own setting first, then the global default, which itself defaults to
-    /// allowing it (the behaviour before the setting existed).
+    /// Gets the fallback language the user configured for original-version tracks whose language
+    /// nothing names: the subscription's own setting first, then the global default.
     /// </summary>
     /// <param name="subscription">The subscription the item belongs to.</param>
-    /// <returns>True when an undetermined original version may be stored.</returns>
-    private bool AllowsUndefinedOriginalVersion(Subscription subscription) =>
-        subscription.Metadata.AllowUndefinedOriginalVersion
-        ?? _configurationProvider.ConfigurationOrNull?.SubscriptionDefaults.MetadataSettings.AllowUndefinedOriginalVersion
-        ?? true;
-
-    /// <summary>
-    /// Returns the reason an already-parsed track must not be downloaded, or null when it may be:
-    /// its language is the "und" placeholder and this subscription does not accept that. Applies to
-    /// the rows MediathekViewWeb returns as their own original-version search result, where the
-    /// language was decided in <see cref="SetOvLanguageIfSetAsync"/> long before the download job
-    /// is built.
-    /// </summary>
-    /// <param name="subscription">The subscription the item belongs to.</param>
-    /// <param name="languageCode">The language the track would be tagged with.</param>
-    /// <returns>The refusal reason, or null.</returns>
-    private string? GetUndefinedOriginalVersionRefusal(Subscription subscription, string? languageCode)
-    {
-        if (!OriginalVersionLanguagePolicy.IsUndefined(languageCode) || AllowsUndefinedOriginalVersion(subscription))
-        {
-            return null;
-        }
-
-        return OriginalVersionLanguagePolicy.UndefinedRefusedMessage;
-    }
-
-    /// <summary>
-    /// Gets the original-version language the user configured: the subscription's own setting
-    /// first, then the global default for new subscriptions. The global default matters for the
-    /// broadcasters that mark a track as "Originalversion" without ever naming its language - ARD's
-    /// ONE/WDR items report the audio language as the literal "ov" - where no lookup can fill the
-    /// gap and the setting is the only source there is.
-    /// </summary>
-    /// <param name="subscription">The subscription the item belongs to.</param>
-    /// <returns>The configured 3-letter language code, or null when neither level sets one.</returns>
+    /// <returns>The configured language code, or null when neither level sets one.</returns>
     private string? GetConfiguredOriginalLanguage(Subscription subscription)
     {
         if (!string.IsNullOrWhiteSpace(subscription.Metadata.OriginalLanguage))
@@ -749,6 +887,31 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         }
 
         return _configurationProvider.ConfigurationOrNull?.SubscriptionDefaults.MetadataSettings.OriginalLanguage;
+    }
+
+    /// <summary>
+    /// Determines whether a track in the given language is stored, given the subscription's language
+    /// selection.
+    /// </summary>
+    /// <param name="subscription">The subscription the track belongs to.</param>
+    /// <param name="kind">What kind of track it is.</param>
+    /// <param name="languageCode">The language it would be tagged with.</param>
+    /// <returns>True when the track is stored.</returns>
+    /// <remarks>
+    /// Accessibility tracks never go through the language filter: an audio description speaks the
+    /// same language as the main track and is asked for by kind, not by language. An undetermined
+    /// track survives the filter as well - the user already decided what should happen to those
+    /// (see <see cref="UndefinedOriginalVersionHandling"/>), and choosing "store as und" over "skip"
+    /// is exactly the statement "keep it, name unknown".
+    /// </remarks>
+    private static bool IsAudioLanguageKept(Subscription subscription, SecondaryAudioKind kind, string? languageCode)
+    {
+        if (kind != SecondaryAudioKind.OriginalVersion || OriginalVersionLanguagePolicy.IsUndefined(languageCode))
+        {
+            return true;
+        }
+
+        return AudioLanguageSelection.From(subscription.Download).Allows(languageCode);
     }
 
     /// <summary>
@@ -763,18 +926,13 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     /// </summary>
     private static bool HasRequiredAudioLanguage(Subscription subscription, VideoInfo mainVideoInfo, DownloadJob job)
     {
-        var requiredLanguage = subscription.Accessibility.RequiredAudioLanguage;
-        if (string.IsNullOrWhiteSpace(requiredLanguage))
+        var required = RequiredAudioLanguages.From(subscription.Accessibility);
+        if (required.AcceptsAnything || required.IsSatisfiedBy(mainVideoInfo.Language))
         {
             return true;
         }
 
-        if (string.Equals(mainVideoInfo.Language, requiredLanguage, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return job.DownloadItems.Any(i => string.Equals(i.Language, requiredLanguage, StringComparison.OrdinalIgnoreCase));
+        return job.DownloadItems.Any(i => required.IsSatisfiedBy(i.Language));
     }
 
     /// <summary>
@@ -787,8 +945,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     /// main item's own language, cross-result siblings already grouped in by
     /// <see cref="AudioVariantGroupingService"/>, and URL-derived candidates from
     /// <see cref="SecondaryAudioUrlHelper"/> (the only one needing a network lookup, and only when
-    /// <see cref="BaseDownloadSettings.DetectUndetectedSecondaryAudio"/> and
-    /// <see cref="BaseDownloadSettings.ResolveOriginalVersionLanguage"/> are both enabled).
+    /// <see cref="BaseDownloadSettings.DetectUndetectedSecondaryAudio"/> is enabled).
     /// </summary>
     private async Task<bool> WouldPassAudioLanguageFilterAsync(
         Subscription subscription,
@@ -797,46 +954,42 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         IReadOnlyList<AudioVariantSecondary> crossResultSecondaries,
         CancellationToken cancellationToken)
     {
-        var requiredLanguage = subscription.Accessibility.RequiredAudioLanguage;
-        if (string.IsNullOrWhiteSpace(requiredLanguage))
+        var required = RequiredAudioLanguages.From(subscription.Accessibility);
+        if (required.AcceptsAnything)
         {
             return true;
         }
 
-        if (string.Equals(mainVideoInfo.Language, requiredLanguage, StringComparison.OrdinalIgnoreCase))
+        if (required.IsSatisfiedBy(mainVideoInfo.Language))
         {
             return true;
         }
 
         foreach (var secondary in crossResultSecondaries)
         {
-            if (!SecondaryAudioUrlHelper.IsKindEnabled(subscription.Download, secondary.Kind))
+            if (!SecondaryAudioUrlHelper.IsKindEnabled(subscription.Download, subscription.Accessibility, secondary.Kind, SecondaryAudioDetectionSource.CrossResult))
             {
                 continue;
             }
 
-            var lang = string.IsNullOrWhiteSpace(secondary.VideoInfo.Language) ? "und" : secondary.VideoInfo.Language;
-            if (string.Equals(lang, requiredLanguage, StringComparison.OrdinalIgnoreCase))
+            if (required.IsSatisfiedBy(secondary.VideoInfo.Language))
             {
                 return true;
             }
         }
 
-        if (subscription.Download.DetectUndetectedSecondaryAudio)
+        var videoUrl = item.VideoUrls.OrderByDescending(v => v.Quality).Select(v => v.Url).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
+        foreach (var candidate in SecondaryAudioUrlHelper.DetectCandidates(videoUrl))
         {
-            var videoUrl = item.VideoUrls.OrderByDescending(v => v.Quality).Select(v => v.Url).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
-            foreach (var candidate in SecondaryAudioUrlHelper.DetectCandidates(videoUrl))
+            if (!SecondaryAudioUrlHelper.IsKindEnabled(subscription.Download, subscription.Accessibility, candidate.Kind, SecondaryAudioDetectionSource.UrlDerived))
             {
-                if (!SecondaryAudioUrlHelper.IsKindEnabled(subscription.Download, candidate.Kind))
-                {
-                    continue;
-                }
+                continue;
+            }
 
-                var decision = await ResolveSecondaryAudioLanguageAsync(subscription, item, candidate, cancellationToken).ConfigureAwait(false);
-                if (string.Equals(decision.LanguageCode, requiredLanguage, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
+            var decision = await ResolveSecondaryAudioLanguageAsync(subscription, item, candidate, cancellationToken).ConfigureAwait(false);
+            if (!decision.IsSkipped && required.IsSatisfiedBy(decision.LanguageCode))
+            {
+                return true;
             }
         }
 
@@ -857,8 +1010,27 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     {
         foreach (var secondary in secondaries)
         {
-            if (!SecondaryAudioUrlHelper.IsKindEnabled(subscription.Download, secondary.Kind))
+            if (!SecondaryAudioUrlHelper.IsKindEnabled(subscription.Download, subscription.Accessibility, secondary.Kind, SecondaryAudioDetectionSource.CrossResult))
             {
+                continue;
+            }
+
+            var secondaryLanguage = ResolveGroupedSecondaryLanguage(subscription, secondary);
+            if (secondaryLanguage is null)
+            {
+                _logger.LogInformation(
+                    "Skipping the original-version track of '{Title}': {Reason}",
+                    secondary.Item.Title,
+                    OriginalVersionLanguagePolicy.SkippedMessage);
+                continue;
+            }
+
+            if (!IsAudioLanguageKept(subscription, secondary.Kind, secondaryLanguage))
+            {
+                _logger.LogDebug(
+                    "Skipping the '{Language}' audio track of '{Title}': not among the selected languages.",
+                    secondaryLanguage,
+                    secondary.Item.Title);
                 continue;
             }
 
@@ -869,25 +1041,44 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                 continue;
             }
 
-            var lang = string.IsNullOrWhiteSpace(secondary.VideoInfo.Language) ? OriginalVersionLanguagePolicy.UndefinedLanguageCode : secondary.VideoInfo.Language;
             var kindTag = secondary.Kind == SecondaryAudioKind.AudioDescription ? " [AD]" : string.Empty;
-            var standaloneDestination = Path.ChangeExtension(mainFilePath, null) + kindTag + "." + lang + ".mka";
+            var standaloneDestination = Path.ChangeExtension(mainFilePath, null) + kindTag + "." + secondaryLanguage + ".mka";
 
             _ = TryAddDownloadItem(downloadJob, new DownloadItem
             {
                 SourceUrl = secondaryUrl,
                 FallbackSourceUrls = secondaryUrlFallbacks,
                 DestinationPath = standaloneDestination,
-                Language = lang,
+                Language = secondaryLanguage,
                 IsAudioDescription = secondary.Kind == SecondaryAudioKind.AudioDescription,
                 CleanAudioTrackLabel = subscription.Download.CleanAudioTrackLabels,
                 JobType = DownloadType.AudioExtraction,
-                SourceItemId = secondary.Item.Id,
-                BlockedReason = secondary.Kind == SecondaryAudioKind.OriginalVersion
-                    ? GetUndefinedOriginalVersionRefusal(subscription, lang)
-                    : null
+                SourceItemId = secondary.Item.Id
             });
         }
+    }
+
+    /// <summary>
+    /// Gets the language a grouped-in sibling track is tagged with, applying the subscription's
+    /// setting for original-version tracks whose language nothing names.
+    /// </summary>
+    /// <param name="subscription">The subscription the item belongs to.</param>
+    /// <param name="secondary">The grouped-in sibling.</param>
+    /// <returns>The language code, or null when the track is not stored at all.</returns>
+    private string? ResolveGroupedSecondaryLanguage(Subscription subscription, AudioVariantSecondary secondary)
+    {
+        var language = secondary.VideoInfo.Language;
+        if (secondary.Kind != SecondaryAudioKind.OriginalVersion || !OriginalVersionLanguagePolicy.IsUndefined(language))
+        {
+            return string.IsNullOrWhiteSpace(language) ? OriginalVersionLanguagePolicy.UndefinedLanguageCode : language;
+        }
+
+        var decision = OriginalVersionLanguagePolicy.Decide(
+            null,
+            GetConfiguredOriginalLanguage(subscription),
+            subscription.Metadata.UndefinedOriginalVersionHandling);
+
+        return decision.LanguageCode;
     }
 
     /// <inheritdoc/>
@@ -900,7 +1091,7 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         // We ensure IgnoreLocalFiles is set for this call.
         var testSub = subscription with { IgnoreLocalFiles = true };
 
-        if (testSub.Download.DetectCrossResultAudioVariants)
+        if (testSub.Download.DetectCrossResultAudioVariants || testSub.Accessibility.DetectCrossResultAccessibilityVariants)
         {
             // Mirror GetJobsForSubscriptionAsync's grouping: buffer the whole eligible-item stream so
             // sibling rows representing the same episode in a different audio track are grouped the
@@ -1079,6 +1270,12 @@ public class SubscriptionProcessor : ISubscriptionProcessor
             return false;
         }
 
+        if (!subscription.Accessibility.DownloadClearSpeech && tempVideoInfo.HasClearLanguage)
+        {
+            _logger.LogDebug("Skipping item '{Title}' due to clear speech and subscription preference.", item.Title);
+            return false;
+        }
+
         if (!subscription.Accessibility.AllowSignLanguage && tempVideoInfo.HasSignLanguage)
         {
             _logger.LogDebug("Skipping item '{Title}' due to Sign Language and subscription preference.", item.Title);
@@ -1154,37 +1351,42 @@ public class SubscriptionProcessor : ISubscriptionProcessor
 
     /// <summary>
     /// Fills in a real language for items the title parser only recognized as a generic
-    /// original-version marker (e.g. ARD's "(OV)"/"(Originalversion)" or arte's
-    /// "(Originalversion mit Untertitel)"), which by itself doesn't say which language. Tries the
-    /// broadcaster resolver first (works for any item MediathekViewWeb already returned as a
-    /// distinct search result, not just the ones <see cref="SecondaryAudioUrlHelper"/> derives from
-    /// a main video URL); falls back to the manually configured OriginalLanguage override - the
-    /// subscription's own, else the global default - if the resolver found nothing or is disabled.
+    /// original-version marker (e.g. ARD's "(OV)"/"(Originalversion)" or arte's "(Originalversion
+    /// mit Untertitel)"), which by itself doesn't say which language. Asks the broadcaster's own API
+    /// first, then falls back to the configured original language - but only when the subscription
+    /// asked for a fallback; "store as und" and "skip" both leave the placeholder in place, and the
+    /// job builder acts on it later.
     /// </summary>
+    /// <param name="subscription">The subscription the item belongs to.</param>
+    /// <param name="videoInfo">The parsed item information to fill in.</param>
+    /// <param name="item">The API result the information came from.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task that completes once the language has been filled in.</returns>
     private async Task SetOvLanguageIfSetAsync(Subscription subscription, VideoInfo? videoInfo, ResultItemDto item, CancellationToken cancellationToken)
     {
-        if (videoInfo is not { Language: "und" })
+        if (videoInfo is null || !OriginalVersionLanguagePolicy.IsUndefined(videoInfo.Language))
         {
             return;
         }
 
-        if (subscription.Download.ResolveOriginalVersionLanguage)
-        {
-            var resolvedLanguage = await _originalVersionLanguageResolver
-                .TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken)
-                .ConfigureAwait(false);
+        var resolvedLanguage = await _originalVersionLanguageResolver
+            .TryGetOriginalVersionLanguageAsync(item.UrlWebsite, cancellationToken)
+            .ConfigureAwait(false);
 
-            if (!string.IsNullOrWhiteSpace(resolvedLanguage))
-            {
-                videoInfo.Language = resolvedLanguage;
-                return;
-            }
+        var normalized = LanguageCodes.Normalize(resolvedLanguage);
+        if (normalized is not null)
+        {
+            videoInfo.Language = normalized;
+            return;
         }
 
-        var configuredLanguage = GetConfiguredOriginalLanguage(subscription);
-        if (!string.IsNullOrWhiteSpace(configuredLanguage))
+        if (subscription.Metadata.UndefinedOriginalVersionHandling == UndefinedOriginalVersionHandling.UseFallbackLanguage)
         {
-            videoInfo.Language = configuredLanguage;
+            var fallback = LanguageCodes.Normalize(GetConfiguredOriginalLanguage(subscription));
+            if (fallback is not null)
+            {
+                videoInfo.Language = fallback;
+            }
         }
     }
 

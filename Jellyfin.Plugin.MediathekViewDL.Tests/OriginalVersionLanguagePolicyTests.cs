@@ -1,3 +1,4 @@
+using Jellyfin.Plugin.MediathekViewDL.CuriousApe2020Fork.Configuration.SubscriptionSettings;
 using Jellyfin.Plugin.MediathekViewDL.Services.Media;
 using Xunit;
 
@@ -8,16 +9,16 @@ public class OriginalVersionLanguagePolicyTests
     [Fact]
     public void Decide_ShouldPreferTheBroadcastersOwnAnswer()
     {
-        var decision = OriginalVersionLanguagePolicy.Decide("eng", "fra", allowUndefined: true);
+        var decision = OriginalVersionLanguagePolicy.Decide("eng", "fra", UndefinedOriginalVersionHandling.UseFallbackLanguage);
 
         Assert.Equal("eng", decision.LanguageCode);
-        Assert.False(decision.IsRefused);
+        Assert.False(decision.IsSkipped);
     }
 
     [Fact]
     public void Decide_ShouldFallBackToTheConfiguredLanguage_WhenTheBroadcasterSaysNothing()
     {
-        var decision = OriginalVersionLanguagePolicy.Decide(null, "eng", allowUndefined: true);
+        var decision = OriginalVersionLanguagePolicy.Decide(null, "eng", UndefinedOriginalVersionHandling.UseFallbackLanguage);
 
         Assert.Equal("eng", decision.LanguageCode);
     }
@@ -28,36 +29,36 @@ public class OriginalVersionLanguagePolicyTests
     [InlineData(null)]
     public void Decide_ShouldTreatPlaceholdersAsNoAnswerAtAll(string? broadcasterAnswer)
     {
-        var decision = OriginalVersionLanguagePolicy.Decide(broadcasterAnswer, "nld", allowUndefined: true);
+        var decision = OriginalVersionLanguagePolicy.Decide(broadcasterAnswer, "nld", UndefinedOriginalVersionHandling.UseFallbackLanguage);
 
         Assert.Equal("nld", decision.LanguageCode);
     }
 
     [Fact]
-    public void Decide_ShouldTagUndetermined_WhenNothingIsKnownAndItIsAllowed()
+    public void Decide_ShouldTagUndetermined_WhenNothingIsKnownAndThatIsWhatWasAskedFor()
     {
-        var decision = OriginalVersionLanguagePolicy.Decide(null, null, allowUndefined: true);
+        var decision = OriginalVersionLanguagePolicy.Decide(null, null, UndefinedOriginalVersionHandling.StoreAsUndetermined);
 
         Assert.Equal("und", decision.LanguageCode);
-        Assert.False(decision.IsRefused);
+        Assert.False(decision.IsSkipped);
     }
 
     [Fact]
-    public void Decide_ShouldRefuse_WhenNothingIsKnownAndUndeterminedIsNotAllowed()
+    public void Decide_ShouldSkip_WhenNothingIsKnownAndSkippingWasAskedFor()
     {
-        var decision = OriginalVersionLanguagePolicy.Decide(null, "   ", allowUndefined: false);
+        var decision = OriginalVersionLanguagePolicy.Decide(null, "   ", UndefinedOriginalVersionHandling.SkipTrack);
 
-        Assert.True(decision.IsRefused);
+        Assert.True(decision.IsSkipped);
         Assert.Null(decision.LanguageCode);
-        Assert.Equal(OriginalVersionLanguagePolicy.UndefinedRefusedMessage, decision.RefusalReason);
+        Assert.Equal(OriginalVersionLanguagePolicy.SkippedMessage, decision.SkipReason);
     }
 
     [Fact]
-    public void Decide_ShouldNeverRefuse_WhenALanguageIsKnown()
+    public void Decide_ShouldNeverSkip_WhenALanguageIsKnown()
     {
-        var decision = OriginalVersionLanguagePolicy.Decide(null, "eng", allowUndefined: false);
+        var decision = OriginalVersionLanguagePolicy.Decide(null, "eng", UndefinedOriginalVersionHandling.SkipTrack);
 
-        Assert.False(decision.IsRefused);
+        Assert.False(decision.IsSkipped);
         Assert.Equal("eng", decision.LanguageCode);
     }
 

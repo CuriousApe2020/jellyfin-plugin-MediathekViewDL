@@ -159,10 +159,14 @@ Das Herzstück des Plugins. Hier definieren Sie, was regelmäßig gesucht wird.
 | **Nur Serien herunterladen** | Lädt nur Inhalte, bei denen Staffel und Episode (SxxExx) erkannt wurden (`EnforceSeriesParsing`). |
 | **Absolute Nummerierung erlauben** | Erlaubt Episoden wie "Episode 5" statt "S01E05". (Nur aktiv wenn "Nur Serien" aktiv). |
 | **Metadaten (.nfo) erstellen** | Generiert NFO-Dateien mit Beschreibungen und Tags für Jellyfin/Kodi. |
-| **Tonspur-Erkennung** (Reiter *Metadaten*) | Sammelt alle Optionen rund um zusätzliche Tonspuren in einem Baum: welche gefunden werden (URL-Muster, verwandte Suchtreffer), welche geladen werden (Originalversion, Audiodeskription, klare Sprache), das Anhängen an vorhandene Folgen und die Bereinigung der Tonspur-Bezeichnungen. |
-| ↳ **1. Beim Sender ermitteln** | Fragt die API des Senders (ARD, arte) nach der tatsächlich gesprochenen Sprache der Originalversion. |
-| ↳ **2. Originalsprache (ISO)** | Setzt einen ISO-Sprachcode (z.B. 'eng'), wenn der Sender die Sprache nicht nennt. Leer = Wert aus den Standardwerten. |
-| ↳ **3. Undefinierte Originalversionen erlauben** | Greift, wenn weder Sender noch Originalsprache eine Sprache liefern - z.B. bei ARD/ONE, wo als Sprache nur `ov` gemeldet wird. *Ja*: Tonspur wird als `und` (unbestimmt) gespeichert. *Nein*: der Download genau dieser Tonspur schlägt mit einer Fehlermeldung fehl, das Hauptvideo bleibt unberührt. Wird später eine Originalsprache gesetzt, werden vorhandene `*.und.mka` beim nächsten Abo-Lauf automatisch umbenannt und neu getaggt. |
+| **Sprachfassungen** (Reiter *Download*) | Entscheidet, welche Sprachfassungen überhaupt gespeichert werden: *Alle Sprachen* (Standard) oder *Nur bestimmte Sprachen* mit einer Liste von ISO-Codes (`deu, eng`). Der Filter gilt auch für die Hauptspur - ist deren Sprache nicht dabei, wird die passende Fassung als Video geladen, und findet sich keine, wird die Sendung übersprungen. Ohne erkennbare Sprache gilt eine Hauptspur als Deutsch. |
+| ↳ **Fehlende Tonspuren erkennen** | Erkennt weitere Sprachfassungen am URL-Muster (ARD) und legt sie als Tonspur neben das Video. |
+| ↳ **Verwandte Suchtreffer zusammenführen** | Führt eigenständige Suchtreffer derselben Folge (arte, ZDF/ZDFneo/3sat) als zusätzliche Tonspur zusammen. |
+| ↳ **Sprachfassungen nachträglich hinzufügen** | Hängt eine später auftauchende Fassung als Tonspur an die vorhandene Folge. Setzt die erweiterte Duplikaterkennung voraus - ohne sie lässt sich das Abo nicht speichern. |
+| ↳ **Wenn die OV-Sprache nicht bestimmbar ist** | Manche Sender nennen die Sprache nie (ARD/ONE meldet nur `ov`). Wahlweise: einen ISO-Code verwenden, als `und` speichern oder die Spur nicht speichern. |
+| ↳ **Sprachcodes nachtragen** | Benennt vorhandene `*.und.mka` um und taggt sie neu, sobald die Sprache bekannt wird - auch wenn der Sender sie erst bei einer Neuausstrahlung nennt. |
+| **Audiodeskription / Klare Sprache** (Reiter *Barrierefreiheit*) | Zwei getrennte Schalter; ist einer aktiv, erscheinen die gemeinsamen Erkennungs-Optionen (URL-Muster, verwandte Suchtreffer, nachträgliches Hinzufügen). Sind sie aus, werden solche Fassungen übersprungen. |
+| **Nur wenn diese Tonspur verfügbar ist** (Reiter *Suche*) | Lädt nur Titel, die eine Tonspur in einer der angegebenen Sprachen haben (mehrere mit Komma). |
 | **Streaming (.strm) verwenden** | Speichert keine Videodatei, sondern nur eine Textdatei, die auf den Online-Stream verweist. |
 | **Vollständiges Video für sek. Audio** | Lädt das komplette Video, auch wenn es eine andere Sprache als Deutsch hat (sonst nur Audio-Extrakt). (Nicht bei .strm). |
 | **Nicht-Episoden als Extras** | Behandelt Videos ohne Episodennummer als Bonusmaterial. |

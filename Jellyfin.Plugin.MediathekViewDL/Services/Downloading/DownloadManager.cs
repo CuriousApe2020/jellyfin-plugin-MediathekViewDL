@@ -67,22 +67,6 @@ public class DownloadManager : IDownloadManager
 
             _logger.LogInformation("Processing download item: {Type} -> {Path}", item.JobType, item.DestinationPath);
 
-            if (!string.IsNullOrWhiteSpace(item.BlockedReason))
-            {
-                // Deliberately queued so the user sees it fail with a reason they can act on,
-                // instead of the track silently disappearing from the job.
-                _logger.LogError("Refusing download item '{Path}': {Reason}", item.DestinationPath, item.BlockedReason);
-                overallSuccess = false;
-                itemResults.Add(new DownloadItemResult
-                {
-                    DestinationPath = item.DestinationPath,
-                    JobType = item.JobType,
-                    Success = false,
-                    ErrorMessage = item.BlockedReason
-                });
-                continue;
-            }
-
             if (File.Exists(item.DestinationPath))
             {
                 _logger.LogDebug("File '{Path}' already exists. Skipping download.", item.DestinationPath);
