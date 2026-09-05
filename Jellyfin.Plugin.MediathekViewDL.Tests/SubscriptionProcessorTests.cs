@@ -788,6 +788,93 @@ namespace Jellyfin.Plugin.MediathekViewDL.Tests
         }
 
         [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldFillInLanguagesBeforeReadingTheLibrary()
+        {
+            // Arrange: reading the library first and renaming afterwards left every later step
+            // looking at the placeholder names, which is how a just-renamed track got downloaded
+            // again.
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Download = new DownloadSettings { EnhancedDuplicateDetection = true },
+                Metadata = new MetadataSettings { OriginalLanguage = "eng" }
+            };
+
+            var calls = new List<string>();
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GetSubscriptionBaseDirectory(It.IsAny<Subscription>(), It.IsAny<DownloadContext>()))
+                .Returns("/tmp/TestSub");
+
+            _undefinedAudioLanguageBackfillMock
+                .Setup(x => x.BackfillAsync("/tmp/TestSub", "eng", true, It.IsAny<CancellationToken>()))
+                .Callback(() => calls.Add("backfill"))
+                .ReturnsAsync(2);
+
+            _localMediaScannerMock
+                .Setup(x => x.ScanDirectory("/tmp/TestSub", "TestSub"))
+                .Callback(() => calls.Add("scan"))
+                .Returns(new LocalEpisodeCache());
+
+            var empty = new ResultChannels
+            {
+                Results = new Collection<ResultItem>(),
+                QueryInfo = new QueryInfo { TotalResults = 0 }
+            };
+            _apiClientMock
+                .Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(empty.ToDto(new ApiQueryDto(), false));
+
+            // Act
+            await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert
+            Assert.Equal(new[] { "backfill", "scan" }, calls);
+
+            // Renamed files make every remembered scan of that tree wrong, including the ones other
+            // subscriptions are about to reuse.
+            _localMediaScannerMock.Verify(x => x.InvalidateCache(), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetJobsForSubscriptionAsync_ShouldKeepTheScanCache_WhenTheBackfillChangedNothing()
+        {
+            var subscription = new Subscription
+            {
+                Name = "TestSub",
+                Download = new DownloadSettings { EnhancedDuplicateDetection = true },
+                Metadata = new MetadataSettings { OriginalLanguage = "eng" }
+            };
+
+            _fileNameBuilderServiceMock
+                .Setup(x => x.GetSubscriptionBaseDirectory(It.IsAny<Subscription>(), It.IsAny<DownloadContext>()))
+                .Returns("/tmp/TestSub");
+
+            _undefinedAudioLanguageBackfillMock
+                .Setup(x => x.BackfillAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(0);
+
+            _localMediaScannerMock
+                .Setup(x => x.ScanDirectory("/tmp/TestSub", "TestSub"))
+                .Returns(new LocalEpisodeCache());
+
+            var empty = new ResultChannels
+            {
+                Results = new Collection<ResultItem>(),
+                QueryInfo = new QueryInfo { TotalResults = 0 }
+            };
+            _apiClientMock
+                .Setup(x => x.SearchAsync(It.IsAny<ApiQueryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(empty.ToDto(new ApiQueryDto(), false));
+
+            // Act
+            await _processor.GetJobsForSubscriptionAsync(subscription, false, CancellationToken.None);
+
+            // Assert: nothing moved, so throwing away a scan of the whole library buys nothing.
+            _localMediaScannerMock.Verify(x => x.InvalidateCache(), Times.Never);
+        }
+
+        [Fact]
         public async Task GetJobsForSubscriptionAsync_ShouldAttachAudioToExistingEpisode_InsteadOfDownloadingASecondVideo()
         {
             // Arrange: S01E01 is already on disk in English; the German variant of the same episode
