@@ -202,7 +202,17 @@ public class SubscriptionProcessor : ISubscriptionProcessor
         }
 
         var baseDirectory = _fileNameBuilderService.GetSubscriptionBaseDirectory(subscription, DownloadContext.Subscription);
-        await _undefinedAudioLanguageBackfill.BackfillAsync(baseDirectory, configuredLanguage, recursive: true, cancellationToken).ConfigureAwait(false);
+        var updated = await _undefinedAudioLanguageBackfill
+            .BackfillAsync(baseDirectory, configuredLanguage, recursive: true, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (updated > 0)
+        {
+            // Files were renamed under the scanner's feet. Its result is remembered for minutes and
+            // shared across subscriptions, so without this every pass in that window would keep
+            // seeing the placeholder names and fetch the tracks again.
+            _localMediaScanner.InvalidateCache();
+        }
     }
 
     /// <summary>
@@ -284,15 +294,16 @@ public class SubscriptionProcessor : ISubscriptionProcessor
     {
         var jobs = new List<DownloadJob>();
 
+        // An original language configured after the first downloads leaves "*.und.mka" files behind;
+        // fill those in before anything reads the library, so what follows sees the renamed files.
+        // Reading first and renaming afterwards is what made the plugin re-download a track it had
+        // just renamed: the scan below still said "und", so the "eng" track looked missing.
+        await BackfillUndefinedAudioLanguagesAsync(subscription, cancellationToken).ConfigureAwait(false);
+
         // Built once and threaded through: the eligible-item filter uses it to drop episodes already
         // on disk, and BuildDownloadJobAsync uses it to attach a new audio variant to the video that
         // is already there instead of fetching a second copy of the same episode.
         var localEpisodeCache = BuildLocalEpisodeCache(subscription);
-
-        // An original language configured after the first downloads leaves "*.und.mka" files behind;
-        // fill those in before looking for new items, so the library ends up consistent instead of
-        // carrying the placeholder forever.
-        await BackfillUndefinedAudioLanguagesAsync(subscription, cancellationToken).ConfigureAwait(false);
 
         if (SecondaryAudioUrlHelper.AnyCrossResultDetectionEnabled(subscription.Download, subscription.Accessibility))
         {
@@ -496,6 +507,10 @@ public class SubscriptionProcessor : ISubscriptionProcessor
                 "Filled in the language '{Language}' for the existing audio track of '{ExistingPath}' instead of downloading it again.",
                 language,
                 existingVideoPath);
+
+            // Same reason as in BackfillUndefinedAudioLanguagesAsync: the remembered scan now names
+            // a file that no longer exists under that name.
+            _localMediaScanner.InvalidateCache();
             return null;
         }
 

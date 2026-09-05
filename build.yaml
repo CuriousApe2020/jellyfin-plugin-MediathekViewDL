@@ -1,7 +1,7 @@
 ---
 name: "CuriousApes-MediathekView-Downloader"
 guid: "b24a1e41-befb-455c-8417-69b89f25c335"
-version: "0.0.0.35"
+version: "0.0.0.36"
 targetAbi: "10.11.0.0"
 framework: "net9.0"
 overview: "Sucht und lädt Inhalte aus den Mediatheken über die MediathekViewWeb-API. Community-Fork mit zusätzlichen Funktionen (Nebenspur-Erkennung, Originalversion-Sprachauflösung, Sender-übergreifende Tonspur-Gruppierung)."
@@ -17,7 +17,23 @@ artifacts:
 - "FuzzySharp.dll"
 
 changelog: >
-  Umbau der Tonspur-Einstellungen. Im Reiter "Download" steht jetzt ein
+  Fehlerbehebung: das Nachtragen von Sprachcodes hat die Tonspur zwar
+  umbenannt, sie danach aber trotzdem noch einmal heruntergeladen. Die
+  Bibliothek wurde eingelesen, bevor umbenannt wurde, und dieses Bild wird
+  fuer einige Minuten gemerkt und von allen Abos geteilt - jeder Lauf in
+  diesem Fenster sah weiter die alten "*.und.mka" und hielt die Tonspur fuer
+  fehlend. Jetzt wird zuerst nachgetragen, dann gelesen, und ein
+  tatsaechliches Umbenennen verwirft das gemerkte Bild.
+
+  Ebenfalls behoben: laufen zwei Abo-Durchgaenge gleichzeitig ueber
+  dieselbe Bibliothek, benutzten beide dieselbe Zwischendatei - einer zog
+  sie dem anderen unter den Haenden weg ("Could not replace ...
+  FileNotFoundException"). Die Zwischendatei ist jetzt pro Vorgang
+  eindeutig, und ein vom anderen Durchgang bereits fertiggestellter Wechsel
+  gilt als erledigt statt als Fehler.
+
+  Zuvor in 0.0.0.33 bis 0.0.0.35: Umbau der Tonspur-Einstellungen. Im
+  Reiter "Download" steht jetzt ein
   Block "Sprachfassungen" mit zwei Betriebsarten: "Alle Sprachen
   herunterladen" (Standard, bisheriges Verhalten) oder "Nur bestimmte
   Sprachen herunterladen" mit einer Liste von ISO-Codes wie "deu, eng". Die

@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -111,10 +112,20 @@ public class UndefinedAudioLanguageBackfill : IUndefinedAudioLanguageBackfill
     /// </summary>
     private async Task<bool> RetagAsync(string source, string destination, string language, CancellationToken cancellationToken)
     {
-        var temporary = destination + ".mvdl-tmp";
+        // Unique per attempt. Two subscription passes can walk the same library at the same time -
+        // in the log that prompted this, both retagged the same episode a tenth of a second apart -
+        // and a shared temporary path means one pass moves the file away while the other is still
+        // writing to it, which surfaced as a FileNotFoundException on the move.
+        var temporary = destination + "." + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture) + ".mvdl-tmp";
 
         try
         {
+            if (!File.Exists(source) || File.Exists(destination))
+            {
+                // A concurrent pass got here first. Not an error: the library ends up as intended.
+                return false;
+            }
+
             var success = await _ffmpegService
                 .RetagAudioLanguageAsync(source, temporary, language, setOriginalLanguageTag: true, cancellationToken)
                 .ConfigureAwait(false);
@@ -131,6 +142,14 @@ public class UndefinedAudioLanguageBackfill : IUndefinedAudioLanguageBackfill
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            if (File.Exists(destination) && !File.Exists(source))
+            {
+                // The check above cannot close this window - the other pass can finish at any point
+                // while this one runs ffmpeg. The outcome is the one that was wanted either way.
+                _logger.LogDebug(ex, "'{Destination}' was already written by a concurrent pass.", destination);
+                return false;
+            }
+
             _logger.LogWarning(ex, "Could not replace '{Source}' with '{Destination}'.", source, destination);
             return false;
         }
